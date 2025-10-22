@@ -1,0 +1,271 @@
+/**
+ * ApiClient - SAP OData API Request Handler
+ * Handles API requests with retry logic, throttling, and connection pooling
+ */
+
+import {
+	IExecuteFunctions,
+	IHookFunctions,
+	ILoadOptionsFunctions,
+	IDataObject,
+	NodeOperationError,
+} from 'n8n-workflow';
+
+import { buildRequestOptions, parseStatusCodes, parsePoolConfig } from './RequestBuilder';
+import { ODataErrorHandler } from '../ErrorHandler';
+import { Logger } from '../Logger';
+import { RetryHandler } from '../RetryUtils';
+import { ThrottleManager, ThrottleStrategy } from '../ThrottleManager';
+import { CREDENTIAL_TYPE, ERROR_MESSAGES } from '../constants';
+import { ISapOdataCredentials } from '../types';
+import { ConnectionPoolManager } from '../ConnectionPoolManager';
+
+// Global throttle manager (singleton per workflow execution)
+let throttleManager: ThrottleManager | null = null;
+
+/**
+ * Configuration for API client
+ */
+export interface IApiClientConfig {
+	method: string;
+	resource: string;
+	body?: IDataObject;
+	qs?: IDataObject;
+	uri?: string;
+	option?: IDataObject;
+	csrfToken?: string;
+}
+
+/**
+ * Make an API request to SAP OData service with automatic retry and throttling
+ *
+ * @param context - n8n execution context
+ * @param config - API request configuration
+ * @returns API response data
+ *
+ * @example
+ * const response = await executeRequest.call(this, {
+ *   method: 'GET',
+ *   resource: 'ProductSet',
+ *   qs: { $top: 10 }
+ * });
+ */
+export async function executeRequest(
+	this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions,
+	config: IApiClientConfig,
+): Promise<any> {
+	const { method, resource, body = {}, qs = {}, uri, option = {}, csrfToken } = config;
+
+	// Get credentials
+	const credentials = (await this.getCredentials(CREDENTIAL_TYPE)) as ISapOdataCredentials;
+
+	if (!credentials) {
+		return ODataErrorHandler.handleValidationError(
+			ERROR_MESSAGES.NO_CREDENTIALS,
+			this.getNode(),
+		);
+	}
+
+	const host = credentials.host.replace(/\/$/, '');
+	const servicePath = credentials.servicePath.replace(/\/$/, '');
+
+	// Security warning for disabled SSL validation (only once per execution)
+	if (credentials.allowUnauthorizedCerts === true) {
+		const warningKey = 'sslWarningShown';
+		try {
+			const staticData = 'getWorkflowStaticData' in this
+				? this.getWorkflowStaticData('global')
+				: {};
+
+			if (!staticData[warningKey]) {
+				Logger.logSecurityWarning(
+					'SSL certificate validation is DISABLED! ' +
+					'This should ONLY be used in development environments. ' +
+					'Production systems must use valid SSL certificates to prevent man-in-the-middle attacks.'
+				);
+				staticData[warningKey] = true;
+			}
+		} catch {
+			// If staticData not available, just warn once per function call
+			Logger.logSecurityWarning('SSL validation disabled - use only in development!');
+		}
+	}
+
+	// Get advanced options (connection pool configuration) if available
+	let advancedOptions: IDataObject = {};
+	if ('getNodeParameter' in this) {
+		try {
+			advancedOptions = this.getNodeParameter('advancedOptions', 0, {}) as IDataObject;
+		} catch {
+			// Not all contexts have access to node parameters
+			advancedOptions = {};
+		}
+	}
+
+	// Initialize throttling if enabled (once per workflow)
+	const throttleEnabled = advancedOptions.throttleEnabled === true;
+	if (throttleEnabled && !throttleManager) {
+		throttleManager = new ThrottleManager({
+			maxRequestsPerSecond: (advancedOptions.maxRequestsPerSecond as number) || 10,
+			strategy: (advancedOptions.throttleStrategy as ThrottleStrategy) || 'delay',
+			burstSize: (advancedOptions.throttleBurstSize as number) || 5,
+			onThrottle: (waitTime) => {
+				if (advancedOptions.logThrottling) {
+					Logger.info('Request throttled', {
+						module: 'ThrottleManager',
+						waitTime: `${waitTime}ms`,
+						strategy: advancedOptions.throttleStrategy,
+						method,
+						resource,
+					});
+				}
+			},
+		});
+
+		Logger.debug('ThrottleManager initialized', {
+			module: 'ThrottleManager',
+			maxRequestsPerSecond: advancedOptions.maxRequestsPerSecond,
+			strategy: advancedOptions.throttleStrategy,
+		});
+	}
+
+	// Apply throttling
+	if (throttleManager) {
+		const allowed = await throttleManager.acquire();
+		if (!allowed && advancedOptions.throttleStrategy === 'drop') {
+			throw new NodeOperationError(
+				this.getNode(),
+				'Request dropped due to rate limiting',
+				{
+					description: 'Too many requests. Try reducing the request rate or changing the throttle strategy.',
+				},
+			);
+		}
+	}
+
+	// Parse pool configuration
+	const poolConfig = parsePoolConfig(advancedOptions);
+
+	// Create request function that will be executed with or without retry
+	const makeRequest = async () => {
+		// Build request options
+		const requestOptions = buildRequestOptions({
+			method,
+			resource,
+			host,
+			servicePath,
+			body,
+			qs,
+			uri,
+			options: option,
+			credentials,
+			csrfToken,
+			poolConfig,
+			node: this.getNode(),
+		});
+
+		// Debug logging
+		const debugLogging = advancedOptions.debugLogging === true;
+		Logger.setDebugMode(debugLogging);
+		const startTime = debugLogging ? Date.now() : 0;
+
+		if (debugLogging) {
+			Logger.logRequest(method, requestOptions.url);
+			Logger.debug('Request headers', {
+				module: 'ApiClient',
+				headers: {
+					...requestOptions.headers,
+					Authorization: requestOptions.headers?.Authorization ? '*****' : undefined,
+				},
+			});
+		}
+
+		try {
+			// Use httpRequestWithAuthentication for automatic credential handling
+			const response = await this.helpers.httpRequestWithAuthentication.call(
+				this,
+				CREDENTIAL_TYPE,
+				requestOptions,
+			);
+
+			if (debugLogging) {
+				const duration = Date.now() - startTime;
+				Logger.debug('Response received', {
+					module: 'ApiClient',
+					duration: `${duration}ms`,
+					responseType: typeof response,
+				});
+
+				// Log connection pool stats
+				const poolManager = ConnectionPoolManager.getInstance();
+				const stats = poolManager.getStats();
+				Logger.logPoolStats({
+					activeSockets: stats.activeSockets,
+					freeSockets: stats.freeSockets,
+					pendingRequests: stats.pendingRequests,
+					totalRequests: stats.totalRequests,
+					connectionsCreated: stats.totalConnectionsCreated,
+					connectionsReused: stats.totalConnectionsReused,
+					reuseRate: stats.totalRequests > 0
+						? `${((stats.totalConnectionsReused / stats.totalRequests) * 100).toFixed(1)}%`
+						: '0%',
+				});
+			}
+
+			return response;
+		} catch (error) {
+			if (debugLogging) {
+				const duration = Date.now() - startTime;
+				Logger.error('Request failed', error as Error, {
+					module: 'ApiClient',
+					duration: `${duration}ms`,
+					method,
+					resource,
+				});
+			}
+
+			return ODataErrorHandler.handleApiError(error, this.getNode(), {
+				operation: method,
+				resource,
+			});
+		}
+	};
+
+	// Apply retry logic if enabled
+	const retryEnabled = advancedOptions.retryEnabled !== false; // Default to true
+	if (retryEnabled) {
+		const retryHandler = new RetryHandler({
+			maxAttempts: (advancedOptions.maxRetries as number) || 3,
+			initialDelay: (advancedOptions.initialRetryDelay as number) || 1000,
+			maxDelay: (advancedOptions.maxRetryDelay as number) || 10000,
+			backoffFactor: (advancedOptions.backoffFactor as number) || 2,
+			retryableStatusCodes: parseStatusCodes(advancedOptions.retryStatusCodes as string),
+			retryNetworkErrors: advancedOptions.retryNetworkErrors !== false,
+			onRetry: (attempt, error, delay) => {
+				if (advancedOptions.logRetries !== false) {
+					Logger.info('Retrying request', {
+						module: 'RetryHandler',
+						attempt,
+						maxAttempts: (advancedOptions.maxRetries as number) || 3,
+						delay: `${delay}ms`,
+						error: error instanceof Error ? error.message : 'Unknown error',
+						method,
+						resource,
+					});
+				}
+			},
+		});
+
+		return retryHandler.execute(makeRequest);
+	}
+
+	// No retry - execute directly
+	return makeRequest();
+}
+
+/**
+ * Reset the throttle manager (useful for testing or workflow restarts)
+ */
+export function resetThrottleManager(): void {
+	throttleManager = null;
+}
