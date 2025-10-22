@@ -1,0 +1,139 @@
+{
+  "name": "SAP OData Example Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "resource": "entity",
+        "operation": "getAll",
+        "entitySet": "SalesOrderSet",
+        "returnAll": false,
+        "limit": 10,
+        "options": {
+          "filter": "Status eq 'OPEN'",
+          "select": "SalesOrderID,CustomerName,TotalAmount,CreatedAt",
+          "orderby": "CreatedAt desc"
+        }
+      },
+      "name": "Get Open Sales Orders",
+      "type": "n8n-nodes-sap-odata.sapOData",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "credentials": {
+        "sapOdataApi": {
+          "id": "1",
+          "name": "SAP Production System"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.TotalAmount}}",
+              "operation": "larger",
+              "value2": 10000
+            }
+          ]
+        }
+      },
+      "name": "Filter High Value Orders",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "resource": "entity",
+        "operation": "update",
+        "entitySet": "SalesOrderSet",
+        "entityKey": "={{$json.SalesOrderID}}",
+        "data": "={\"Priority\": \"HIGH\", \"ReviewRequired\": true}"
+      },
+      "name": "Mark as High Priority",
+      "type": "n8n-nodes-sap-odata.sapOData",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "credentials": {
+        "sapOdataApi": {
+          "id": "1",
+          "name": "SAP Production System"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "entity",
+        "operation": "create",
+        "entitySet": "NotificationSet",
+        "data": "={\"OrderID\": \"{{$json.SalesOrderID}}\", \"Type\": \"HIGH_VALUE_ORDER\", \"Message\": \"High value order detected: {{$json.TotalAmount}}\"}"
+      },
+      "name": "Create Notification",
+      "type": "n8n-nodes-sap-odata.sapOData",
+      "typeVersion": 1,
+      "position": [1050, 200],
+      "credentials": {
+        "sapOdataApi": {
+          "id": "1",
+          "name": "SAP Production System"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Get Open Sales Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Open Sales Orders": {
+      "main": [
+        [
+          {
+            "node": "Filter High Value Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter High Value Orders": {
+      "main": [
+        [
+          {
+            "node": "Mark as High Priority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as High Priority": {
+      "main": [
+        [
+          {
+            "node": "Create Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "id": "1"
+}
