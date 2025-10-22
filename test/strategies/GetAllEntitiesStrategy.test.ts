@@ -180,7 +180,7 @@ describe('GetAllEntitiesStrategy', () => {
 				'GET',
 				'/ProductSet',
 				{},
-				{ batchSize: 50, $top: 50 },
+				{ $top: 50 }, // batchSize is applied as $top, not passed separately
 				false,
 				0,
 			);

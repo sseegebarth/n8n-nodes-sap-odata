@@ -1,36 +1,40 @@
-import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
+import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
-import { BaseEntityStrategy } from './BaseEntityStrategy';
-import { validateJsonInput } from '../SecurityUtils';
+import { CrudStrategy } from './base/CrudStrategy';
 import { sapOdataApiRequest } from '../GenericFunctions';
 
 /**
  * Strategy for creating a new entity
+ * Uses enhanced CrudStrategy base class for common validation and error handling
  */
-export class CreateEntityStrategy extends BaseEntityStrategy implements IOperationStrategy {
+export class CreateEntityStrategy extends CrudStrategy implements IOperationStrategy {
 	async execute(
 		context: IExecuteFunctions,
 		itemIndex: number,
 	): Promise<INodeExecutionData[]> {
-		const entitySet = this.getEntitySet(context, itemIndex);
-		const dataString = context.getNodeParameter('data', itemIndex) as string;
+		
+			const entitySet = this.getEntitySet(context, itemIndex);
+			const dataString = context.getNodeParameter('data', itemIndex) as string;
 
-		// Validate and parse JSON input
-		const data = validateJsonInput(dataString, 'Data', context.getNode());
+			// Validate and parse JSON input using base class method
+			const data = this.validateAndParseJson(dataString, 'Data', context.getNode());
 
-		// Make API request
-		const response = await sapOdataApiRequest.call(
-			context,
-			'POST',
-			`/${entitySet}`,
-			data as IDataObject,
-		);
+			// Log operation for debugging
+			this.logOperation('CREATE', {
+				entitySet,
+				itemIndex,
+			});
 
-		return [
-			{
-				json: this.extractResult(response),
-				pairedItem: { item: itemIndex },
-			},
-		];
+			// Make API request
+			const response = await sapOdataApiRequest.call(
+				context,
+				'POST',
+				this.buildResourcePath(entitySet),
+				data,
+			);
+
+			// Extract and format result
+			const result = this.extractResult(response);
+			return this.formatSuccessResponse(result, itemIndex);
 	}
 }
