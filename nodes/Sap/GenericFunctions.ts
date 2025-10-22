@@ -181,3 +181,74 @@ export function parseMetadataForEntitySets(metadataXml: string): string[] {
 export function parseMetadataForFunctionImports(metadataXml: string): string[] {
 	return coreParseMetadataForFunctionImports(metadataXml);
 }
+
+/**
+ * Format a value for SAP OData based on its type
+ * Handles special SAP types: datetime, GUID, decimal, and string escaping
+ *
+ * @param value - The value to format
+ * @param typeHint - Optional type hint ('datetime', 'guid', 'decimal', 'string', 'number', 'boolean')
+ * @returns Formatted string ready for OData URL or filter
+ */
+export function formatSapODataValue(value: any, typeHint?: string): string {
+	// Handle null and undefined
+	if (value === null || value === undefined) {
+		return 'null';
+	}
+
+	// Auto-detect type from value if no hint provided
+	let detectedType = typeHint;
+	if (!detectedType) {
+		if (typeof value === 'boolean') {
+			detectedType = 'boolean';
+		} else if (typeof value === 'number') {
+			detectedType = 'number';
+		} else if (typeof value === 'string') {
+			// Try to detect GUID pattern
+			if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+				detectedType = 'guid';
+			}
+			// Try to detect ISO datetime pattern
+			else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+				detectedType = 'datetime';
+			}
+			// Default to string
+			else {
+				detectedType = 'string';
+			}
+		}
+	}
+
+	// Format based on type
+	switch (detectedType) {
+		case 'datetime':
+			// SAP OData format: datetime'2024-01-15T10:30:00'
+			// Remove timezone info if present, SAP expects local time
+			const dateStr = typeof value === 'string' ? value : new Date(value).toISOString();
+			const cleanDate = dateStr.replace(/\.\d{3}Z$/, '').replace(/Z$/, '');
+			return `datetime'${cleanDate}'`;
+
+		case 'guid':
+			// SAP OData format: guid'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+			const guidStr = String(value).toLowerCase();
+			return `guid'${guidStr}'`;
+
+		case 'decimal':
+			// SAP OData format: 12.34M or 12.34m
+			return `${value}M`;
+
+		case 'boolean':
+			// Boolean: true or false (lowercase)
+			return String(value).toLowerCase();
+
+		case 'number':
+			// Numbers: as-is
+			return String(value);
+
+		case 'string':
+		default:
+			// Strings: escape single quotes by doubling them
+			const escapedValue = String(value).replace(/'/g, "''");
+			return `'${escapedValue}'`;
+	}
+}

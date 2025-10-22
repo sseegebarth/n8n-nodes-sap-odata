@@ -15,6 +15,7 @@ import {
 
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './constants';
 import { OperationStrategyFactory } from './strategies';
+import { sanitizeErrorMessage } from './SecurityUtils';
 
 export class SapOData implements INodeType {
 	description: INodeTypeDescription = {
@@ -735,6 +736,31 @@ export class SapOData implements INodeType {
 			},
 
 			{
+				displayName: 'URL Format',
+				name: 'functionUrlFormat',
+				type: 'options',
+				options: [
+					{
+						name: 'Query String',
+						value: 'query',
+						description: 'Parameters in query string: /FunctionName?param1=value1&param2=value2',
+					},
+					{
+						name: 'Canonical',
+						value: 'canonical',
+						description: 'Canonical OData format: /FunctionName(param1=\'value1\',param2=\'value2\')',
+					},
+				],
+				default: 'canonical',
+				displayOptions: {
+					show: {
+						resource: ['functionImport'],
+					},
+				},
+				description: 'URL format for function parameters. SAP Gateway typically prefers canonical format.',
+			},
+
+			{
 				displayName: 'Parameters',
 				name: 'functionParameters',
 				type: 'json',
@@ -897,7 +923,7 @@ export class SapOData implements INodeType {
 				if (this.continueOnFail()) {
 					returnData.push({
 						json: {
-							error: error instanceof Error ? error.message : String(error),
+							error: sanitizeErrorMessage(error instanceof Error ? error.message : String(error)),
 						},
 						pairedItem: { item: i },
 					});

@@ -6,6 +6,7 @@
 import { IDataObject } from 'n8n-workflow';
 import { Logger } from '../Logger';
 import { DEFAULT_PAGE_SIZE } from '../constants';
+import { sanitizeErrorMessage } from '../SecurityUtils';
 
 /**
  * Result from paginated request
@@ -157,18 +158,19 @@ export async function fetchAllItems(
 			pageNumber++;
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			const sanitizedMessage = sanitizeErrorMessage(errorMessage);
 			const paginationError = {
 				page: pageNumber,
-				error: errorMessage,
+				error: sanitizedMessage,
 				itemsFetchedSoFar: returnData.length,
 			};
 
 			if (continueOnFail) {
-				// Log error and collect it
+				// Log error and collect it (log original, but store sanitized in output)
 				Logger.warn('Pagination error - continuing with partial results', {
 					module: 'PaginationHandler',
 					pageNumber,
-					errorMessage,
+					errorMessage: sanitizedMessage,
 					itemsFetchedSoFar: returnData.length,
 				});
 				errors.push(paginationError);

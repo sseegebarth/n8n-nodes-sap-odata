@@ -46,8 +46,13 @@ export class CacheManager {
 			const cacheKey = `csrf_${this.getCacheKey(host, servicePath)}`;
 			const cached = staticData[cacheKey] as ICsrfTokenCacheEntry | undefined;
 
-			if (cached && cached.expires > Date.now()) {
-				return cached.token;
+			if (cached) {
+				// Check if expired
+				if (cached.expires > Date.now()) {
+					return cached.token;
+				}
+				// Immediately remove expired entry
+				delete staticData[cacheKey];
 			}
 
 			// Token expired or doesn't exist
@@ -96,8 +101,13 @@ export class CacheManager {
 			const cacheKey = `metadata_${this.getCacheKey(host, servicePath)}`;
 			const cached = staticData[cacheKey] as IMetadataCacheEntry | undefined;
 
-			if (cached && cached.expires > Date.now()) {
-				return cached;
+			if (cached) {
+				// Check if expired
+				if (cached.expires > Date.now()) {
+					return cached;
+				}
+				// Immediately remove expired entry
+				delete staticData[cacheKey];
 			}
 
 			// Metadata expired or doesn't exist

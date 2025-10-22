@@ -9,7 +9,6 @@ import {
 	sanitizeHeaderValue,
 	validateEntitySetName,
 	validateFunctionName,
-	RateLimiter,
 } from '../nodes/Sap/SecurityUtils';
 
 describe('SecurityUtils', () => {
@@ -374,55 +373,9 @@ describe('SecurityUtils', () => {
 		});
 	});
 
-	describe('RateLimiter', () => {
-		it('should allow requests within limit', () => {
-			const limiter = new RateLimiter(1000, 5);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(true);
-		});
-
-		it('should block requests exceeding limit', () => {
-			const limiter = new RateLimiter(1000, 3);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(false);
-			expect(limiter.isAllowed('user1')).toBe(false);
-		});
-
-		it('should track different identifiers separately', () => {
-			const limiter = new RateLimiter(1000, 2);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(false);
-
-			// user2 should have separate limit
-			expect(limiter.isAllowed('user2')).toBe(true);
-			expect(limiter.isAllowed('user2')).toBe(true);
-		});
-
-		it('should reset after time window', async () => {
-			const limiter = new RateLimiter(100, 2); // 100ms window
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(true);
-			expect(limiter.isAllowed('user1')).toBe(false);
-
-			// Wait for window to pass
-			await new Promise((resolve) => setTimeout(resolve, 150));
-
-			expect(limiter.isAllowed('user1')).toBe(true);
-		});
-
-		it('should return correct remaining count', () => {
-			const limiter = new RateLimiter(1000, 5);
-			expect(limiter.getRemaining('user1')).toBe(5);
-			limiter.isAllowed('user1');
-			expect(limiter.getRemaining('user1')).toBe(4);
-			limiter.isAllowed('user1');
-			expect(limiter.getRemaining('user1')).toBe(3);
-		});
-	});
+	// RateLimiter tests removed - class has been deprecated
+	// Use ThrottleManager instead for production rate limiting
+	// See ThrottleManager.test.ts for throttling tests
 
 	describe('sanitizeErrorMessage', () => {
 		it('should mask credentials in basic auth URLs', () => {

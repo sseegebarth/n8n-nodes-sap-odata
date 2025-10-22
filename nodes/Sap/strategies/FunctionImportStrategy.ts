@@ -2,7 +2,7 @@ import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
 import { CrudStrategy } from './base/CrudStrategy';
 import { validateFunctionName } from '../SecurityUtils';
-import { sapOdataApiRequest } from '../GenericFunctions';
+import { sapOdataApiRequest, formatSapODataValue } from '../GenericFunctions';
 
 /**
  * Strategy for executing function imports
@@ -33,33 +33,48 @@ export class FunctionImportStrategy extends CrudStrategy implements IOperationSt
 				context.getNode(),
 			);
 
-			// Build query string for function parameters
-			const queryParts: string[] = [];
-			for (const [key, value] of Object.entries(parameters)) {
-				if (typeof value === 'string') {
-					queryParts.push(`${key}='${value}'`);
-				} else {
-					queryParts.push(`${key}=${value}`);
-				}
-			}
+			const urlFormat = context.getNodeParameter('functionUrlFormat', itemIndex, 'canonical') as string;
 
-			const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+			// Build URL based on format preference
+			let url: string;
+			if (urlFormat === 'canonical') {
+				// Canonical OData format: /FunctionName(param1='value1',param2='value2')
+				// Uses formatSapODataValue for proper type handling
+				const paramParts: string[] = [];
+				for (const [key, value] of Object.entries(parameters)) {
+					const formattedValue = formatSapODataValue(value);
+					paramParts.push(`${key}=${formattedValue}`);
+				}
+				url = paramParts.length > 0
+					? `/${functionName}(${paramParts.join(',')})`
+					: `/${functionName}()`;
+			} else {
+				// Query string format: /FunctionName?param1='value1'&param2='value2'
+				// Uses formatSapODataValue for proper type handling
+				const queryParts: string[] = [];
+				for (const [key, value] of Object.entries(parameters)) {
+					const formattedValue = formatSapODataValue(value);
+					queryParts.push(`${key}=${formattedValue}`);
+				}
+				url = queryParts.length > 0
+					? `/${functionName}?${queryParts.join('&')}`
+					: `/${functionName}`;
+			}
 
 			// Log operation for debugging
 			this.logOperation('FUNCTION_IMPORT', {
 				functionName,
 				httpMethod,
+				urlFormat,
 				parametersCount: Object.keys(parameters).length,
 				itemIndex,
 			});
 
 			// Make API request with the specified HTTP method
-			// GET: Parameters are passed in query string, no body
-			// POST: Parameters are passed in query string (SAP OData convention)
 			const response = await sapOdataApiRequest.call(
 				context,
 				httpMethod,
-				`/${functionName}${queryString}`,
+				url,
 			);
 
 			// Extract and format result

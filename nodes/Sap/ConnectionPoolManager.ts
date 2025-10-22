@@ -117,14 +117,19 @@ export class ConnectionPoolManager {
 	 * Setup event listeners for connection statistics
 	 */
 	private setupEventListeners(agent: HttpAgent | HttpsAgent, _protocol: string): void {
-		// Track socket creation
-		agent.on('free', (_socket) => {
-			this.stats.freeSockets++;
-			this.stats.activeSockets--;
-		});
+		// Wrap the original createConnection to track new connections
+		const originalCreateConnection = (agent as any).createConnection;
+		if (originalCreateConnection) {
+			(agent as any).createConnection = (...args: any[]) => {
+				this.stats.totalConnectionsCreated++;
+				return originalCreateConnection.apply(agent, args);
+			};
+		}
 
-		// Note: Node.js agents don't emit 'create' events directly
-		// We track connections through other means
+		// Track when sockets become free (reused)
+		agent.on('free', (_socket) => {
+			this.stats.totalConnectionsReused++;
+		});
 	}
 
 	/**
@@ -205,9 +210,20 @@ export class ConnectionPoolManager {
 	}
 
 	/**
-	 * Update configuration
+	 * Update configuration (only recreates agents if config actually changed)
 	 */
 	public updateConfig(newConfig: Partial<IConnectionPoolConfig>): void {
+		// Check if config actually changed
+		const hasChanged = Object.entries(newConfig).some(([key, value]) => {
+			const configKey = key as keyof IConnectionPoolConfig;
+			return this.config[configKey] !== value;
+		});
+
+		// Only recreate agents if config changed
+		if (!hasChanged) {
+			return;
+		}
+
 		this.config = {
 			...this.config,
 			...newConfig,

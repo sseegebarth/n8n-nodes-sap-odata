@@ -4,7 +4,7 @@
  */
 
 import { IExecuteFunctions, INode, IDataObject, INodeExecutionData } from 'n8n-workflow';
-import { validateEntityKey, validateEntitySetName, validateJsonInput } from '../../SecurityUtils';
+import { validateEntityKey, validateEntitySetName, validateJsonInput, sanitizeErrorMessage } from '../../SecurityUtils';
 import { IODataQueryOptions } from '../../types';
 import { buildODataQuery } from '../../core/QueryBuilder';
 import { Logger } from '../../Logger';
@@ -67,12 +67,50 @@ export abstract class CrudStrategy {
 	/**
 	 * Extract result from OData response
 	 * Handles both V2 (d.results / d) and V4 (value) formats
+	 * Specifically enhanced for Function Import responses in V4 format
 	 *
 	 * @param response - Raw OData response
 	 * @returns Extracted data
+	 *
+	 * OData V2 Response Formats:
+	 * - Single entity: { d: { ID: '123', Name: 'Test' } }
+	 * - Collection: { d: { results: [...] } }
+	 * - Function Import: { d: { results: [...] } } or { d: <single result> }
+	 *
+	 * OData V4 Response Formats:
+	 * - Single entity: { ID: '123', Name: 'Test' }
+	 * - Collection: { value: [...], @odata.count: 10 }
+	 * - Function Import: { value: [...] } or direct result
 	 */
 	protected extractResult(response: any): any {
-		return response.d || response;
+		// Handle array responses (direct array return from some function imports)
+		if (Array.isArray(response)) {
+			return response;
+		}
+
+		// OData V4: Check for 'value' property (collection response)
+		// This is common for function imports that return collections in V4
+		if (response.value !== undefined) {
+			// If value is an array, return it directly
+			if (Array.isArray(response.value)) {
+				return response.value;
+			}
+			// If value is a single item, return as-is
+			return response.value;
+		}
+
+		// OData V2: Check for 'd.results' (collection response)
+		if (response.d?.results) {
+			return response.d.results;
+		}
+
+		// OData V2: Check for 'd' property (single entity response)
+		if (response.d) {
+			return response.d;
+		}
+
+		// Fallback: Return response as-is (handles direct value responses)
+		return response;
 	}
 
 	/**
@@ -121,6 +159,7 @@ export abstract class CrudStrategy {
 		continueOnFail: boolean = false,
 	): INodeExecutionData[] {
 		const errorMessage = error.message || 'Unknown error occurred';
+		const sanitizedMessage = sanitizeErrorMessage(errorMessage);
 
 		Logger.error(`${operation} failed`, error, {
 			module: 'CrudStrategy',
@@ -133,7 +172,7 @@ export abstract class CrudStrategy {
 				{
 					json: {
 						error: true,
-						message: errorMessage,
+						message: sanitizedMessage,
 						operation,
 					},
 					pairedItem: { item: itemIndex },

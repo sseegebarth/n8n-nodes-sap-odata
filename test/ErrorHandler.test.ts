@@ -30,7 +30,7 @@ describe('ODataErrorHandler', () => {
 				ODataErrorHandler.handleApiError(error, mockNode);
 			} catch (e: any) {
 				expect(e.message).toBe(ERROR_MESSAGES.AUTH_FAILED);
-				expect(e.description).toContain('verify your credentials');
+				expect(e.description).toContain('Username and password are correct');
 			}
 		});
 
@@ -46,7 +46,7 @@ describe('ODataErrorHandler', () => {
 				});
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Access forbidden');
+				expect(e.message).toBe('Access Forbidden');
 				expect(e.description).toContain('do not have permission');
 			}
 		});
@@ -63,7 +63,7 @@ describe('ODataErrorHandler', () => {
 				});
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Resource not found');
+				expect(e.message).toBe('Resource Not Found');
 				expect(e.description).toContain('NonExistentSet');
 			}
 		});
@@ -93,8 +93,8 @@ describe('ODataErrorHandler', () => {
 				ODataErrorHandler.handleApiError(error, mockNode);
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Server error');
-				expect(e.description).toContain('encountered an error');
+				expect(e.message).toBe('SAP Internal Server Error');
+				expect(e.description).toContain('encountered an internal error');
 			}
 		});
 
@@ -108,7 +108,7 @@ describe('ODataErrorHandler', () => {
 				ODataErrorHandler.handleApiError(error, mockNode);
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Server error');
+				expect(e.message).toBe('Bad Gateway');
 			}
 		});
 
@@ -122,7 +122,7 @@ describe('ODataErrorHandler', () => {
 				ODataErrorHandler.handleApiError(error, mockNode);
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Server error');
+				expect(e.message).toBe('Service Temporarily Unavailable');
 			}
 		});
 
@@ -136,7 +136,7 @@ describe('ODataErrorHandler', () => {
 				ODataErrorHandler.handleApiError(error, mockNode);
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Server error');
+				expect(e.message).toBe('Service Temporarily Unavailable');
 			}
 		});
 
@@ -210,7 +210,7 @@ describe('ODataErrorHandler', () => {
 				});
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Resource not found');
+				expect(e.message).toBe('Resource Not Found');
 			}
 		});
 	});

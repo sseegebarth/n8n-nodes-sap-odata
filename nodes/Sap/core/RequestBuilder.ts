@@ -8,6 +8,7 @@ import { buildSecureUrl, validateUrl, sanitizeHeaderValue } from '../SecurityUti
 import { HEADERS, DEFAULT_TIMEOUT } from '../constants';
 import { ISapOdataCredentials } from '../types';
 import { ConnectionPoolManager } from '../ConnectionPoolManager';
+import { Logger } from '../Logger';
 
 /**
  * Configuration for building HTTP requests
@@ -84,6 +85,14 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		timeout: DEFAULT_TIMEOUT,
 	} as IHttpRequestOptions & { agent?: any };
 
+	// Add Basic Auth if credentials provided
+	if (credentials.authentication === 'basicAuth' && credentials.username && credentials.password) {
+		(requestOptions as any).auth = {
+			username: credentials.username,
+			password: credentials.password,
+		};
+	}
+
 	// Add CSRF token for write operations
 	if (method !== 'GET' && csrfToken) {
 		// Sanitize CSRF token to prevent header injection
@@ -91,6 +100,66 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 			...requestOptions.headers,
 			'X-CSRF-Token': sanitizeHeaderValue(csrfToken),
 		};
+	}
+
+	// Add SAP-specific headers
+	if (credentials.sapClient) {
+		requestOptions.headers = {
+			...requestOptions.headers,
+			'sap-client': sanitizeHeaderValue(credentials.sapClient),
+		};
+	}
+
+	if (credentials.sapLanguage) {
+		requestOptions.headers = {
+			...requestOptions.headers,
+			'sap-language': sanitizeHeaderValue(credentials.sapLanguage),
+		};
+	}
+
+	// Add custom headers from credentials
+	if (credentials.customHeaders) {
+		try {
+			const customHeaders = typeof credentials.customHeaders === 'string'
+				? JSON.parse(credentials.customHeaders)
+				: credentials.customHeaders;
+
+			// Validate custom headers for security
+			const forbiddenHeaders = ['authorization', 'x-csrf-token', 'cookie', 'set-cookie'];
+			for (const [key, value] of Object.entries(customHeaders)) {
+				// Skip empty values
+				if (!value) continue;
+
+				// Validate header name (RFC 7230)
+				const headerName = String(key).toLowerCase().trim();
+				if (!/^[a-z0-9\-]+$/i.test(headerName)) {
+					Logger.warn('Invalid custom header name skipped', {
+						module: 'RequestBuilder',
+						headerName: key,
+					});
+					continue;
+				}
+
+				// Block forbidden headers that could interfere with security
+				if (forbiddenHeaders.includes(headerName)) {
+					Logger.warn('Forbidden custom header skipped', {
+						module: 'RequestBuilder',
+						headerName: key,
+					});
+					continue;
+				}
+
+				requestOptions.headers = {
+					...requestOptions.headers,
+					[headerName]: sanitizeHeaderValue(String(value)),
+				};
+			}
+		} catch (error) {
+			Logger.warn('Failed to parse custom headers', {
+				module: 'RequestBuilder',
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
 	}
 
 	// Add connection pool agent if poolConfig provided
@@ -155,6 +224,14 @@ export function buildCsrfTokenRequest(
 		skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
 		timeout: DEFAULT_TIMEOUT,
 	} as IHttpRequestOptions & { agent?: any };
+
+	// Add Basic Auth if credentials provided
+	if (credentials.authentication === 'basicAuth' && credentials.username && credentials.password) {
+		(options as any).auth = {
+			username: credentials.username,
+			password: credentials.password,
+		};
+	}
 
 	// Add agent for connection pooling
 	(options as any).agent = agent;

@@ -20,8 +20,34 @@ import { CREDENTIAL_TYPE, ERROR_MESSAGES } from '../constants';
 import { ISapOdataCredentials } from '../types';
 import { ConnectionPoolManager } from '../ConnectionPoolManager';
 
-// Global throttle manager (singleton per workflow execution)
-let throttleManager: ThrottleManager | null = null;
+/**
+ * Get or create throttle manager scoped to workflow execution
+ * This prevents throttling interference between different workflows
+ */
+function getThrottleManager(
+	context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions,
+	config: {
+		maxRequestsPerSecond: number;
+		strategy: ThrottleStrategy;
+		burstSize: number;
+		onThrottle?: (waitTime: number) => void;
+	},
+): ThrottleManager {
+	// Scope throttle manager to workflow static data to prevent cross-workflow interference
+	if ('getWorkflowStaticData' in context) {
+		const staticData = context.getWorkflowStaticData('global');
+		const key = '_sapOdataThrottleManager';
+
+		if (!staticData[key]) {
+			staticData[key] = new ThrottleManager(config);
+		}
+		return staticData[key] as ThrottleManager;
+	}
+
+	// Fallback for contexts without workflow static data (e.g., credential testing)
+	// Use a module-level cache with workflow ID as key
+	return new ThrottleManager(config);
+}
 
 /**
  * Configuration for API client
@@ -102,10 +128,12 @@ export async function executeRequest(
 		}
 	}
 
-	// Initialize throttling if enabled (once per workflow)
+	// Initialize throttling if enabled (scoped to workflow execution)
 	const throttleEnabled = advancedOptions.throttleEnabled === true;
-	if (throttleEnabled && !throttleManager) {
-		throttleManager = new ThrottleManager({
+	let throttleManager: ThrottleManager | null = null;
+
+	if (throttleEnabled) {
+		throttleManager = getThrottleManager(this, {
 			maxRequestsPerSecond: (advancedOptions.maxRequestsPerSecond as number) || 10,
 			strategy: (advancedOptions.throttleStrategy as ThrottleStrategy) || 'delay',
 			burstSize: (advancedOptions.throttleBurstSize as number) || 5,
@@ -122,7 +150,7 @@ export async function executeRequest(
 			},
 		});
 
-		Logger.debug('ThrottleManager initialized', {
+		Logger.debug('ThrottleManager retrieved/initialized', {
 			module: 'ThrottleManager',
 			maxRequestsPerSecond: advancedOptions.maxRequestsPerSecond,
 			strategy: advancedOptions.throttleStrategy,
@@ -265,7 +293,11 @@ export async function executeRequest(
 
 /**
  * Reset the throttle manager (useful for testing or workflow restarts)
+ * Note: ThrottleManager is now scoped to workflow static data
+ * This function is deprecated and kept for backward compatibility
+ * @deprecated ThrottleManager is now workflow-scoped, no manual reset needed
  */
 export function resetThrottleManager(): void {
-	throttleManager = null;
+	// No-op: ThrottleManager is now managed in workflow static data
+	// Each workflow has its own instance that persists with the workflow
 }

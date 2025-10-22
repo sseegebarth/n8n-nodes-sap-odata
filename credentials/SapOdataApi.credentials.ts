@@ -81,14 +81,42 @@ export class SapOdataApi implements ICredentialType {
 			description: 'Whether to connect even if SSL certificate validation is not possible',
 			hint: '⚠️ SECURITY WARNING: Only use in development environments! Production systems should always use valid SSL certificates. Disabling SSL validation exposes your connection to man-in-the-middle attacks.',
 		},
+		{
+			displayName: 'SAP Client',
+			name: 'sapClient',
+			type: 'string',
+			default: '',
+			placeholder: '100',
+			description: 'SAP Client number (Mandant). Will be sent as sap-client header.',
+			hint: 'Common SAP client numbers: 100 (DEV), 200 (QA), 300 (PROD)',
+		},
+		{
+			displayName: 'SAP Language',
+			name: 'sapLanguage',
+			type: 'string',
+			default: '',
+			placeholder: 'EN',
+			description: 'SAP language code. Will be sent as sap-language header.',
+			hint: 'Common language codes: EN (English), DE (German), FR (French), ES (Spanish)',
+		},
+		{
+			displayName: 'Custom Headers',
+			name: 'customHeaders',
+			type: 'json',
+			default: '{}',
+			description: 'Additional HTTP headers to send with every request (as JSON object)',
+			placeholder: '{"X-Custom-Header": "value"}',
+		},
 	];
 
 	// Conditional authentication based on authentication type
 	authenticate: IAuthenticateGeneric = {
 		type: 'generic',
 		properties: {
-			// Only add auth if basicAuth is selected
-			auth: '={{$credentials.authentication === "basicAuth" ? { username: $credentials.username, password: $credentials.password } : undefined}}' as any,
+			auth: {
+				username: '={{$credentials.username}}',
+				password: '={{$credentials.password}}',
+			},
 		},
 	};
 

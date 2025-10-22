@@ -2,7 +2,14 @@ import { FunctionImportStrategy } from '../../nodes/Sap/strategies/FunctionImpor
 import { IExecuteFunctions } from 'n8n-workflow';
 import * as GenericFunctions from '../../nodes/Sap/GenericFunctions';
 
-jest.mock('../../nodes/Sap/GenericFunctions');
+// Mock the module but preserve the actual formatSapODataValue function
+jest.mock('../../nodes/Sap/GenericFunctions', () => {
+	const actual = jest.requireActual('../../nodes/Sap/GenericFunctions');
+	return {
+		...actual,
+		sapOdataApiRequest: jest.fn(),
+	};
+});
 
 describe('FunctionImportStrategy', () => {
 	let strategy: FunctionImportStrategy;
@@ -47,7 +54,8 @@ describe('FunctionImportStrategy', () => {
 				.mockReturnValueOnce('list') // functionNameMode
 				.mockReturnValueOnce('GetCustomerData') // functionName
 				.mockReturnValueOnce(parameters) // functionParameters
-				.mockReturnValueOnce('GET'); // functionHttpMethod
+				.mockReturnValueOnce('GET') // functionHttpMethod
+				.mockReturnValueOnce('query'); // functionUrlFormat
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -82,7 +90,8 @@ describe('FunctionImportStrategy', () => {
 				.mockReturnValueOnce('list') // functionNameMode
 				.mockReturnValueOnce('CreateOrder') // functionName
 				.mockReturnValueOnce(parameters) // functionParameters
-				.mockReturnValueOnce('POST'); // functionHttpMethod
+				.mockReturnValueOnce('POST') // functionHttpMethod
+				.mockReturnValueOnce('query'); // functionUrlFormat
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -107,7 +116,8 @@ describe('FunctionImportStrategy', () => {
 				.mockReturnValueOnce('list') // functionNameMode
 				.mockReturnValueOnce('GetTotalCount') // functionName
 				.mockReturnValueOnce(parameters) // functionParameters
-				.mockReturnValueOnce('GET'); // functionHttpMethod
+				.mockReturnValueOnce('GET') // functionHttpMethod
+				.mockReturnValueOnce('query'); // functionUrlFormat
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -129,7 +139,8 @@ describe('FunctionImportStrategy', () => {
 				.mockReturnValueOnce('custom') // functionNameMode
 				.mockReturnValueOnce('MyCustomFunction') // customFunctionName
 				.mockReturnValueOnce(parameters) // functionParameters
-				.mockReturnValueOnce('POST'); // functionHttpMethod
+				.mockReturnValueOnce('POST') // functionHttpMethod
+				.mockReturnValueOnce('query'); // functionUrlFormat
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -153,7 +164,8 @@ describe('FunctionImportStrategy', () => {
 				.mockReturnValueOnce('list') // functionNameMode
 				.mockReturnValueOnce('ProcessData') // functionName
 				.mockReturnValueOnce(parameters) // functionParameters
-				.mockReturnValueOnce('POST'); // functionHttpMethod
+				.mockReturnValueOnce('POST') // functionHttpMethod
+				.mockReturnValueOnce('canonical'); // functionUrlFormat
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -176,7 +188,8 @@ describe('FunctionImportStrategy', () => {
 				.mockReturnValueOnce('list') // functionNameMode
 				.mockReturnValueOnce('ComplexFunction') // functionName
 				.mockReturnValueOnce(parameters) // functionParameters
-				.mockReturnValueOnce('POST'); // functionHttpMethod
+				.mockReturnValueOnce('POST') // functionHttpMethod
+				.mockReturnValueOnce('query'); // functionUrlFormat
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -197,7 +210,8 @@ describe('FunctionImportStrategy', () => {
 				.mockReturnValueOnce('list') // functionNameMode
 				.mockReturnValueOnce('TestFunction') // functionName
 				.mockReturnValueOnce(parameters) // functionParameters
-				.mockReturnValueOnce('POST'); // functionHttpMethod (default)
+				.mockReturnValueOnce('POST') // functionHttpMethod (default)
+				.mockReturnValueOnce('query'); // functionUrlFormat
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 

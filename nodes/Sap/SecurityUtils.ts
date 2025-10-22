@@ -190,9 +190,18 @@ export function validateUrl(url: string, node: INode): void {
 		// Prevent access to private IP ranges (SSRF protection)
 		const hostname = parsedUrl.hostname.toLowerCase();
 
-		// Block localhost and loopback
-		const localhostPatterns = ['localhost', '127.', '0.0.0.0', '::1', '0:0:0:0:0:0:0:1'];
-		if (localhostPatterns.some((pattern) => hostname.includes(pattern))) {
+		// Normalize hostname to detect encoded/obfuscated IPs
+		// This prevents bypasses like 0177.0000.0000.0001 (octal) or 2130706433 (integer)
+		const normalizedHostname = hostname
+			.replace(/^0+/g, '') // Remove leading zeros
+			.replace(/\s+/g, ''); // Remove whitespace
+
+		// Block localhost and loopback (check both original and normalized)
+		const localhostPatterns = ['localhost', '127.', '0.0.0.0', '::1', '0:0:0:0:0:0:0:1', '[::1]'];
+		if (
+			localhostPatterns.some((pattern) => hostname.includes(pattern)) ||
+			localhostPatterns.some((pattern) => normalizedHostname.includes(pattern))
+		) {
 			throw new NodeOperationError(
 				node,
 				'Access to localhost is not allowed',
@@ -208,16 +217,44 @@ export function validateUrl(url: string, node: INode): void {
 			/^172\.(1[6-9]|2\d|3[01])\./,
 			/^192\.168\./,
 			/^169\.254\./, // link-local
-			/^fc00:/i, // IPv6 private
+			/^fc00:/i, // IPv6 unique local (ULA)
+			/^fd00:/i, // IPv6 unique local (ULA)
 			/^fe80:/i, // IPv6 link-local
+			/^\[?::ffff:127\./i, // IPv6-mapped IPv4 loopback
+			/^\[?::ffff:10\./i, // IPv6-mapped IPv4 private
+			/^\[?::ffff:192\.168\./i, // IPv6-mapped IPv4 private
+			/^\[?::ffff:172\.(1[6-9]|2\d|3[01])\./i, // IPv6-mapped IPv4 private
 		];
 
-		if (privateIpPatterns.some((pattern) => pattern.test(hostname))) {
+		if (
+			privateIpPatterns.some((pattern) => pattern.test(hostname)) ||
+			privateIpPatterns.some((pattern) => pattern.test(normalizedHostname))
+		) {
 			throw new NodeOperationError(
 				node,
 				'Access to private IP addresses is not allowed',
 				{
 					description: 'Cannot connect to private network resources for security reasons',
+				},
+			);
+		}
+
+		// Block suspicious hostnames that might be DNS rebinding attempts
+		// e.g., 127.0.0.1.attacker.com, localhost.attacker.com
+		const suspiciousPatterns = [
+			/^127\.\d+\.\d+\.\d+\./,
+			/^10\.\d+\.\d+\.\d+\./,
+			/^192\.168\.\d+\.\d+\./,
+			/^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+\./,
+			/^localhost\./,
+		];
+
+		if (suspiciousPatterns.some((pattern) => pattern.test(hostname))) {
+			throw new NodeOperationError(
+				node,
+				'Suspicious hostname detected - potential DNS rebinding attack',
+				{
+					description: 'The hostname appears to embed a private IP address',
 				},
 			);
 		}
@@ -313,73 +350,10 @@ export function validateFunctionName(name: string, node: INode): string {
 }
 
 /**
- * Rate limiter to prevent abuse
+ * Rate limiter class removed - use ThrottleManager instead
+ * ThrottleManager provides more sophisticated throttling with multiple strategies
+ * and is workflow-scoped to prevent cross-workflow interference.
+ *
+ * @deprecated This class was never used in production code
+ * @see ThrottleManager in ThrottleManager.ts for production rate limiting
  */
-export class RateLimiter {
-	private requests: Map<string, number[]> = new Map();
-	private readonly windowMs: number;
-	private readonly maxRequests: number;
-
-	constructor(windowMs = 60000, maxRequests = 100) {
-		this.windowMs = windowMs;
-		this.maxRequests = maxRequests;
-	}
-
-	/**
-	 * Check if request is allowed
-	 */
-	public isAllowed(identifier: string): boolean {
-		const now = Date.now();
-		const windowStart = now - this.windowMs;
-
-		// Get existing requests for this identifier
-		let timestamps = this.requests.get(identifier) || [];
-
-		// Remove old requests outside the window
-		timestamps = timestamps.filter((ts) => ts > windowStart);
-
-		// Check if limit exceeded
-		if (timestamps.length >= this.maxRequests) {
-			return false;
-		}
-
-		// Add current request
-		timestamps.push(now);
-		this.requests.set(identifier, timestamps);
-
-		// Cleanup old entries periodically
-		if (Math.random() < 0.01) {
-			this.cleanup();
-		}
-
-		return true;
-	}
-
-	/**
-	 * Get remaining requests in current window
-	 */
-	public getRemaining(identifier: string): number {
-		const now = Date.now();
-		const windowStart = now - this.windowMs;
-		const timestamps = this.requests.get(identifier) || [];
-		const validRequests = timestamps.filter((ts) => ts > windowStart);
-		return Math.max(0, this.maxRequests - validRequests.length);
-	}
-
-	/**
-	 * Cleanup old entries
-	 */
-	private cleanup(): void {
-		const now = Date.now();
-		const windowStart = now - this.windowMs;
-
-		for (const [identifier, timestamps] of this.requests.entries()) {
-			const validTimestamps = timestamps.filter((ts) => ts > windowStart);
-			if (validTimestamps.length === 0) {
-				this.requests.delete(identifier);
-			} else {
-				this.requests.set(identifier, validTimestamps);
-			}
-		}
-	}
-}
