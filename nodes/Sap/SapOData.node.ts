@@ -38,6 +38,17 @@ export class SapOData implements INodeType {
 			},
 		],
 		properties: [
+			// Service Path
+			{
+				displayName: 'Service Path',
+				name: 'servicePath',
+				type: 'string',
+				default: '/sap/opu/odata/sap/',
+				placeholder: '/sap/opu/odata/sap/API_BUSINESS_PARTNER/',
+				description: 'The OData service path (must end with /). Common: API_BUSINESS_PARTNER, API_SALES_ORDER_SRV, API_PURCHASEORDER_PROCESS_SRV',
+				required: true,
+			},
+
 			// Resource
 			{
 				displayName: 'Resource',
@@ -182,7 +193,7 @@ export class SapOData implements INodeType {
 					},
 				},
 				placeholder: "'0500000001'",
-				description: 'The key to identify the entity (e.g., \'0500000001\' or SalesOrderID=\'0500000001\')',
+				description: 'The key to identify the entity. Simple: \'0500000001\' or composite: SalesOrderID=\'0500000001\',ItemNumber=\'10\'. Key names can contain letters, numbers, underscores, hyphens, and dots.',
 			},
 
 			// Return All for GetAll
@@ -358,6 +369,16 @@ export class SapOData implements INodeType {
 						default: false,
 						description: 'Whether to continue fetching data when pagination errors occur',
 						hint: 'When enabled, partial results will be returned even if later pages fail. Error information will be included in the output.',
+					},
+
+					// Data Type Conversion
+					{
+						displayName: 'Data: Convert SAP Data Types',
+						name: 'convertDataTypes',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to convert SAP-specific data types to JavaScript native types',
+						hint: 'Converts numeric strings (e.g., "175.50" → 175.50) and SAP dates (e.g., "/Date(...)/" → "2017-10-06T00:00:00.000Z") to native types. Recommended for easier data processing.',
 					},
 
 					// Connection Pool Options
@@ -784,11 +805,14 @@ export class SapOData implements INodeType {
 					const credentials = await this.getCredentials('sapOdataApi');
 					const { CacheManager } = await import('./CacheManager');
 
+					// Get servicePath from current node parameter
+					const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
+
 					// Try to get from cache first
 					const cached = CacheManager.getMetadata(
 						this,
 						credentials.host as string,
-						credentials.servicePath as string,
+						servicePath,
 					);
 
 					if (cached && cached.entitySets) {
@@ -811,7 +835,7 @@ export class SapOData implements INodeType {
 					CacheManager.setMetadata(
 						this,
 						credentials.host as string,
-						credentials.servicePath as string,
+						servicePath,
 						entitySets,
 						functionImports,
 					);
@@ -840,11 +864,14 @@ export class SapOData implements INodeType {
 					const credentials = await this.getCredentials('sapOdataApi');
 					const { CacheManager } = await import('./CacheManager');
 
+					// Get servicePath from current node parameter
+					const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
+
 					// Try to get from cache first
 					const cached = CacheManager.getMetadata(
 						this,
 						credentials.host as string,
-						credentials.servicePath as string,
+						servicePath,
 					);
 
 					if (cached && cached.functionImports) {
@@ -867,7 +894,7 @@ export class SapOData implements INodeType {
 					CacheManager.setMetadata(
 						this,
 						credentials.host as string,
-						credentials.servicePath as string,
+						servicePath,
 						entitySets,
 						functionImports,
 					);

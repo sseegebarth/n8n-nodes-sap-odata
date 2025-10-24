@@ -38,9 +38,10 @@ export class UpdateEntityStrategy extends CrudStrategy implements IOperationStra
 				data,
 			);
 
-			// Extract and format result
+			// Extract result and apply type conversion
 			// PATCH may return empty response, provide default success object
 			const result = this.extractResult(response) || { success: true };
-			return this.formatSuccessResponse(result, itemIndex);
+			const convertedResult = this.applyTypeConversion(context, itemIndex, result);
+			return this.formatSuccessResponse(convertedResult, itemIndex);
 	}
 }

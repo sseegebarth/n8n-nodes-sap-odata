@@ -45,7 +45,13 @@ export async function sapOdataApiRequest(
 		const credentials = (await this.getCredentials(CREDENTIAL_TYPE)) as ISapOdataCredentials;
 		if (credentials) {
 			const host = credentials.host.replace(/\/$/, '');
-			const servicePath = credentials.servicePath.replace(/\/$/, '');
+			// Get servicePath from node parameter - different methods for different contexts
+			let servicePath = '/sap/opu/odata/sap/';
+			if ('getNodeParameter' in this) {
+				servicePath = (this.getNodeParameter('servicePath', 0, '/sap/opu/odata/sap/') as string).replace(/\/$/, '');
+			} else if ('getCurrentNodeParameter' in this) {
+				servicePath = (((this as any).getCurrentNodeParameter('servicePath') as string) || '/sap/opu/odata/sap/').replace(/\/$/, '');
+			}
 			csrfToken = await getCsrfToken.call(this, host, servicePath);
 		}
 	}

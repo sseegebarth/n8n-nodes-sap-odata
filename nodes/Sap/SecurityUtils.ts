@@ -52,15 +52,16 @@ export function validateEntityKey(key: string, node: INode): string {
 	}
 
 	// Validate format for composite keys
+	// Allow alphanumeric, underscore, hyphen, and dot in key names (SAP standard)
 	if (key.includes('=')) {
 		const parts = key.split(',');
 		for (const part of parts) {
-			if (!part.match(/^[a-zA-Z0-9_]+='[^']*'$/)) {
+			if (!part.match(/^[a-zA-Z0-9_\-\.]+='[^']*'$/)) {
 				throw new NodeOperationError(
 					node,
 					`Invalid composite key format: ${part}`,
 					{
-						description: 'Composite keys must follow pattern: Key1=\'value1\',Key2=\'value2\'',
+						description: 'Composite keys must follow pattern: Key1=\'value1\',Key2=\'value2\'. Key names can contain letters, numbers, underscores, hyphens, and dots.',
 					},
 				);
 			}

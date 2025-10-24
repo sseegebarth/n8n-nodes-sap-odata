@@ -15,17 +15,8 @@ export class SapOdataApi implements ICredentialType {
 			name: 'host',
 			type: 'string',
 			default: '',
-			placeholder: 'https://your-sap-system.com',
-			description: 'The SAP system URL (including protocol)',
-			required: true,
-		},
-		{
-			displayName: 'Service Path',
-			name: 'servicePath',
-			type: 'string',
-			default: '/sap/opu/odata/sap/',
-			placeholder: '/sap/opu/odata/sap/',
-			description: 'The OData service path',
+			placeholder: 'https://your-sap-system.com:8443',
+			description: 'The SAP system URL including protocol and port (e.g., https://sap-server.com:8443)',
 			required: true,
 		},
 		{
@@ -122,9 +113,10 @@ export class SapOdataApi implements ICredentialType {
 
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: '={{$credentials.host}}{{$credentials.servicePath}}',
-			url: '',
+			baseURL: '={{$credentials.host}}',
+			url: '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/',
 			method: 'GET',
+			skipSslCertificateValidation: '={{$credentials.allowUnauthorizedCerts}}',
 		},
 	};
 }

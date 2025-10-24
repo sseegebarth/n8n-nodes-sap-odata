@@ -162,6 +162,27 @@ export class CacheManager {
 	}
 
 	/**
+	 * Invalidate cache when 404 error occurs
+	 * This ensures stale cache doesn't persist after service path changes
+	 */
+	static invalidateCacheOn404(
+		context: IContextType,
+		host: string,
+		servicePath: string,
+	): void {
+		try {
+			const staticData = context.getWorkflowStaticData('node') as IDataObject;
+			const baseKey = this.getCacheKey(host, servicePath);
+
+			// Remove metadata cache on 404 (service/entity not found)
+			// CSRF token cache is preserved as authentication is separate
+			delete staticData[`metadata_${baseKey}`];
+		} catch {
+			// Silently fail if WorkflowStaticData not available
+		}
+	}
+
+	/**
 	 * Clear all cache entries for this workflow
 	 */
 	static clearAllCache(context: IContextType): void {

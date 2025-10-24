@@ -8,6 +8,7 @@ import { validateEntityKey, validateEntitySetName, validateJsonInput, sanitizeEr
 import { IODataQueryOptions } from '../../types';
 import { buildODataQuery } from '../../core/QueryBuilder';
 import { Logger } from '../../Logger';
+import { convertDataTypes } from '../../TypeConverter';
 
 /**
  * Base class for CRUD operation strategies
@@ -213,5 +214,30 @@ export abstract class CrudStrategy {
 			operation,
 			...details,
 		});
+	}
+
+	/**
+	 * Apply data type conversion if enabled
+	 * Converts SAP-specific types (dates, numeric strings) to JavaScript native types
+	 *
+	 * @param context - Execution context
+	 * @param itemIndex - Current item index
+	 * @param data - Data to convert
+	 * @returns Converted data (or original if conversion disabled)
+	 */
+	protected applyTypeConversion(
+		context: IExecuteFunctions,
+		itemIndex: number,
+		data: any,
+	): any {
+		try {
+			const advancedOptions = context.getNodeParameter('advancedOptions', itemIndex, {}) as any;
+			const shouldConvertTypes = advancedOptions.convertDataTypes !== false; // Default: true
+
+			return shouldConvertTypes ? convertDataTypes(data) : data;
+		} catch {
+			// If advanced options not available, return data unchanged
+			return data;
+		}
 	}
 }

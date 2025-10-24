@@ -103,7 +103,6 @@ export interface IRequestOptions {
  */
 export interface ISapOdataCredentials {
 	host: string;
-	servicePath: string;
 	authentication: 'none' | 'basicAuth';
 	username?: string;
 	password?: string;

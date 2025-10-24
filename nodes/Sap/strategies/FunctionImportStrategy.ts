@@ -77,8 +77,9 @@ export class FunctionImportStrategy extends CrudStrategy implements IOperationSt
 				url,
 			);
 
-			// Extract and format result
+			// Extract result and apply type conversion
 			const result = this.extractResult(response);
-			return this.formatSuccessResponse(result, itemIndex);
+			const convertedResult = this.applyTypeConversion(context, itemIndex, result);
+			return this.formatSuccessResponse(convertedResult, itemIndex);
 	}
 }

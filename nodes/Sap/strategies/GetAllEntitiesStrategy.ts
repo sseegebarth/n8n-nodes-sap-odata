@@ -90,9 +90,9 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 			// Convert to array if not already
 			const dataArray = Array.isArray(responseData) ? responseData : [responseData];
 
-			// Map to INodeExecutionData
+			// Map to INodeExecutionData with optional type conversion
 			const executionData = dataArray.map((item) => ({
-				json: item,
+				json: this.applyTypeConversion(context, itemIndex, item),
 				pairedItem: { item: itemIndex },
 			}));
 

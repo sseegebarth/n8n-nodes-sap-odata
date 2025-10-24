@@ -19,6 +19,7 @@ import { ThrottleManager, ThrottleStrategy } from '../ThrottleManager';
 import { CREDENTIAL_TYPE, ERROR_MESSAGES } from '../constants';
 import { ISapOdataCredentials } from '../types';
 import { ConnectionPoolManager } from '../ConnectionPoolManager';
+import { CacheManager } from '../CacheManager';
 
 /**
  * Get or create throttle manager scoped to workflow execution
@@ -93,7 +94,24 @@ export async function executeRequest(
 	}
 
 	const host = credentials.host.replace(/\/$/, '');
-	const servicePath = credentials.servicePath.replace(/\/$/, '');
+
+	// Get servicePath from node parameter - different methods for different contexts
+	let servicePath = '/sap/opu/odata/sap/';
+	if ('getNodeParameter' in this) {
+		try {
+			servicePath = this.getNodeParameter('servicePath', 0, '/sap/opu/odata/sap/') as string;
+		} catch {
+			// If servicePath parameter doesn't exist (e.g., in credential test), use default
+			servicePath = '/sap/opu/odata/sap/';
+		}
+	} else if ('getCurrentNodeParameter' in this) {
+		try {
+			servicePath = ((this as any).getCurrentNodeParameter('servicePath') as string) || '/sap/opu/odata/sap/';
+		} catch {
+			servicePath = '/sap/opu/odata/sap/';
+		}
+	}
+	servicePath = servicePath.replace(/\/$/, '');
 
 	// Security warning for disabled SSL validation (only once per execution)
 	if (credentials.allowUnauthorizedCerts === true) {
@@ -250,6 +268,16 @@ export async function executeRequest(
 					method,
 					resource,
 				});
+			}
+
+			// Check if 404 error - invalidate metadata cache to allow retry with fresh data
+			const statusCode = (error as any)?.response?.statusCode || (error as any)?.statusCode;
+			if (statusCode === 404) {
+				Logger.debug('404 error detected - invalidating metadata cache', {
+					module: 'ApiClient',
+					resource,
+				});
+				CacheManager.invalidateCacheOn404(this, credentials.host, servicePath);
 			}
 
 			return ODataErrorHandler.handleApiError(error, this.getNode(), {
