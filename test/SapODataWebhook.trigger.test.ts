@@ -222,22 +222,22 @@ describe('SapODataWebhook.trigger', () => {
 	describe('Webhook Methods', () => {
 		it('should have webhook methods defined', () => {
 			expect(webhookNode.webhookMethods).toBeDefined();
-			expect(webhookNode?.webhookMethods.default).toBeDefined();
+			expect(webhookNode.webhookMethods?.default).toBeDefined();
 		});
 
 		it('should have checkExists method', () => {
-			expect(webhookNode?.webhookMethods.default.checkExists).toBeDefined();
-			expect(typeof webhookNode?.webhookMethods.default.checkExists).toBe('function');
+			expect(webhookNode.webhookMethods?.default?.checkExists).toBeDefined();
+			expect(typeof webhookNode.webhookMethods?.default?.checkExists).toBe('function');
 		});
 
 		it('should have create method', () => {
-			expect(webhookNode?.webhookMethods.default.create).toBeDefined();
-			expect(typeof webhookNode?.webhookMethods.default.create).toBe('function');
+			expect(webhookNode.webhookMethods?.default?.create).toBeDefined();
+			expect(typeof webhookNode.webhookMethods?.default?.create).toBe('function');
 		});
 
 		it('should have delete method', () => {
-			expect(webhookNode?.webhookMethods.default.delete).toBeDefined();
-			expect(typeof webhookNode?.webhookMethods.default.delete).toBe('function');
+			expect(webhookNode.webhookMethods?.default?.delete).toBeDefined();
+			expect(typeof webhookNode.webhookMethods?.default?.delete).toBe('function');
 		});
 	});
 
