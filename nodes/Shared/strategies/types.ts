@@ -1,0 +1,130 @@
+/**
+ * Type definitions for SAP OData Strategy Layer
+ *
+ * Provides strong typing for strategy operations, replacing 'any' types.
+ */
+
+import { IDataObject } from 'n8n-workflow';
+
+/**
+ * Node parameter options for operations
+ */
+export interface IOperationOptions {
+	$select?: string;
+	$expand?: string;
+	$filter?: string;
+	$orderby?: string;
+	$skip?: number;
+	$count?: boolean;
+	$search?: string;
+	$apply?: string;
+	batchSize?: number;
+	etag?: string;
+}
+
+/**
+ * Advanced options for performance, caching, and resilience
+ */
+export interface IAdvancedOptions {
+	// Performance
+	maxItems?: number;
+	continueOnFail?: boolean;
+
+	// Data conversion
+	convertDataTypes?: boolean;
+
+	// Connection pool
+	keepAlive?: boolean;
+	maxSockets?: number;
+	maxFreeSockets?: number;
+	timeout?: number;
+	freeSocketTimeout?: number;
+
+	// Cache
+	clearCache?: boolean;
+
+	// Debug
+	debugLogging?: boolean;
+
+	// Resilience
+	retryEnabled?: boolean;
+	maxRetries?: number;
+	initialRetryDelay?: number;
+	maxRetryDelay?: number;
+	backoffFactor?: number;
+}
+
+/**
+ * SAP OData API response structure
+ */
+export interface ISapODataResponse {
+	d?: {
+		results?: any[];
+		[key: string]: any;
+	};
+	__count?: number;
+	__next?: string;
+	[key: string]: any;
+}
+
+/**
+ * Pagination metadata
+ */
+export interface IPaginationMetadata {
+	hasMore: boolean;
+	nextLink?: string;
+	totalCount?: number;
+	currentPage: number;
+	itemsInPage: number;
+}
+
+/**
+ * Pagination error information
+ */
+export interface IPaginationError {
+	page: number;
+	error: string;
+	timestamp: Date;
+}
+
+/**
+ * Request options for HTTP requests
+ */
+export interface IRequestOptions {
+	headers?: {
+		'If-Match'?: string;
+		[key: string]: string | undefined;
+	};
+	[key: string]: any;
+}
+
+/**
+ * Query options for OData requests
+ */
+export interface IODataQueryOptions {
+	$select?: string;
+	$expand?: string;
+	$filter?: string;
+	$orderby?: string;
+	$skip?: number;
+	$top?: number;
+	$count?: boolean;
+	$search?: string;
+	$apply?: string;
+	[key: string]: string | number | boolean | undefined;
+}
+
+/**
+ * Result wrapper for operations with metadata
+ */
+export interface IOperationResult {
+	data: IDataObject | IDataObject[];
+	metadata?: {
+		operation: string;
+		entitySet?: string;
+		itemIndex: number;
+		pagination?: IPaginationMetadata;
+		errors?: IPaginationError[];
+		[key: string]: any;
+	};
+}

@@ -1,7 +1,8 @@
-import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
 import { CrudStrategy } from './base/CrudStrategy';
 import { sapOdataApiRequest, sapOdataApiRequestAllItems } from '../../Sap/GenericFunctions';
+import { IOperationOptions, IAdvancedOptions, IPaginationError } from './types';
 
 /**
  * Strategy for getting all entities with optional pagination
@@ -23,13 +24,13 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 			const query = this.getQueryOptions(context, itemIndex);
 
 			// Apply batch size if configured
-			const options = context.getNodeParameter('options', itemIndex, {}) as any;
+			const options = context.getNodeParameter('options', itemIndex, {}) as IOperationOptions;
 			if (options.batchSize) {
 				query.$top = options.batchSize;
 			}
 
 			// Check if continueOnFail is enabled (from advancedOptions)
-			const advancedOptions = context.getNodeParameter('advancedOptions', itemIndex, {}) as any;
+			const advancedOptions = context.getNodeParameter('advancedOptions', itemIndex, {}) as IAdvancedOptions;
 			const continueOnFail = advancedOptions.continueOnFail === true;
 			const maxItems = typeof advancedOptions.maxItems === 'number' ? advancedOptions.maxItems : 0;
 
@@ -42,8 +43,8 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 				itemIndex,
 			});
 
-			let responseData: any;
-			let paginationErrors: any[] | undefined;
+			let responseData: IDataObject | IDataObject[];
+			let paginationErrors: IPaginationError[] | undefined;
 			let limitReached = false;
 			let partialMessage: string | undefined;
 

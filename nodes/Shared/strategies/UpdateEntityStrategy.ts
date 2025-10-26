@@ -2,6 +2,7 @@ import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
 import { CrudStrategy } from './base/CrudStrategy';
 import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
+import { IOperationOptions, IRequestOptions } from './types';
 
 /**
  * Strategy for updating an existing entity
@@ -24,8 +25,8 @@ export class UpdateEntityStrategy extends CrudStrategy implements IOperationStra
 			const data = this.validateAndParseJson(dataString, 'Data', context.getNode());
 
 			// Get options for ETag handling
-			const options = context.getNodeParameter('options', itemIndex, {}) as any;
-			const etag = options.etag as string | undefined;
+			const options = context.getNodeParameter('options', itemIndex, {}) as IOperationOptions;
+			const etag = options.etag;
 
 			// Log operation for debugging
 			this.logOperation('UPDATE', {
@@ -36,7 +37,7 @@ export class UpdateEntityStrategy extends CrudStrategy implements IOperationStra
 			});
 
 			// Build request options with If-Match header for optimistic locking
-			const requestOptions: any = {};
+			const requestOptions: IRequestOptions = {};
 			if (etag) {
 				// Use provided ETag for optimistic locking
 				requestOptions.headers = {
