@@ -1157,8 +1157,8 @@ export class SapOData implements INodeType {
 		const resource = this.getNodeParameter('resource', 0) as string;
 
 		// Check if cache should be cleared
-		const options = this.getNodeParameter('options', 0, {}) as any;
-		if (options.clearCache === true) {
+		const advancedOptions = this.getNodeParameter('advancedOptions', 0, {}) as any;
+		if (advancedOptions.clearCache === true) {
 			const { CacheManager } = await import('../Shared/utils/CacheManager');
 			CacheManager.clearAllCache(this);
 		}

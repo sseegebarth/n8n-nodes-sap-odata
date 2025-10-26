@@ -28,9 +28,10 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 				query.$top = options.batchSize;
 			}
 
-			// Check if continueOnFail is enabled
-			const continueOnFail = options.continueOnFail === true;
-			const maxItems = typeof options.maxItems === 'number' ? options.maxItems : 0;
+			// Check if continueOnFail is enabled (from advancedOptions)
+			const advancedOptions = context.getNodeParameter('advancedOptions', itemIndex, {}) as any;
+			const continueOnFail = advancedOptions.continueOnFail === true;
+			const maxItems = typeof advancedOptions.maxItems === 'number' ? advancedOptions.maxItems : 0;
 
 			// Log operation for debugging
 			this.logOperation('GET_ALL', {

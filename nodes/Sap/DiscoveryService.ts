@@ -52,7 +52,9 @@ export async function discoverServices(
 				$select: 'ID,Title,TechnicalServiceName,TechnicalServiceVersion,Description',
 				$orderby: 'Title asc',
 			},
-			CATALOGSERVICE_PATH, // Override service path to use CATALOGSERVICE
+			undefined, // uri parameter
+			{}, // option parameter
+			CATALOGSERVICE_PATH, // customServicePath - Override service path to use CATALOGSERVICE
 		);
 
 		// Extract results from OData V2 response format
