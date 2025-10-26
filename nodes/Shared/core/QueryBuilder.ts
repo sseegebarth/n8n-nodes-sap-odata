@@ -4,7 +4,7 @@
  */
 
 import { IDataObject } from 'n8n-workflow';
-import { validateODataFilter } from '../SecurityUtils';
+import { validateODataFilter } from '../utils/SecurityUtils';
 import { IODataQueryOptions } from '../types';
 
 /**

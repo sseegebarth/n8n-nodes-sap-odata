@@ -8,7 +8,7 @@ import {
 	extractItemsFromResponse,
 	extractNextLink,
 	IPaginationConfig,
-} from '../../nodes/Sap/core/PaginationHandler';
+} from '../../nodes/Shared/core/PaginationHandler';
 
 describe('PaginationHandler', () => {
 	describe('extractItemsFromResponse', () => {

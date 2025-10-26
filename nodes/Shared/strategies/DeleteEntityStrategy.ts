@@ -1,7 +1,7 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
 import { CrudStrategy } from './base/CrudStrategy';
-import { sapOdataApiRequest } from '../GenericFunctions';
+import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
 
 /**
  * Strategy for deleting an entity

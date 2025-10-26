@@ -10,20 +10,20 @@ import {
 	IDataObject,
 } from 'n8n-workflow';
 
-// Import core modules
-import { executeRequest, IApiClientConfig } from './core/ApiClient';
-import { fetchAllItems, IPaginationConfig } from './core/PaginationHandler';
+// Import core modules from Shared
+import { executeRequest, IApiClientConfig } from '../Shared/core/ApiClient';
+import { fetchAllItems, IPaginationConfig } from '../Shared/core/PaginationHandler';
 import {
 	buildODataQuery as coreBuildODataQuery,
 	buildODataFilter as coreBuildODataFilter,
 	parseMetadataForEntitySets as coreParseMetadataForEntitySets,
 	parseMetadataForFunctionImports as coreParseMetadataForFunctionImports,
-} from './core/QueryBuilder';
-import { buildCsrfTokenRequest } from './core/RequestBuilder';
+} from '../Shared/core/QueryBuilder';
+import { buildCsrfTokenRequest } from '../Shared/core/RequestBuilder';
 
-// Import dependencies
-import { CREDENTIAL_TYPE } from './constants';
-import { ISapOdataCredentials, IODataQueryOptions } from './types';
+// Import dependencies from Shared
+import { CREDENTIAL_TYPE } from '../Shared/constants';
+import { ISapOdataCredentials, IODataQueryOptions } from '../Shared/types';
 
 /**
  * Make an API request to SAP OData service using n8n's httpRequestWithAuthentication
@@ -38,6 +38,7 @@ export async function sapOdataApiRequest(
 	qs: IDataObject = {},
 	uri?: string,
 	option: IDataObject = {},
+	customServicePath?: string,
 ): Promise<any> {
 	// Get CSRF token for write operations
 	let csrfToken: string | undefined;
@@ -45,12 +46,14 @@ export async function sapOdataApiRequest(
 		const credentials = (await this.getCredentials(CREDENTIAL_TYPE)) as ISapOdataCredentials;
 		if (credentials) {
 			const host = credentials.host.replace(/\/$/, '');
-			// Get servicePath from node parameter - different methods for different contexts
-			let servicePath = '/sap/opu/odata/sap/';
-			if ('getNodeParameter' in this) {
-				servicePath = (this.getNodeParameter('servicePath', 0, '/sap/opu/odata/sap/') as string).replace(/\/$/, '');
-			} else if ('getCurrentNodeParameter' in this) {
-				servicePath = (((this as any).getCurrentNodeParameter('servicePath') as string) || '/sap/opu/odata/sap/').replace(/\/$/, '');
+			// Get servicePath from parameter or node parameter - different methods for different contexts
+			let servicePath = customServicePath || '/sap/opu/odata/sap/';
+			if (!customServicePath) {
+				if ('getNodeParameter' in this) {
+					servicePath = (this.getNodeParameter('servicePath', 0, '/sap/opu/odata/sap/') as string).replace(/\/$/, '');
+				} else if ('getCurrentNodeParameter' in this) {
+					servicePath = (((this as any).getCurrentNodeParameter('servicePath') as string) || '/sap/opu/odata/sap/').replace(/\/$/, '');
+				}
 			}
 			csrfToken = await getCsrfToken.call(this, host, servicePath);
 		}
@@ -80,7 +83,7 @@ export async function getCsrfToken(
 	servicePath: string,
 ): Promise<string> {
 	// Try to get token from cache first
-	const { CacheManager } = await import('./CacheManager');
+	const { CacheManager } = await import('../Shared/utils/CacheManager');
 	const cachedToken = CacheManager.getCsrfToken(this, host, servicePath);
 	if (cachedToken) {
 		return cachedToken;

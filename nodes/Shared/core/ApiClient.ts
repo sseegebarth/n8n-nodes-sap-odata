@@ -12,14 +12,14 @@ import {
 } from 'n8n-workflow';
 
 import { buildRequestOptions, parseStatusCodes, parsePoolConfig } from './RequestBuilder';
-import { ODataErrorHandler } from '../ErrorHandler';
-import { Logger } from '../Logger';
-import { RetryHandler } from '../RetryUtils';
-import { ThrottleManager, ThrottleStrategy } from '../ThrottleManager';
+import { ODataErrorHandler } from '../utils/ErrorHandler';
+import { Logger } from '../utils/Logger';
+import { RetryHandler } from '../utils/RetryUtils';
+import { ThrottleManager, ThrottleStrategy } from '../utils/ThrottleManager';
 import { CREDENTIAL_TYPE, ERROR_MESSAGES } from '../constants';
 import { ISapOdataCredentials } from '../types';
-import { ConnectionPoolManager } from '../ConnectionPoolManager';
-import { CacheManager } from '../CacheManager';
+import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
+import { CacheManager } from '../utils/CacheManager';
 
 /**
  * Get or create throttle manager scoped to workflow execution

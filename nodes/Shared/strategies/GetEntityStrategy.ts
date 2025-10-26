@@ -1,13 +1,13 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
 import { CrudStrategy } from './base/CrudStrategy';
-import { sapOdataApiRequest } from '../GenericFunctions';
+import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
 
 /**
- * Strategy for updating an existing entity
+ * Strategy for getting a single entity by key
  * Uses enhanced CrudStrategy base class for common validation and error handling
  */
-export class UpdateEntityStrategy extends CrudStrategy implements IOperationStrategy {
+export class GetEntityStrategy extends CrudStrategy implements IOperationStrategy {
 	async execute(
 		context: IExecuteFunctions,
 		itemIndex: number,
@@ -15,32 +15,31 @@ export class UpdateEntityStrategy extends CrudStrategy implements IOperationStra
 		
 			const entitySet = this.getEntitySet(context, itemIndex);
 			const entityKey = context.getNodeParameter('entityKey', itemIndex) as string;
-			const dataString = context.getNodeParameter('data', itemIndex) as string;
 
 			// Validate and format the entity key
 			const formattedKey = this.validateAndFormatKey(entityKey, context.getNode());
 
-			// Validate and parse JSON input using base class method
-			const data = this.validateAndParseJson(dataString, 'Data', context.getNode());
+			// Get query options
+			const query = this.getQueryOptions(context, itemIndex);
 
 			// Log operation for debugging
-			this.logOperation('UPDATE', {
+			this.logOperation('GET', {
 				entitySet,
 				entityKey: formattedKey,
 				itemIndex,
 			});
 
-			// Make API request (PATCH for partial update)
+			// Make API request
 			const response = await sapOdataApiRequest.call(
 				context,
-				'PATCH',
+				'GET',
 				this.buildResourcePath(entitySet, formattedKey),
-				data,
+				{},
+				query,
 			);
 
 			// Extract result and apply type conversion
-			// PATCH may return empty response, provide default success object
-			const result = this.extractResult(response) || { success: true };
+			const result = this.extractResult(response);
 			const convertedResult = this.applyTypeConversion(context, itemIndex, result);
 			return this.formatSuccessResponse(convertedResult, itemIndex);
 	}

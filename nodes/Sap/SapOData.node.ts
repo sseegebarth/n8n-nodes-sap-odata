@@ -13,9 +13,9 @@ import {
 	sapOdataApiRequest,
 } from './GenericFunctions';
 
-import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from './constants';
-import { OperationStrategyFactory } from './strategies';
-import { sanitizeErrorMessage } from './SecurityUtils';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from '../Shared/constants';
+import { OperationStrategyFactory } from '../Shared/strategies';
+import { sanitizeErrorMessage } from '../Shared/utils/SecurityUtils';
 
 export class SapOData implements INodeType {
 	description: INodeTypeDescription = {
@@ -38,15 +38,96 @@ export class SapOData implements INodeType {
 			},
 		],
 		properties: [
-			// Service Path
+			// Service Path Mode
 			{
-				displayName: 'Service Path',
+				displayName: 'Service Path Mode',
+				name: 'servicePathMode',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{
+						name: 'From List',
+						value: 'list',
+						description: 'Select from discovered SAP services',
+					},
+					{
+						name: 'Custom',
+						value: 'custom',
+						description: 'Enter service path manually',
+					},
+				],
+				default: 'list',
+				description: 'How to specify the OData service path',
+			},
+
+			// Service Category (filter for list mode)
+			{
+				displayName: 'Service Category',
+				name: 'serviceCategory',
+				type: 'options',
+				options: [
+					{
+						name: 'All Services',
+						value: 'all',
+						description: 'Show all available services',
+					},
+					{
+						name: 'SAP Standard APIs',
+						value: 'standard',
+						description: 'Official SAP-provided APIs (starts with API_)',
+					},
+					{
+						name: 'Custom Services (Z*)',
+						value: 'custom',
+						description: 'Customer-specific implementations (starts with Z)',
+					},
+					{
+						name: 'Other Services',
+						value: 'other',
+						description: 'Miscellaneous services',
+					},
+				],
+				default: 'all',
+				displayOptions: {
+					show: {
+						servicePathMode: ['list'],
+					},
+				},
+				description: 'Filter services by category to narrow down the list',
+			},
+
+			// Service Path (from list)
+			{
+				displayName: 'Service',
+				name: 'servicePathFromList',
+				type: 'options',
+				typeOptions: {
+					loadOptionsMethod: 'getServicesByCategory',
+				},
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						servicePathMode: ['list'],
+					},
+				},
+				description: 'Select an SAP OData service from the filtered list',
+			},
+
+			// Service Path (custom)
+			{
+				displayName: 'Custom Service Path',
 				name: 'servicePath',
 				type: 'string',
 				default: '/sap/opu/odata/sap/',
 				placeholder: '/sap/opu/odata/sap/API_BUSINESS_PARTNER/',
-				description: 'The OData service path (must end with /). Common: API_BUSINESS_PARTNER, API_SALES_ORDER_SRV, API_PURCHASEORDER_PROCESS_SRV',
+				description: 'The OData service path (must end with /)',
 				required: true,
+				displayOptions: {
+					show: {
+						servicePathMode: ['custom'],
+					},
+				},
 			},
 
 			// Resource
@@ -799,11 +880,162 @@ export class SapOData implements INodeType {
 
 	methods = {
 		loadOptions: {
+			// Get available SAP OData Services
+			async getServices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const { discoverServices, getCommonServices } = await import('./DiscoveryService');
+					const { CacheManager } = await import('../Shared/utils/CacheManager');
+					const credentials = await this.getCredentials('sapOdataApi');
+
+					// Try to get from cache first
+					const cached = CacheManager.getServiceCatalog(this, credentials.host as string);
+
+					if (cached && cached.length > 0) {
+						return cached.map((service) => ({
+							name: `${service.title} (${service.technicalName})`,
+							value: service.servicePath,
+							description: service.description,
+						}));
+					}
+
+					// Try to discover services from SAP Gateway Catalog Service
+					const discoveredServices = await discoverServices(this);
+
+					if (discoveredServices && discoveredServices.length > 0) {
+						// Cache the discovered services
+						CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
+
+						return discoveredServices.map((service) => ({
+							name: `${service.title} (${service.technicalName})`,
+							value: service.servicePath,
+							description: service.description,
+						}));
+					}
+
+					// Fallback: Return common SAP services if catalog discovery fails
+					const commonServices = getCommonServices();
+
+					return [
+						{
+							name: '⚠️ Could not load services from SAP - Showing common services',
+							value: '',
+							description: 'Switch to "Custom" mode to enter service path manually',
+						},
+						...commonServices.map((service) => ({
+							name: `${service.title} (${service.technicalName})`,
+							value: service.servicePath,
+							description: service.description,
+						})),
+					];
+				} catch (error) {
+					// If service discovery fails completely, return common services
+					const { getCommonServices } = await import('./DiscoveryService');
+					const commonServices = getCommonServices();
+
+					return [
+						{
+							name: '⚠️ Service discovery failed - Showing common services',
+							value: '',
+							description: 'Switch to "Custom" mode to enter service path manually',
+						},
+						...commonServices.map((service) => ({
+							name: `${service.title} (${service.technicalName})`,
+							value: service.servicePath,
+							description: service.description,
+						})),
+					];
+				}
+			},
+
+			// Get available SAP OData Services filtered by category
+			async getServicesByCategory(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const { discoverServices, getCommonServices, groupServicesByCategory } = await import('./DiscoveryService');
+					const { CacheManager } = await import('../Shared/utils/CacheManager');
+					const credentials = await this.getCredentials('sapOdataApi');
+
+					// Get selected category
+					const category = this.getCurrentNodeParameter('serviceCategory') as string || 'all';
+
+					// Try to get from cache first
+					const cached = CacheManager.getServiceCatalog(this, credentials.host as string);
+					let services = cached && cached.length > 0 ? cached : null;
+
+					// If not cached, try to discover
+					if (!services) {
+						const discoveredServices = await discoverServices(this);
+
+						if (discoveredServices && discoveredServices.length > 0) {
+							// Cache the discovered services
+							CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
+							services = discoveredServices;
+						}
+					}
+
+					// Fallback to common services if discovery failed
+					if (!services || services.length === 0) {
+						services = getCommonServices();
+					}
+
+					// Filter by category if not "all"
+					if (category !== 'all') {
+						const grouped = groupServicesByCategory(services);
+
+						const categoryMap: { [key: string]: string } = {
+							'standard': 'SAP Standard APIs',
+							'custom': 'Custom Services (Z*)',
+							'other': 'Other Services',
+						};
+
+						const categoryKey = categoryMap[category];
+						services = grouped[categoryKey] || [];
+					}
+
+					// Convert to dropdown options
+					const options = services.map((service) => ({
+						name: `${service.title} (${service.technicalName})`,
+						value: service.servicePath,
+						description: service.description,
+					}));
+
+					// If empty after filtering, show helpful message
+					if (options.length === 0) {
+						return [
+							{
+								name: '⚠️ No services found in this category',
+								value: '',
+								description: 'Try selecting "All Services" or switch to "Custom" mode',
+							},
+						];
+					}
+
+					return options;
+
+				} catch (error) {
+					// If service discovery fails completely, return common services
+					const { getCommonServices } = await import('./DiscoveryService');
+					const commonServices = getCommonServices();
+
+					return [
+						{
+							name: '⚠️ Service discovery failed - Showing common services',
+							value: '',
+							description: 'Switch to "Custom" mode to enter service path manually',
+						},
+						...commonServices.map((service) => ({
+							name: `${service.title} (${service.technicalName})`,
+							value: service.servicePath,
+							description: service.description,
+						})),
+					];
+				}
+			},
+
 			// Get Entity Sets from $metadata (with caching)
 			async getEntitySets(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				try {
 					const credentials = await this.getCredentials('sapOdataApi');
-					const { CacheManager } = await import('./CacheManager');
+					const { CacheManager } = await import('../Shared/utils/CacheManager');
 
 					// Get servicePath from current node parameter
 					const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
@@ -862,7 +1094,7 @@ export class SapOData implements INodeType {
 			async getFunctionImports(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				try {
 					const credentials = await this.getCredentials('sapOdataApi');
-					const { CacheManager } = await import('./CacheManager');
+					const { CacheManager } = await import('../Shared/utils/CacheManager');
 
 					// Get servicePath from current node parameter
 					const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
@@ -927,7 +1159,7 @@ export class SapOData implements INodeType {
 		// Check if cache should be cleared
 		const options = this.getNodeParameter('options', 0, {}) as any;
 		if (options.clearCache === true) {
-			const { CacheManager } = await import('./CacheManager');
+			const { CacheManager } = await import('../Shared/utils/CacheManager');
 			CacheManager.clearAllCache(this);
 		}
 

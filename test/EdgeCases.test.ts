@@ -3,9 +3,9 @@
  * Tests for edge cases and boundary conditions across the SAP OData node
  */
 
-import { extractItemsFromResponse, extractNextLink } from '../nodes/Sap/core/PaginationHandler';
-import { buildODataFilter } from '../nodes/Sap/core/QueryBuilder';
-import { validateEntityKey } from '../nodes/Sap/SecurityUtils';
+import { extractItemsFromResponse, extractNextLink } from '../nodes/Shared/core/PaginationHandler';
+import { buildODataFilter } from '../nodes/Shared/core/QueryBuilder';
+import { validateEntityKey } from '../nodes/Shared/utils/SecurityUtils';
 import { INode } from 'n8n-workflow';
 
 const mockNode: INode = {

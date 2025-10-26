@@ -1,7 +1,7 @@
 import { NodeApiError, NodeOperationError, INode } from 'n8n-workflow';
 import { sanitizeErrorMessage } from './SecurityUtils';
-import { ERROR_MESSAGES } from './constants';
-import { IErrorContext } from './types';
+import { ERROR_MESSAGES } from '../constants';
+import { IErrorContext } from '../types';
 
 /**
  * Centralized error handling for SAP OData Node

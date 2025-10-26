@@ -4,11 +4,11 @@
  */
 
 import { IDataObject, IHttpRequestOptions, INode } from 'n8n-workflow';
-import { buildSecureUrl, validateUrl, sanitizeHeaderValue } from '../SecurityUtils';
+import { buildSecureUrl, validateUrl, sanitizeHeaderValue } from '../utils/SecurityUtils';
 import { HEADERS, DEFAULT_TIMEOUT } from '../constants';
 import { ISapOdataCredentials } from '../types';
-import { ConnectionPoolManager } from '../ConnectionPoolManager';
-import { Logger } from '../Logger';
+import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
+import { Logger } from '../utils/Logger';
 
 /**
  * Configuration for building HTTP requests

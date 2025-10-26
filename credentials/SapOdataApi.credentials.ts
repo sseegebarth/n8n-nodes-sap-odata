@@ -111,12 +111,20 @@ export class SapOdataApi implements ICredentialType {
 		},
 	};
 
+	/**
+	 * Test connection by checking SAP Gateway Catalog Service
+	 * The catalog service lists all available OData services
+	 */
 	test: ICredentialTestRequest = {
 		request: {
 			baseURL: '={{$credentials.host}}',
 			url: '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/',
 			method: 'GET',
 			skipSslCertificateValidation: '={{$credentials.allowUnauthorizedCerts}}',
+			headers: {
+				'sap-client': '={{$credentials.sapClient}}',
+				'sap-language': '={{$credentials.sapLanguage}}',
+			},
 		},
 	};
 }

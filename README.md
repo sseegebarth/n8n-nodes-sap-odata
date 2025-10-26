@@ -73,6 +73,10 @@ This node supports multiple authentication methods for connecting to SAP OData s
 
 ### Additional Options
 - **Ignore SSL Issues**: Enable for self-signed certificates (not recommended for production)
+- **SAP Client**: SAP Client number (Mandant) - e.g., 100, 200, 300
+- **SAP Language**: SAP language code - e.g., EN, DE, FR, ES
+- **Custom Headers**: Additional HTTP headers as JSON object
+- **Test Connection**: Click to validate your SAP connection and credentials
 
 ## Compatibility
 
@@ -765,10 +769,40 @@ npm run format
 
 ## Version History
 
-- **0.1.0**: Initial release
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+### Recent Releases
+
+- **1.3.x**: Service Discovery & Architecture Improvements
+  - Automatic service discovery from SAP Gateway Catalog
+  - Service category filtering (Standard APIs, Custom Services)
+  - Enhanced connection testing with SAP headers
+  - Refactored to shared module architecture
+  - Improved code organization for v2.0 development
+
+- **1.3.0**: Service Discovery & Category Filtering
+  - Service path dropdown with auto-discovery
+  - Entity key validation improvements
+  - Type conversion enhancements
+  - 404 cache invalidation
+
+- **1.2.0**: Performance & Resilience
+  - Streaming mode for large datasets
+  - Retry logic with exponential backoff
+  - Rate limiting and throttling
+  - Connection pooling
+  - Comprehensive error handling
+
+- **1.1.0**: Custom Modes & Caching
+  - Custom entity set mode
+  - Custom function import mode
+  - Metadata and CSRF token caching
+  - SAP-specific headers support
+
+- **1.0.0**: Initial Release
   - Entity CRUD operations
   - Function import support
-  - Basic Auth and OAuth2
+  - Basic Auth support
   - OData query parameters ($filter, $select, $expand, etc.)
 
 ## License

@@ -1,6 +1,6 @@
 import { IDataObject, IExecuteFunctions, ILoadOptionsFunctions, IHookFunctions } from 'n8n-workflow';
-import { CSRF_TOKEN_CACHE_TTL, METADATA_CACHE_TTL } from './constants';
-import { ICsrfTokenCacheEntry, IMetadataCacheEntry } from './types';
+import { CSRF_TOKEN_CACHE_TTL, METADATA_CACHE_TTL } from '../constants';
+import { ICsrfTokenCacheEntry, IMetadataCacheEntry } from '../types';
 
 type IContextType = IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions;
 
@@ -183,6 +183,59 @@ export class CacheManager {
 	}
 
 	/**
+	 * Get service catalog from cache
+	 */
+	static getServiceCatalog(
+		context: IContextType,
+		host: string,
+	): any[] | null {
+		try {
+			// Trigger periodic cleanup
+			this.maybeRunCleanup(context);
+
+			const staticData = context.getWorkflowStaticData('node') as IDataObject;
+			const cacheKey = `services_${host.replace(/[^a-zA-Z0-9]/g, '_')}`;
+			const cached = staticData[cacheKey] as any;
+
+			if (cached) {
+				// Check if expired
+				if (cached.expires > Date.now()) {
+					return cached.services;
+				}
+				// Immediately remove expired entry
+				delete staticData[cacheKey];
+			}
+
+			// Service catalog expired or doesn't exist
+			return null;
+		} catch {
+			// WorkflowStaticData not available in all contexts
+			return null;
+		}
+	}
+
+	/**
+	 * Set service catalog in cache
+	 */
+	static setServiceCatalog(
+		context: IContextType,
+		host: string,
+		services: any[],
+	): void {
+		try {
+			const staticData = context.getWorkflowStaticData('node') as IDataObject;
+			const cacheKey = `services_${host.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+			staticData[cacheKey] = {
+				services,
+				expires: Date.now() + METADATA_CACHE_TTL, // Use same TTL as metadata (5 min)
+			};
+		} catch {
+			// Silently fail if WorkflowStaticData not available
+		}
+	}
+
+	/**
 	 * Clear all cache entries for this workflow
 	 */
 	static clearAllCache(context: IContextType): void {
@@ -190,9 +243,9 @@ export class CacheManager {
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const keys = Object.keys(staticData);
 
-			// Remove all csrf_ and metadata_ cache entries
+			// Remove all csrf_, metadata_, and services_ cache entries
 			keys.forEach((key) => {
-				if (key.startsWith('csrf_') || key.startsWith('metadata_')) {
+				if (key.startsWith('csrf_') || key.startsWith('metadata_') || key.startsWith('services_')) {
 					delete staticData[key];
 				}
 			});
@@ -211,7 +264,7 @@ export class CacheManager {
 
 			// Find and remove expired entries
 			Object.keys(staticData).forEach((key) => {
-				if (key.startsWith('csrf_') || key.startsWith('metadata_')) {
+				if (key.startsWith('csrf_') || key.startsWith('metadata_') || key.startsWith('services_')) {
 					const entry = staticData[key] as ICsrfTokenCacheEntry | IMetadataCacheEntry;
 					if (entry && entry.expires < now) {
 						delete staticData[key];

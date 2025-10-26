@@ -1,4 +1,4 @@
-import { FunctionImportStrategy } from '../../nodes/Sap/strategies/FunctionImportStrategy';
+import { FunctionImportStrategy } from '../../nodes/Shared/strategies/FunctionImportStrategy';
 import { IExecuteFunctions } from 'n8n-workflow';
 import * as GenericFunctions from '../../nodes/Sap/GenericFunctions';
 

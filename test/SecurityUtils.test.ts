@@ -9,7 +9,7 @@ import {
 	sanitizeHeaderValue,
 	validateEntitySetName,
 	validateFunctionName,
-} from '../nodes/Sap/SecurityUtils';
+} from '../nodes/Shared/utils/SecurityUtils';
 
 describe('SecurityUtils', () => {
 	const mockNode = {

@@ -9,7 +9,7 @@ import {
 	normalizeODataOptions,
 	parseMetadataForEntitySets,
 	parseMetadataForFunctionImports,
-} from '../../nodes/Sap/core/QueryBuilder';
+} from '../../nodes/Shared/core/QueryBuilder';
 
 describe('QueryBuilder', () => {
 	describe('escapeODataString', () => {

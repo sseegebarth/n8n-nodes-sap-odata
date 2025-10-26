@@ -1,4 +1,4 @@
-import { DeleteEntityStrategy } from '../../nodes/Sap/strategies/DeleteEntityStrategy';
+import { DeleteEntityStrategy } from '../../nodes/Shared/strategies/DeleteEntityStrategy';
 import { IExecuteFunctions } from 'n8n-workflow';
 import * as GenericFunctions from '../../nodes/Sap/GenericFunctions';
 

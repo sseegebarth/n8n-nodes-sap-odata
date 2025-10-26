@@ -1,41 +1,36 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
 import { CrudStrategy } from './base/CrudStrategy';
-import { sapOdataApiRequest } from '../GenericFunctions';
+import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
 
 /**
- * Strategy for getting a single entity by key
+ * Strategy for creating a new entity
  * Uses enhanced CrudStrategy base class for common validation and error handling
  */
-export class GetEntityStrategy extends CrudStrategy implements IOperationStrategy {
+export class CreateEntityStrategy extends CrudStrategy implements IOperationStrategy {
 	async execute(
 		context: IExecuteFunctions,
 		itemIndex: number,
 	): Promise<INodeExecutionData[]> {
 		
 			const entitySet = this.getEntitySet(context, itemIndex);
-			const entityKey = context.getNodeParameter('entityKey', itemIndex) as string;
+			const dataString = context.getNodeParameter('data', itemIndex) as string;
 
-			// Validate and format the entity key
-			const formattedKey = this.validateAndFormatKey(entityKey, context.getNode());
-
-			// Get query options
-			const query = this.getQueryOptions(context, itemIndex);
+			// Validate and parse JSON input using base class method
+			const data = this.validateAndParseJson(dataString, 'Data', context.getNode());
 
 			// Log operation for debugging
-			this.logOperation('GET', {
+			this.logOperation('CREATE', {
 				entitySet,
-				entityKey: formattedKey,
 				itemIndex,
 			});
 
 			// Make API request
 			const response = await sapOdataApiRequest.call(
 				context,
-				'GET',
-				this.buildResourcePath(entitySet, formattedKey),
-				{},
-				query,
+				'POST',
+				this.buildResourcePath(entitySet),
+				data,
 			);
 
 			// Extract result and apply type conversion

@@ -1,4 +1,4 @@
-import { GetAllEntitiesStrategy } from '../../nodes/Sap/strategies/GetAllEntitiesStrategy';
+import { GetAllEntitiesStrategy } from '../../nodes/Shared/strategies/GetAllEntitiesStrategy';
 import { IExecuteFunctions } from 'n8n-workflow';
 import * as GenericFunctions from '../../nodes/Sap/GenericFunctions';
 

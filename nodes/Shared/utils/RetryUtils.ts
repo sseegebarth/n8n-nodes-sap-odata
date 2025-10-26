@@ -4,7 +4,7 @@ import {
 	INITIAL_RETRY_DELAY,
 	MAX_RETRY_DELAY,
 	RETRY_STATUS_CODES,
-} from './constants';
+} from '../constants';
 import { Logger } from './Logger';
 
 /**

@@ -4,17 +4,37 @@
  */
 
 import { IExecuteFunctions, INode, IDataObject, INodeExecutionData } from 'n8n-workflow';
-import { validateEntityKey, validateEntitySetName, validateJsonInput, sanitizeErrorMessage } from '../../SecurityUtils';
+import { validateEntityKey, validateEntitySetName, validateJsonInput, sanitizeErrorMessage } from '../../utils/SecurityUtils';
 import { IODataQueryOptions } from '../../types';
 import { buildODataQuery } from '../../core/QueryBuilder';
-import { Logger } from '../../Logger';
-import { convertDataTypes } from '../../TypeConverter';
+import { Logger } from '../../utils/Logger';
+import { convertDataTypes } from '../../utils/TypeConverter';
 
 /**
  * Base class for CRUD operation strategies
  * Extends BaseEntityStrategy with additional error handling and validation
  */
 export abstract class CrudStrategy {
+	/**
+	 * Get service path from node parameters
+	 * Supports both list mode and custom mode
+	 *
+	 * @param context - Execution context
+	 * @param itemIndex - Current item index
+	 * @returns Service path
+	 */
+	protected getServicePath(context: IExecuteFunctions, itemIndex: number): string {
+		const mode = context.getNodeParameter('servicePathMode', itemIndex, 'custom') as string;
+
+		if (mode === 'list') {
+			// Get from dropdown list
+			return context.getNodeParameter('servicePathFromList', itemIndex, '/sap/opu/odata/sap/') as string;
+		} else {
+			// Get custom path
+			return context.getNodeParameter('servicePath', itemIndex, '/sap/opu/odata/sap/') as string;
+		}
+	}
+
 	/**
 	 * Get entity set name from node parameters with validation
 	 * Supports both list mode and custom mode

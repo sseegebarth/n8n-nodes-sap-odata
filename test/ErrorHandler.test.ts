@@ -1,6 +1,6 @@
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
-import { ODataErrorHandler } from '../nodes/Sap/ErrorHandler';
-import { ERROR_MESSAGES } from '../nodes/Sap/constants';
+import { ODataErrorHandler } from '../nodes/Shared/utils/ErrorHandler';
+import { ERROR_MESSAGES } from '../nodes/Shared/constants';
 
 describe('ODataErrorHandler', () => {
 	const mockNode = {

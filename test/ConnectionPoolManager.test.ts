@@ -1,4 +1,4 @@
-import { ConnectionPoolManager } from '../nodes/Sap/ConnectionPoolManager';
+import { ConnectionPoolManager } from '../nodes/Shared/utils/ConnectionPoolManager';
 import { Agent as HttpAgent } from 'http';
 import { Agent as HttpsAgent } from 'https';
 

@@ -1,5 +1,5 @@
 import { NodeApiError } from 'n8n-workflow';
-import { withRetry } from '../nodes/Sap/RetryUtils';
+import { withRetry } from '../nodes/Shared/utils/RetryUtils';
 
 describe('RetryUtils', () => {
 	let consoleLogSpy: jest.SpyInstance;

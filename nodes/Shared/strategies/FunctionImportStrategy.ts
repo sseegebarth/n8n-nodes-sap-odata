@@ -1,8 +1,8 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { IOperationStrategy } from './IOperationStrategy';
 import { CrudStrategy } from './base/CrudStrategy';
-import { validateFunctionName } from '../SecurityUtils';
-import { sapOdataApiRequest, formatSapODataValue } from '../GenericFunctions';
+import { validateFunctionName } from '../utils/SecurityUtils';
+import { sapOdataApiRequest, formatSapODataValue } from '../../Sap/GenericFunctions';
 
 /**
  * Strategy for executing function imports

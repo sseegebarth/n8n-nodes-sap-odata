@@ -8,8 +8,8 @@ import {
 	parsePoolConfig,
 	parseStatusCodes,
 	IRequestConfig,
-} from '../../nodes/Sap/core/RequestBuilder';
-import { ISapOdataCredentials } from '../../nodes/Sap/types';
+} from '../../nodes/Shared/core/RequestBuilder';
+import { ISapOdataCredentials } from '../../nodes/Shared/types';
 
 describe('RequestBuilder', () => {
 	const mockNode = {
@@ -21,7 +21,6 @@ describe('RequestBuilder', () => {
 
 	const mockCredentials: ISapOdataCredentials = {
 		host: 'https://api.example.com',
-		servicePath: '/sap/opu/odata/sap/API_TEST',
 		authentication: 'basicAuth',
 		username: 'testuser',
 		password: 'testpass',

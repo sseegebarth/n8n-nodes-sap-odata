@@ -1,4 +1,4 @@
-import { CreateEntityStrategy } from '../../nodes/Sap/strategies/CreateEntityStrategy';
+import { CreateEntityStrategy } from '../../nodes/Shared/strategies/CreateEntityStrategy';
 import { IExecuteFunctions } from 'n8n-workflow';
 
 describe('CreateEntityStrategy', () => {

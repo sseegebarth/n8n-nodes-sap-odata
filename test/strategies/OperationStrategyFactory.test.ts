@@ -1,10 +1,10 @@
-import { OperationStrategyFactory } from '../../nodes/Sap/strategies/OperationStrategyFactory';
-import { CreateEntityStrategy } from '../../nodes/Sap/strategies/CreateEntityStrategy';
-import { GetEntityStrategy } from '../../nodes/Sap/strategies/GetEntityStrategy';
-import { GetAllEntitiesStrategy } from '../../nodes/Sap/strategies/GetAllEntitiesStrategy';
-import { UpdateEntityStrategy } from '../../nodes/Sap/strategies/UpdateEntityStrategy';
-import { DeleteEntityStrategy } from '../../nodes/Sap/strategies/DeleteEntityStrategy';
-import { FunctionImportStrategy } from '../../nodes/Sap/strategies/FunctionImportStrategy';
+import { OperationStrategyFactory } from '../../nodes/Shared/strategies/OperationStrategyFactory';
+import { CreateEntityStrategy } from '../../nodes/Shared/strategies/CreateEntityStrategy';
+import { GetEntityStrategy } from '../../nodes/Shared/strategies/GetEntityStrategy';
+import { GetAllEntitiesStrategy } from '../../nodes/Shared/strategies/GetAllEntitiesStrategy';
+import { UpdateEntityStrategy } from '../../nodes/Shared/strategies/UpdateEntityStrategy';
+import { DeleteEntityStrategy } from '../../nodes/Shared/strategies/DeleteEntityStrategy';
+import { FunctionImportStrategy } from '../../nodes/Shared/strategies/FunctionImportStrategy';
 
 describe('OperationStrategyFactory', () => {
 	describe('getEntityStrategy', () => {
