@@ -12,7 +12,7 @@ export class UpdateEntityStrategy extends CrudStrategy implements IOperationStra
 		context: IExecuteFunctions,
 		itemIndex: number,
 	): Promise<INodeExecutionData[]> {
-		
+
 			const entitySet = this.getEntitySet(context, itemIndex);
 			const entityKey = context.getNodeParameter('entityKey', itemIndex) as string;
 			const dataString = context.getNodeParameter('data', itemIndex) as string;
@@ -23,12 +23,32 @@ export class UpdateEntityStrategy extends CrudStrategy implements IOperationStra
 			// Validate and parse JSON input using base class method
 			const data = this.validateAndParseJson(dataString, 'Data', context.getNode());
 
+			// Get options for ETag handling
+			const options = context.getNodeParameter('options', itemIndex, {}) as any;
+			const etag = options.etag as string | undefined;
+
 			// Log operation for debugging
 			this.logOperation('UPDATE', {
 				entitySet,
 				entityKey: formattedKey,
+				hasETag: !!etag,
 				itemIndex,
 			});
+
+			// Build request options with If-Match header for optimistic locking
+			const requestOptions: any = {};
+			if (etag) {
+				// Use provided ETag for optimistic locking
+				requestOptions.headers = {
+					'If-Match': etag,
+				};
+			} else {
+				// Default to '*' to bypass optimistic locking (always update)
+				// This prevents 412 Precondition Failed errors when ETag is not available
+				requestOptions.headers = {
+					'If-Match': '*',
+				};
+			}
 
 			// Make API request (PATCH for partial update)
 			const response = await sapOdataApiRequest.call(
@@ -36,6 +56,9 @@ export class UpdateEntityStrategy extends CrudStrategy implements IOperationStra
 				'PATCH',
 				this.buildResourcePath(entitySet, formattedKey),
 				data,
+				{},
+				undefined,
+				requestOptions,
 			);
 
 			// Extract result and apply type conversion

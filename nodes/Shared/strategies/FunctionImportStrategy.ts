@@ -13,7 +13,7 @@ export class FunctionImportStrategy extends CrudStrategy implements IOperationSt
 		context: IExecuteFunctions,
 		itemIndex: number,
 	): Promise<INodeExecutionData[]> {
-		
+
 			// Get function name (supports both list and custom mode)
 			const mode = context.getNodeParameter('functionNameMode', itemIndex, 'list') as string;
 			let functionName = mode === 'custom'
@@ -35,37 +35,46 @@ export class FunctionImportStrategy extends CrudStrategy implements IOperationSt
 
 			const urlFormat = context.getNodeParameter('functionUrlFormat', itemIndex, 'canonical') as string;
 
-			// Build URL based on format preference
+			// Build URL and body based on HTTP method
+			// POST/PATCH/PUT should use JSON body, GET should use URL parameters
 			let url: string;
-			if (urlFormat === 'canonical') {
-				// Canonical OData format: /FunctionName(param1='value1',param2='value2')
-				// Uses formatSapODataValue for proper type handling
-				const paramParts: string[] = [];
-				for (const [key, value] of Object.entries(parameters)) {
-					const formattedValue = formatSapODataValue(value);
-					paramParts.push(`${key}=${formattedValue}`);
+			let body: any = {};
+
+			if (httpMethod === 'GET') {
+				// GET: Parameters in URL (canonical or query string format)
+				if (urlFormat === 'canonical') {
+					// Canonical OData format: /FunctionName(param1='value1',param2='value2')
+					const paramParts: string[] = [];
+					for (const [key, value] of Object.entries(parameters)) {
+						const formattedValue = formatSapODataValue(value);
+						paramParts.push(`${key}=${formattedValue}`);
+					}
+					url = paramParts.length > 0
+						? `/${functionName}(${paramParts.join(',')})`
+						: `/${functionName}()`;
+				} else {
+					// Query string format: /FunctionName?param1='value1'&param2='value2'
+					const queryParts: string[] = [];
+					for (const [key, value] of Object.entries(parameters)) {
+						const formattedValue = formatSapODataValue(value);
+						queryParts.push(`${key}=${formattedValue}`);
+					}
+					url = queryParts.length > 0
+						? `/${functionName}?${queryParts.join('&')}`
+						: `/${functionName}`;
 				}
-				url = paramParts.length > 0
-					? `/${functionName}(${paramParts.join(',')})`
-					: `/${functionName}()`;
 			} else {
-				// Query string format: /FunctionName?param1='value1'&param2='value2'
-				// Uses formatSapODataValue for proper type handling
-				const queryParts: string[] = [];
-				for (const [key, value] of Object.entries(parameters)) {
-					const formattedValue = formatSapODataValue(value);
-					queryParts.push(`${key}=${formattedValue}`);
-				}
-				url = queryParts.length > 0
-					? `/${functionName}?${queryParts.join('&')}`
-					: `/${functionName}`;
+				// POST/PATCH/PUT: Parameters in JSON body, clean URL
+				// This prevents 414 URI Too Long errors and follows SAP Gateway best practices
+				url = `/${functionName}`;
+				body = parameters;
 			}
 
 			// Log operation for debugging
 			this.logOperation('FUNCTION_IMPORT', {
 				functionName,
 				httpMethod,
-				urlFormat,
+				urlFormat: httpMethod === 'GET' ? urlFormat : 'json-body',
 				parametersCount: Object.keys(parameters).length,
 				itemIndex,
 			});
@@ -75,6 +84,7 @@ export class FunctionImportStrategy extends CrudStrategy implements IOperationSt
 				context,
 				httpMethod,
 				url,
+				body,
 			);
 
 			// Extract result and apply type conversion

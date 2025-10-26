@@ -193,10 +193,10 @@ export function parseMetadataForFunctionImports(metadataXml: string): string[] {
 
 /**
  * Format a value for SAP OData based on its type
- * Handles special SAP types: datetime, GUID, decimal, and string escaping
+ * Handles special SAP types: datetime, GUID, decimal, date, datetimeoffset, time, and string escaping
  *
  * @param value - The value to format
- * @param typeHint - Optional type hint ('datetime', 'guid', 'decimal', 'string', 'number', 'boolean')
+ * @param typeHint - Optional type hint (Edm.DateTime, Edm.Guid, Edm.Decimal, Edm.Date, Edm.DateTimeOffset, Edm.TimeOfDay, etc.)
  * @returns Formatted string ready for OData URL or filter
  */
 export function formatSapODataValue(value: any, typeHint?: string): string {
@@ -205,8 +205,11 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 		return 'null';
 	}
 
+	// Normalize type hint (support both 'datetime' and 'Edm.DateTime')
+	const normalizedType = typeHint?.toLowerCase().replace('edm.', '');
+
 	// Auto-detect type from value if no hint provided
-	let detectedType = typeHint;
+	let detectedType = normalizedType;
 	if (!detectedType) {
 		if (typeof value === 'boolean') {
 			detectedType = 'boolean';
@@ -217,9 +220,21 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 			if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
 				detectedType = 'guid';
 			}
+			// Try to detect ISO datetime with timezone (DateTimeOffset)
+			else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/.test(value)) {
+				detectedType = 'datetimeoffset';
+			}
 			// Try to detect ISO datetime pattern
 			else if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
 				detectedType = 'datetime';
+			}
+			// Try to detect date-only pattern
+			else if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+				detectedType = 'date';
+			}
+			// Try to detect time-only pattern
+			else if (/^\d{2}:\d{2}:\d{2}/.test(value)) {
+				detectedType = 'timeofday';
 			}
 			// Default to string
 			else {
@@ -231,11 +246,46 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 	// Format based on type
 	switch (detectedType) {
 		case 'datetime':
-			// SAP OData format: datetime'2024-01-15T10:30:00'
+			// SAP OData V2 format: datetime'2024-01-15T10:30:00'
 			// Remove timezone info if present, SAP expects local time
 			const dateStr = typeof value === 'string' ? value : new Date(value).toISOString();
-			const cleanDate = dateStr.replace(/\.\d{3}Z$/, '').replace(/Z$/, '');
+			const cleanDate = dateStr.replace(/\.\d{3}Z$/, '').replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
 			return `datetime'${cleanDate}'`;
+
+		case 'datetimeoffset':
+			// SAP OData V4 format: 2024-01-15T10:30:00+01:00 or 2024-01-15T10:30:00Z
+			// Keep timezone info for DateTimeOffset
+			const offsetStr = typeof value === 'string' ? value : new Date(value).toISOString();
+			return `${offsetStr}`;
+
+		case 'date':
+			// SAP OData V4 format: 2024-01-15 (date only, no time)
+			let dateOnlyStr: string;
+			if (typeof value === 'string') {
+				dateOnlyStr = value;
+			} else {
+				const d = new Date(value);
+				dateOnlyStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+			}
+			return `${dateOnlyStr}`;
+
+		case 'timeofday':
+		case 'time':
+			// SAP OData V4 format: 10:30:00 or 10:30:00.123
+			// Extract time portion if full datetime provided
+			let timeStr: string;
+			if (typeof value === 'string') {
+				// If it's a full ISO datetime, extract time part
+				if (value.includes('T')) {
+					timeStr = value.split('T')[1].split(/[+-Z]/)[0];
+				} else {
+					timeStr = value;
+				}
+			} else {
+				const d = new Date(value);
+				timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+			}
+			return `${timeStr}`;
 
 		case 'guid':
 			// SAP OData format: guid'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
@@ -244,6 +294,12 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 
 		case 'decimal':
 			// SAP OData format: 12.34M or 12.34m
+			// Support decimal scale if provided as object: { value: 12.34, scale: 2 }
+			if (typeof value === 'object' && 'value' in value) {
+				const decimalValue = value.value;
+				const scale = value.scale || 2;
+				return `${Number(decimalValue).toFixed(scale)}M`;
+			}
 			return `${value}M`;
 
 		case 'boolean':
@@ -251,6 +307,12 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 			return String(value).toLowerCase();
 
 		case 'number':
+		case 'int16':
+		case 'int32':
+		case 'int64':
+		case 'single':
+		case 'double':
+		case 'byte':
 			// Numbers: as-is
 			return String(value);
 

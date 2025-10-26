@@ -12,25 +12,49 @@ export class DeleteEntityStrategy extends CrudStrategy implements IOperationStra
 		context: IExecuteFunctions,
 		itemIndex: number,
 	): Promise<INodeExecutionData[]> {
-		
+
 			const entitySet = this.getEntitySet(context, itemIndex);
 			const entityKey = context.getNodeParameter('entityKey', itemIndex) as string;
 
 			// Validate and format the entity key
 			const formattedKey = this.validateAndFormatKey(entityKey, context.getNode());
 
+			// Get options for ETag handling
+			const options = context.getNodeParameter('options', itemIndex, {}) as any;
+			const etag = options.etag as string | undefined;
+
 			// Log operation for debugging
 			this.logOperation('DELETE', {
 				entitySet,
 				entityKey: formattedKey,
+				hasETag: !!etag,
 				itemIndex,
 			});
+
+			// Build request options with If-Match header for optimistic locking
+			const requestOptions: any = {};
+			if (etag) {
+				// Use provided ETag for optimistic locking
+				requestOptions.headers = {
+					'If-Match': etag,
+				};
+			} else {
+				// Default to '*' to bypass optimistic locking (always delete)
+				// This prevents 412 Precondition Failed errors when ETag is not available
+				requestOptions.headers = {
+					'If-Match': '*',
+				};
+			}
 
 			// Make API request
 			await sapOdataApiRequest.call(
 				context,
 				'DELETE',
 				this.buildResourcePath(entitySet, formattedKey),
+				{},
+				{},
+				undefined,
+				requestOptions,
 			);
 
 			// DELETE typically returns empty response, return success
