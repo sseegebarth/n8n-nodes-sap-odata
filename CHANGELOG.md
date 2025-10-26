@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2024-10-26
+
+### Added
+- **🔔 SAP OData Webhook Trigger Node**: Real-time event notifications from SAP systems
+  - Webhook URL generation and management
+  - Multiple authentication methods (Header Auth, Query String, None)
+  - Event filtering by entity type and operation
+  - SAP date format parsing (/Date(...)/ → ISO 8601)
+  - Changed field extraction for update events
+  - IP whitelist support for security
+  - Custom response body configuration
+  - Payload format validation
+- **Webhook Documentation**: Comprehensive WEBHOOK_GUIDE.md with setup instructions, ABAP examples, and testing guide
+
+### Benefits of Webhook Integration
+- ⚡ Near-instant notifications (< 1 second latency vs. 1-5 minute polling)
+- 📉 Reduced SAP system load (no continuous polling)
+- 💰 Lower n8n resource usage (event-driven architecture)
+- 🎯 Guaranteed event delivery (push-based)
+
+## [1.3.1] - 2024-10-26
+
 ### Added
 - **Enhanced Connection Testing**: Improved credential test validates SAP Gateway Catalog Service with proper SAP headers (sap-client, sap-language)
 - **Code Architecture**: Refactored to shared module structure in preparation for v2.0
