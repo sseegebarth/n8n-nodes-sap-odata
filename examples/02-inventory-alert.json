@@ -1,0 +1,128 @@
+{
+  "name": "SAP Inventory Alert System",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "headerName": "X-SAP-Signature",
+        "headerValue": "your-secret-token-123",
+        "eventFilter": "entityType",
+        "entityType": "Material",
+        "options": {
+          "parseDates": true,
+          "extractChangedFields": true
+        }
+      },
+      "name": "SAP Material Webhook",
+      "type": "n8n-nodes-sap-odata.sapODataWebhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "{{ WEBHOOK_ID }}"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ parseFloat($json.event.data.Stock) }}",
+              "operation": "smaller",
+              "value2": 10
+            }
+          ]
+        }
+      },
+      "name": "Stock Below Threshold",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "to": "+1234567890",
+        "message": "⚠️ Low Stock Alert!\n\nMaterial: {{ $json.event.data.Material }}\nDescription: {{ $json.event.data.MaterialDescription }}\nCurrent Stock: {{ $json.event.data.Stock }}\nThreshold: 10\n\nAction required: Order replenishment"
+      },
+      "name": "SMS Alert",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [650, 200],
+      "credentials": {
+        "twilioApi": {
+          "id": "1",
+          "name": "Twilio API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "project": "WAREHOUSE",
+        "issueType": "Task",
+        "summary": "Replenish Stock: {{ $json.event.data.Material }}",
+        "description": "Material {{ $json.event.data.Material }} ({{ $json.event.data.MaterialDescription }}) stock has fallen below threshold.\n\nCurrent Stock: {{ $json.event.data.Stock }}\nMin Threshold: 10\nSuggested Order: {{ $json.event.data.ReorderQuantity }}\n\nPlease process replenishment order.",
+        "priority": "High"
+      },
+      "name": "Create Jira Ticket",
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "jiraApi": {
+          "id": "1",
+          "name": "Jira API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO inventory_alerts (material, stock_level, threshold, alert_time) VALUES ('{{ $json.event.data.Material }}', {{ $json.event.data.Stock }}, 10, NOW())"
+      },
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [650, 400],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "SAP Material Webhook": {
+      "main": [
+        [
+          {
+            "node": "Stock Below Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock Below Threshold": {
+      "main": [
+        [
+          {
+            "node": "SMS Alert",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create Jira Ticket",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "{{ WORKFLOW_ID }}"
+}

@@ -1,0 +1,139 @@
+{
+  "name": "SAP Price Change Synchronization",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "headerName": "X-SAP-Signature",
+        "headerValue": "your-secret-token-123",
+        "eventFilter": "operation",
+        "operationType": ["update"],
+        "options": {
+          "parseDates": true,
+          "extractChangedFields": true
+        }
+      },
+      "name": "SAP Price Update Webhook",
+      "type": "n8n-nodes-sap-odata.sapODataWebhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "{{ WEBHOOK_ID }}"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.event.changedFields.Price }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Price Changed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO price_history (material_id, old_price, new_price, changed_at, changed_by) VALUES ('{{ $json.event.data.Material }}', {{ $json.event.changedFields.Price.old }}, {{ $json.event.changedFields.Price.new }}, NOW(), 'SAP_WEBHOOK')"
+      },
+      "name": "Log Price History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [650, 200],
+      "credentials": {
+        "postgres": {
+          "id": "1",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "https://ecommerce.example.com/api/products/{{ $json.event.data.Material }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "price",
+              "value": "={{ $json.event.changedFields.Price.new }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.event.data.Currency }}"
+            }
+          ]
+        }
+      },
+      "name": "Update E-commerce Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "E-commerce API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#pricing",
+        "text": "💰 Price Change Alert\n\n*Material:* {{ $json.event.data.Material }}\n*Description:* {{ $json.event.data.MaterialDescription }}\n*Old Price:* {{ $json.event.changedFields.Price.old }} {{ $json.event.data.Currency }}\n*New Price:* {{ $json.event.changedFields.Price.new }} {{ $json.event.data.Currency }}\n*Change:* {{ ((parseFloat($json.event.changedFields.Price.new) - parseFloat($json.event.changedFields.Price.old)) / parseFloat($json.event.changedFields.Price.old) * 100).toFixed(2) }}%"
+      },
+      "name": "Notify Pricing Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [650, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "1",
+          "name": "Slack API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "SAP Price Update Webhook": {
+      "main": [
+        [
+          {
+            "node": "Price Changed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Price Changed": {
+      "main": [
+        [
+          {
+            "node": "Log Price History",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update E-commerce Price",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Pricing Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "{{ WORKFLOW_ID }}"
+}

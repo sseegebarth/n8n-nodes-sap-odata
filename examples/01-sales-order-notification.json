@@ -1,0 +1,101 @@
+{
+  "name": "SAP Sales Order Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "headerName": "X-SAP-Signature",
+        "headerValue": "your-secret-token-123",
+        "eventFilter": "entityType",
+        "entityType": "SalesOrder",
+        "options": {
+          "parseDates": true,
+          "validatePayload": true
+        }
+      },
+      "name": "SAP OData Webhook",
+      "type": "n8n-nodes-sap-odata.sapODataWebhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "{{ WEBHOOK_ID }}"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.event.operation }}",
+              "operation": "equals",
+              "value2": "create"
+            }
+          ]
+        }
+      },
+      "name": "Only New Orders",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#sales",
+        "text": "🎉 New Sales Order Created!\n\n*Order Number:* {{ $json.event.data.SalesOrder }}\n*Customer:* {{ $json.event.data.SoldToParty }}\n*Amount:* {{ $json.event.data.NetAmount }} {{ $json.event.data.Currency }}\n\n<https://sap.example.com/orders/{{ $json.event.entityKey }}|View in SAP>",
+        "attachments": []
+      },
+      "name": "Notify Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [650, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "1",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@example.com",
+        "toEmail": "={{ $json.event.data.CustomerEmail }}",
+        "subject": "Order Confirmation - {{ $json.event.data.SalesOrder }}",
+        "text": "Dear Customer,\n\nYour order {{ $json.event.data.SalesOrder }} has been received.\n\nOrder Details:\n- Order Number: {{ $json.event.data.SalesOrder }}\n- Amount: {{ $json.event.data.NetAmount }} {{ $json.event.data.Currency }}\n- Status: Processing\n\nThank you for your business!\n\nBest regards,\nYour Sales Team"
+      },
+      "name": "Email Customer",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [650, 400]
+    }
+  ],
+  "connections": {
+    "SAP OData Webhook": {
+      "main": [
+        [
+          {
+            "node": "Only New Orders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only New Orders": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Customer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {},
+  "id": "{{ WORKFLOW_ID }}"
+}
