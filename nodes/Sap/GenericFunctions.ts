@@ -84,7 +84,7 @@ export async function getCsrfToken(
 ): Promise<string> {
 	// Try to get token from cache first
 	const { CacheManager } = await import('../Shared/utils/CacheManager');
-	const cachedToken = CacheManager.getCsrfToken(this, host, servicePath);
+	const cachedToken = await CacheManager.getCsrfToken(this, host, servicePath);
 	if (cachedToken) {
 		return cachedToken;
 	}
@@ -104,7 +104,7 @@ export async function getCsrfToken(
 
 		// Cache the token for future requests
 		if (token) {
-			CacheManager.setCsrfToken(this, host, servicePath, token);
+			await CacheManager.setCsrfToken(this, host, servicePath, token);
 		}
 
 		return token;

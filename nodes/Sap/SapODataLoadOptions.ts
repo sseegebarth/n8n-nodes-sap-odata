@@ -21,7 +21,7 @@ export const sapODataLoadOptions = {
 			const credentials = await this.getCredentials('sapOdataApi');
 
 			// Try to get from cache first
-			const cached = CacheManager.getServiceCatalog(this, credentials.host as string);
+			const cached = await CacheManager.getServiceCatalog(this, credentials.host as string);
 
 			if (cached && cached.length > 0) {
 				return cached.map((service) => ({
@@ -36,7 +36,7 @@ export const sapODataLoadOptions = {
 
 			if (discoveredServices && discoveredServices.length > 0) {
 				// Cache the discovered services
-				CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
+				await CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
 
 				return discoveredServices.map((service) => ({
 					name: `${service.title} (${service.technicalName})`,
@@ -91,7 +91,7 @@ export const sapODataLoadOptions = {
 			const category = this.getCurrentNodeParameter('serviceCategory') as string || 'all';
 
 			// Try to get from cache first
-			const cached = CacheManager.getServiceCatalog(this, credentials.host as string);
+			const cached = await CacheManager.getServiceCatalog(this, credentials.host as string);
 			let services = cached && cached.length > 0 ? cached : null;
 
 			// If not cached, try to discover
@@ -100,7 +100,7 @@ export const sapODataLoadOptions = {
 
 				if (discoveredServices && discoveredServices.length > 0) {
 					// Cache the discovered services
-					CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
+					await CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
 					services = discoveredServices;
 				}
 			}
@@ -174,7 +174,7 @@ export const sapODataLoadOptions = {
 			const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
 
 			// Try to get from cache first
-			const cached = CacheManager.getMetadata(
+			const cached = await CacheManager.getMetadata(
 				this,
 				credentials.host as string,
 				servicePath,
@@ -197,7 +197,7 @@ export const sapODataLoadOptions = {
 			);
 
 			// Cache the metadata
-			CacheManager.setMetadata(
+			await CacheManager.setMetadata(
 				this,
 				credentials.host as string,
 				servicePath,
@@ -233,7 +233,7 @@ export const sapODataLoadOptions = {
 			const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
 
 			// Try to get from cache first
-			const cached = CacheManager.getMetadata(
+			const cached = await CacheManager.getMetadata(
 				this,
 				credentials.host as string,
 				servicePath,
@@ -256,7 +256,7 @@ export const sapODataLoadOptions = {
 			);
 
 			// Cache the metadata
-			CacheManager.setMetadata(
+			await CacheManager.setMetadata(
 				this,
 				credentials.host as string,
 				servicePath,
