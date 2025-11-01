@@ -37,20 +37,30 @@
     "n8nNodesApiVersion": 1,
     "credentials": [
       "dist/credentials/SapOdataApi.credentials.js",
-      "dist/credentials/SapOdataWebhookApi.credentials.js"
+      "dist/credentials/SapOdataWebhookApi.credentials.js",
+      "dist/credentials/SapIdocApi.credentials.js",
+      "dist/credentials/SapIdocWebhookApi.credentials.js",
+      "dist/credentials/SapRfcApi.credentials.js"
     ],
     "nodes": [
       "dist/nodes/Sap/SapOData.node.js",
-      "dist/nodes/SapWebhook/SapODataWebhook.trigger.js"
+      "dist/nodes/SapAdvanced/SapAdvanced.node.js",
+      "dist/nodes/SapIdoc/SapIdoc.node.js",
+      "dist/nodes/SapIdocWebhook/SapIdocWebhook.node.js",
+      "dist/nodes/SapRfc/SapRfc.node.js",
+      "dist/nodes/SapWebhook/SapODataWebhook.node.js"
     ]
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^18.16.0",
     "@types/request-promise-native": "^1.0.18",
+    "@types/xml2js": "^0.4.14",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.0.0",
     "copyfiles": "^2.4.1",
     "eslint": "^8.0.0",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-n8n-nodes-base": "^1.11.0",
     "jest": "^29.5.0",
     "n8n-core": "^1.0.0",
@@ -61,8 +71,14 @@
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "n8n-workflow": "*",
-    "n8n-core": "*"
+    "n8n-core": "*",
+    "n8n-workflow": "*"
   },
-  "dependencies": {}
+  "dependencies": {
+    "xml2js": "^0.6.2",
+    "xmlbuilder2": "^3.1.1"
+  },
+  "optionalDependencies": {
+    "node-rfc": "^3.3.1"
+  }
 }

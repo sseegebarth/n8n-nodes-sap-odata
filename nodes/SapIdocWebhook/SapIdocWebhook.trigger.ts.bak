@@ -1,0 +1,373 @@
+import {
+	IHookFunctions,
+	IWebhookFunctions,
+	INodeType,
+	INodeTypeDescription,
+	IWebhookResponseData,
+} from 'n8n-workflow';
+import { parseIdocXml, buildSuccessResponse, buildErrorResponse } from './IdocWebhookFunctions';
+
+export class SapIdocWebhook implements INodeType {
+	description: INodeTypeDescription = {
+		displayName: 'SAP IDoc Webhook',
+		name: 'sapIdocWebhook',
+		icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8IS0tIEJhY2tncm91bmQgQ2lyY2xlIC0tPgogIDxjaXJjbGUgY3g9IjMwIiBjeT0iMzAiIHI9IjI4IiBmaWxsPSIjMEY2MkZFIiBvcGFjaXR5PSIwLjEiLz4KICAKICA8IS0tIE1haW4gSWNvbjogQ29ubmVjdGVkIE1vZHVsZXMgcmVwcmVzZW50aW5nIFNBUCBJbnRlZ3JhdGlvbiAtLT4KICAKICA8IS0tIENlbnRlciBIdWIgKE1haW4gU0FQIFN5c3RlbSkgLS0+CiAgPHJlY3QgeD0iMjIiIHk9IjIyIiB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHJ4PSIyIiBmaWxsPSIjMEY2MkZFIiBzdHJva2U9IiMwRjYyRkUiIHN0cm9rZS13aWR0aD0iMS41Ii8+CiAgPHJlY3QgeD0iMjQiIHk9IjI0IiB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHJ4PSIxIiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC4zIi8+CiAgCiAgPCEtLSBUb3AgTW9kdWxlIC0tPgogIDxyZWN0IHg9IjI2IiB5PSI2IiB3aWR0aD0iOCIgaGVpZ2h0PSI4IiByeD0iMS41IiBmaWxsPSIjMEY2MkZFIiBvcGFjaXR5PSIwLjgiLz4KICA8bGluZSB4MT0iMzAiIHkxPSIxNCIgeDI9IjMwIiB5Mj0iMjIiIHN0cm9rZT0iIzBGNjJGRSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICAKICA8IS0tIFJpZ2h0IE1vZHVsZSAtLT4KICA8cmVjdCB4PSI0NiIgeT0iMjYiIHdpZHRoPSI4IiBoZWlnaHQ9IjgiIHJ4PSIxLjUiIGZpbGw9IiMwRjYyRkUiIG9wYWNpdHk9IjAuOCIvPgogIDxsaW5lIHgxPSIzOCIgeTE9IjMwIiB4Mj0iNDYiIHkyPSIzMCIgc3Ryb2tlPSIjMEY2MkZFIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIAogIDwhLS0gQm90dG9tIE1vZHVsZSAtLT4KICA8cmVjdCB4PSIyNiIgeT0iNDYiIHdpZHRoPSI4IiBoZWlnaHQ9IjgiIHJ4PSIxLjUiIGZpbGw9IiMwRjYyRkUiIG9wYWNpdHk9IjAuOCIvPgogIDxsaW5lIHgxPSIzMCIgeTE9IjM4IiB4Mj0iMzAiIHkyPSI0NiIgc3Ryb2tlPSIjMEY2MkZFIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIAogIDwhLS0gTGVmdCBNb2R1bGUgLS0+CiAgPHJlY3QgeD0iNiIgeT0iMjYiIHdpZHRoPSI4IiBoZWlnaHQ9IjgiIHJ4PSIxLjUiIGZpbGw9IiMwRjYyRkUiIG9wYWNpdHk9IjAuOCIvPgogIDxsaW5lIHgxPSIxNCIgeTE9IjMwIiB4Mj0iMjIiIHkyPSIzMCIgc3Ryb2tlPSIjMEY2MkZFIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIAogIDwhLS0gQ29ubmVjdGlvbiBub2RlcyAoZG90cykgLS0+CiAgPGNpcmNsZSBjeD0iMzAiIGN5PSIyMiIgcj0iMiIgZmlsbD0iIzBGNjJGRSIvPgogIDxjaXJjbGUgY3g9IjM4IiBjeT0iMzAiIHI9IjIiIGZpbGw9IiMwRjYyRkUiLz4KICA8Y2lyY2xlIGN4PSIzMCIgY3k9IjM4IiByPSIyIiBmaWxsPSIjMEY2MkZFIi8+CiAgPGNpcmNsZSBjeD0iMjIiIGN5PSIzMCIgcj0iMiIgZmlsbD0iIzBGNjJGRSIvPgo8L3N2Zz4K',
+		group: ['trigger'],
+		version: 1,
+		subtitle: '={{$parameter["idocType"] || "All IDocs"}}',
+		description: 'Receive IDocs from SAP systems via webhook',
+		defaults: {
+			name: 'SAP IDoc Webhook',
+		},
+		inputs: [],
+		outputs: ['main'],
+		credentials: [
+			{
+				name: 'sapIdocWebhookApi',
+				required: false,
+				displayOptions: {
+					show: {
+						authentication: ['basicAuth'],
+					},
+				},
+			},
+		],
+		webhooks: [
+			{
+				name: 'default',
+				httpMethod: 'POST',
+				responseMode: 'onReceived',
+				path: 'webhook',
+			},
+		],
+		properties: [
+			{
+				displayName: 'Authentication',
+				name: 'authentication',
+				type: 'options',
+				options: [
+					{
+						name: 'None',
+						value: 'none',
+					},
+					{
+						name: 'Basic Auth',
+						value: 'basicAuth',
+					},
+				],
+				default: 'none',
+				description: 'Authentication method for incoming webhook requests',
+			},
+			{
+				displayName: 'Filter by IDoc Type',
+				name: 'filterIdocType',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to filter by specific IDoc type',
+			},
+			{
+				displayName: 'IDoc Type',
+				name: 'idocType',
+				type: 'options',
+				displayOptions: {
+					show: {
+						filterIdocType: [true],
+					},
+				},
+				options: [
+					{
+						name: 'DEBMAS (Customer Master)',
+						value: 'DEBMAS',
+					},
+					{
+						name: 'MATMAS (Material Master)',
+						value: 'MATMAS',
+					},
+					{
+						name: 'ORDERS (Sales/Purchase Order)',
+						value: 'ORDERS',
+					},
+					{
+						name: 'INVOIC (Invoice)',
+						value: 'INVOIC',
+					},
+					{
+						name: 'DESADV (Delivery Schedule)',
+						value: 'DESADV',
+					},
+					{
+						name: 'CREMAS (Vendor Master)',
+						value: 'CREMAS',
+					},
+					{
+						name: 'PORDCR (Purchase Order)',
+						value: 'PORDCR',
+					},
+					{
+						name: 'Custom',
+						value: 'custom',
+					},
+				],
+				default: 'DEBMAS',
+				description: 'Filter for specific IDoc type',
+			},
+			{
+				displayName: 'Custom IDoc Type',
+				name: 'customIdocType',
+				type: 'string',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						filterIdocType: [true],
+						idocType: ['custom'],
+					},
+				},
+				description: 'Enter the custom IDoc type name to filter',
+			},
+			{
+				displayName: 'Response Mode',
+				name: 'responseMode',
+				type: 'options',
+				options: [
+					{
+						name: 'Success Only',
+						value: 'success',
+						description: 'Always return success (200 OK)',
+					},
+					{
+						name: 'Auto-Detect',
+						value: 'auto',
+						description: 'Return success if workflow succeeds, error if it fails',
+					},
+					{
+						name: 'Custom Response',
+						value: 'custom',
+						description: 'Use custom response from workflow',
+					},
+				],
+				default: 'success',
+				description: 'How to respond to SAP after receiving IDoc',
+			},
+			{
+				displayName: 'Options',
+				name: 'options',
+				type: 'collection',
+				placeholder: 'Add Option',
+				default: {},
+				options: [
+					{
+						displayName: 'Parse to JSON',
+						name: 'parseToJson',
+						type: 'boolean',
+						default: true,
+						description:
+							'Whether to parse IDoc XML to structured JSON. If false, raw XML is passed through.',
+					},
+					{
+						displayName: 'Include Raw XML',
+						name: 'includeRawXml',
+						type: 'boolean',
+						default: false,
+						displayOptions: {
+							show: {
+								parseToJson: [true],
+							},
+						},
+						description: 'Whether to include raw XML alongside parsed JSON',
+					},
+					{
+						displayName: 'Validate IDoc Structure',
+						name: 'validateStructure',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to validate IDoc XML structure before processing',
+					},
+					{
+						displayName: 'Log Received IDocs',
+						name: 'logReceived',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to log received IDocs to n8n logger',
+					},
+					{
+						displayName: 'Extract Segments as Array',
+						name: 'extractSegmentsAsArray',
+						type: 'boolean',
+						default: true,
+						displayOptions: {
+							show: {
+								parseToJson: [true],
+							},
+						},
+						description: 'Whether to extract all segments as a flat array (easier to process)',
+					},
+				],
+			},
+		],
+	};
+
+	webhookMethods = {
+		default: {
+			async checkExists(this: IHookFunctions): Promise<boolean> {
+				// Webhook always exists when node is active
+				return true;
+			},
+			async create(this: IHookFunctions): Promise<boolean> {
+				// No special creation needed
+				return true;
+			},
+			async delete(this: IHookFunctions): Promise<boolean> {
+				// No special deletion needed
+				return true;
+			},
+		},
+	};
+
+	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
+		const options = this.getNodeParameter('options', {}) as any;
+		const authentication = this.getNodeParameter('authentication', 0) as string;
+		const filterIdocType = this.getNodeParameter('filterIdocType', 0) as boolean;
+		const responseMode = this.getNodeParameter('responseMode', 0) as string;
+
+		// Validate authentication if required
+		if (authentication === 'basicAuth') {
+			const credentials = await this.getCredentials('sapIdocWebhookApi');
+			const req = this.getRequestObject();
+			const authHeader = req.headers.authorization;
+
+			if (!authHeader || !authHeader.startsWith('Basic ')) {
+				return {
+					webhookResponse: buildErrorResponse('Authentication required'),
+					workflowData: [],
+				};
+			}
+
+			const base64Credentials = authHeader.substring(6);
+			const decodedCredentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+			const [username, password] = decodedCredentials.split(':');
+
+			if (
+				username !== credentials.username ||
+				password !== credentials.password
+			) {
+				return {
+					webhookResponse: buildErrorResponse('Invalid credentials'),
+					workflowData: [],
+				};
+			}
+		}
+
+		// Get request body
+		const bodyData = this.getBodyData();
+
+		let xmlData: string;
+
+		// Extract XML from body
+		if (typeof bodyData === 'string') {
+			xmlData = bodyData;
+		} else if (bodyData && typeof bodyData === 'object') {
+			// Handle different content types
+			if ('data' in bodyData) {
+				xmlData = bodyData.data as string;
+			} else {
+				xmlData = JSON.stringify(bodyData);
+			}
+		} else {
+			return {
+				webhookResponse: buildErrorResponse('Invalid request body'),
+				workflowData: [],
+			};
+		}
+
+		// Validate XML if requested
+		if (options.validateStructure !== false) {
+			if (!xmlData.includes('<IDOC') || !xmlData.includes('<EDI_DC40')) {
+				return {
+					webhookResponse: buildErrorResponse('Invalid IDoc XML structure'),
+					workflowData: [],
+				};
+			}
+		}
+
+		// Parse IDoc XML to JSON
+		let parsedData: any;
+		try {
+			if (options.parseToJson !== false) {
+				parsedData = await parseIdocXml(xmlData, {
+					extractSegmentsAsArray: options.extractSegmentsAsArray !== false,
+					includeRawXml: options.includeRawXml === true,
+				});
+			} else {
+				parsedData = {
+					rawXml: xmlData,
+					receivedAt: new Date().toISOString(),
+				};
+			}
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			return {
+				webhookResponse: buildErrorResponse(`Failed to parse IDoc: ${errorMessage}`),
+				workflowData: [],
+			};
+		}
+
+		// Filter by IDoc type if requested
+		if (filterIdocType) {
+			const expectedIdocType = this.getNodeParameter('idocType', 0) as string;
+			const actualIdocType =
+				expectedIdocType === 'custom'
+					? (this.getNodeParameter('customIdocType', 0) as string)
+					: expectedIdocType;
+
+			const receivedIdocType = parsedData.controlRecord?.IDOCTYP || parsedData.controlRecord?.MESTYP;
+
+			if (!receivedIdocType || !receivedIdocType.startsWith(actualIdocType)) {
+				// IDoc type doesn't match filter - return success but don't trigger workflow
+				if (options.logReceived) {
+					this.logger.info(`IDoc type ${receivedIdocType} filtered out (expected ${actualIdocType})`);
+				}
+				return {
+					webhookResponse: buildSuccessResponse(),
+					workflowData: [],
+				};
+			}
+		}
+
+		// Log received IDoc if requested
+		if (options.logReceived) {
+			this.logger.info('IDoc received', {
+				idocType: parsedData.controlRecord?.IDOCTYP,
+				mesType: parsedData.controlRecord?.MESTYP,
+				docNum: parsedData.controlRecord?.DOCNUM,
+				sender: parsedData.controlRecord?.SNDPRN,
+			});
+		}
+
+		// Prepare workflow data
+		const workflowData = [
+			[
+				{
+					json: parsedData,
+				},
+			],
+		];
+
+		// Build response based on response mode
+		let webhookResponse: any;
+		if (responseMode === 'success') {
+			webhookResponse = buildSuccessResponse();
+		} else if (responseMode === 'auto') {
+			// Will be updated by workflow if it fails
+			webhookResponse = buildSuccessResponse();
+		} else {
+			// Custom response mode - workflow will provide response
+			webhookResponse = undefined;
+		}
+
+		return {
+			webhookResponse,
+			workflowData,
+		};
+	}
+}

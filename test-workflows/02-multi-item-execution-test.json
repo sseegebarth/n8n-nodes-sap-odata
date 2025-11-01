@@ -1,0 +1,100 @@
+{
+  "name": "Test 2: Multi-Item Execution",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b81d6d73-cf2f-4f2c-983d-ec9fd7ff3ea3",
+      "name": "When clicking \"Test workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create multiple test items with different service paths\n// Tests that each item is processed with its own service path\n\nreturn [\n  {\n    json: {\n      servicePath: \"/sap/opu/odata/sap/API_SALES_ORDER_SRV\",\n      entitySet: \"SalesOrderSet\",\n      testName: \"Item 1 - Sales Orders\"\n    }\n  },\n  {\n    json: {\n      servicePath: \"/sap/opu/odata/sap/API_BUSINESS_PARTNER\",\n      entitySet: \"A_BusinessPartner\",\n      testName: \"Item 2 - Business Partners\"\n    }\n  }\n];"
+      },
+      "id": "c92e7e84-dg3g-5g3d-a94e-fd0ge8gg4fb4",
+      "name": "Create Test Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "servicePathMode": "custom",
+        "servicePath": "={{ $json.servicePath }}",
+        "resource": "entity",
+        "operation": "getAll",
+        "entitySetMode": "custom",
+        "entitySet": "={{ $json.entitySet }}",
+        "returnAll": false,
+        "limit": 1
+      },
+      "id": "da3f8f95-eh4h-6h4e-ba5f-ge1hf9hh5gc5",
+      "name": "SAP OData - Multi-Item",
+      "type": "n8n-nodes-sap-odata.sapOdata",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": {
+        "sapOdataApi": {
+          "id": "1",
+          "name": "SAP OData API"
+        }
+      },
+      "notes": "Uses expressions to process each item with its own service path"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verify that each item was processed correctly\nconst items = $input.all();\n\nreturn [\n  {\n    json: {\n      test: \"Multi-Item Execution\",\n      result: items.length === 2 ? \"✅ PASSED\" : \"❌ FAILED\",\n      itemsProcessed: items.length,\n      details: items.map((item, idx) => ({\n        itemIndex: idx,\n        testName: item.json._testName || `Item ${idx + 1}`,\n        hasData: !!item.json.d || !!item.json.value,\n        servicePath: item.json._servicePath || \"unknown\"\n      })),\n      explanation: \"Each item should be processed with its own service path - no cache mixing!\",\n      expectedBehavior: \"2 items processed, each with correct service path\"\n    }\n  }\n];"
+      },
+      "id": "eb4g9g06-fi5i-7i5f-cb6g-hf2ig0ii6hd6",
+      "name": "Verify Multi-Item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "When clicking \"Test workflow\"": {
+      "main": [
+        [
+          {
+            "node": "Create Test Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Items": {
+      "main": [
+        [
+          {
+            "node": "SAP OData - Multi-Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SAP OData - Multi-Item": {
+      "main": [
+        [
+          {
+            "node": "Verify Multi-Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-10-29T20:50:00.000Z",
+  "versionId": "1"
+}

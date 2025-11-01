@@ -22,6 +22,7 @@ describe('GetAllEntitiesStrategy', () => {
 				position: [0, 0],
 				parameters: {},
 			})),
+			continueOnFail: jest.fn(() => false),
 		};
 		sapOdataApiRequestSpy = jest.spyOn(GenericFunctions, 'sapOdataApiRequest');
 		sapOdataApiRequestAllItemsSpy = jest.spyOn(GenericFunctions, 'sapOdataApiRequestAllItems');
@@ -47,7 +48,8 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({}); // options (for batchSize check)
+				.mockReturnValueOnce({}) // options (for batchSize check)
+				.mockReturnValueOnce({}); // advancedOptions
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -84,6 +86,7 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce(false) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
 				.mockReturnValueOnce({}) // options (for batchSize check)
+				.mockReturnValueOnce({}) // advancedOptions
 				.mockReturnValueOnce(10); // limit
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
@@ -114,6 +117,7 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce(false) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
 				.mockReturnValueOnce({}) // options (for batchSize check)
+				.mockReturnValueOnce({}) // advancedOptions
 				.mockReturnValueOnce(10); // limit
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
@@ -138,7 +142,8 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce(queryOptions) // options (for getQueryOptions)
-				.mockReturnValueOnce(queryOptions); // options (for batchSize check)
+				.mockReturnValueOnce(queryOptions) // options (for batchSize check)
+				.mockReturnValueOnce({}); // advancedOptions
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -169,7 +174,8 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce(optionsWithBatch) // options (for getQueryOptions)
-				.mockReturnValueOnce(optionsWithBatch); // options (for batchSize check)
+				.mockReturnValueOnce(optionsWithBatch) // options (for batchSize check)
+				.mockReturnValueOnce({}); // advancedOptions
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -194,7 +200,8 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce('MyCustomEntitySet') // customEntitySet
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({}); // options (for batchSize check)
+				.mockReturnValueOnce({}) // options (for batchSize check)
+				.mockReturnValueOnce({}); // advancedOptions
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -222,6 +229,7 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce(false) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
 				.mockReturnValueOnce({}) // options (for batchSize check)
+				.mockReturnValueOnce({}) // advancedOptions
 				.mockReturnValueOnce(10); // limit
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
@@ -255,7 +263,8 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({ continueOnFail: true }); // options (with continueOnFail)
+				.mockReturnValueOnce({}) // options (for batchSize check)
+				.mockReturnValueOnce({ continueOnFail: true }); // advancedOptions
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(partialResult);
 
@@ -287,7 +296,8 @@ describe('GetAllEntitiesStrategy', () => {
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({ maxItems: 3 }); // options (with maxItems)
+				.mockReturnValueOnce({}) // options (for batchSize check)
+				.mockReturnValueOnce({ maxItems: 3 }); // advancedOptions (with maxItems)
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(limitResult);
 

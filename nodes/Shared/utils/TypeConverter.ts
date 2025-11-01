@@ -24,6 +24,47 @@ export function convertSapDate(sapDateString: string): string | null {
 }
 
 /**
+ * Convert SAP Time format to HH:MM:SS string
+ * SAP Formats (ISO 8601 Duration):
+ * - PT14H30M00S (14:30:00)
+ * - PT2H15M30S (2:15:30)
+ * - PT5M (00:05:00) - only minutes
+ * - PT2H (02:00:00) - only hours
+ * - PT30S (00:00:30) - only seconds
+ * - PT2H30M (02:30:00) - hours and minutes
+ * Output: "14:30:00" (24-hour format HH:MM:SS)
+ */
+export function convertSapTime(sapTimeString: string): string | null {
+	if (!sapTimeString || typeof sapTimeString !== 'string') {
+		return null;
+	}
+
+	// Match ISO 8601 Duration format: PT[n]H[n]M[n]S
+	// All components (H, M, S) are optional, but at least one must be present
+	const match = sapTimeString.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+	if (!match) {
+		return null;
+	}
+
+	// Extract components (default to 0 if not present)
+	const hours = parseInt(match[1] || '0', 10);
+	const minutes = parseInt(match[2] || '0', 10);
+	const seconds = parseFloat(match[3] || '0');
+
+	// Validate ranges (SAP OData should not exceed 24 hours for Edm.Time)
+	if (hours > 23 || minutes > 59 || seconds >= 60) {
+		return null; // Invalid time
+	}
+
+	// Format as HH:MM:SS (round seconds to integer)
+	const hoursStr = hours.toString().padStart(2, '0');
+	const minutesStr = minutes.toString().padStart(2, '0');
+	const secondsStr = Math.floor(seconds).toString().padStart(2, '0');
+
+	return `${hoursStr}:${minutesStr}:${secondsStr}`;
+}
+
+/**
  * Check if a string represents a numeric value
  * Matches: "175.50", "1.00000", "0", "9170.00"
  * Does NOT match: "ABC", "2017-10-06", ""
@@ -87,6 +128,16 @@ export function convertValue(value: any): any {
 			return converted !== null ? converted : value;
 		}
 
+		// Check for SAP Time format (PT[n]H[n]M[n]S)
+		// More robust check: starts with PT and contains at least H, M, or S
+		if (value.startsWith('PT') && /[HMS]/.test(value)) {
+			const converted = convertSapTime(value);
+			// Only return converted if successful, otherwise keep original
+			if (converted !== null) {
+				return converted;
+			}
+		}
+
 		// Check for numeric strings
 		if (isNumericString(value)) {
 			const num = parseFloat(value);
@@ -105,6 +156,37 @@ export function convertValue(value: any): any {
 }
 
 /**
+ * Remove __metadata and __deferred fields from data
+ * Recursively processes all objects and arrays
+ */
+export function removeMetadata(value: any): any {
+	// Handle null/undefined
+	if (value === null || value === undefined) {
+		return value;
+	}
+
+	// Handle arrays - recursively remove metadata from each element
+	if (Array.isArray(value)) {
+		return value.map(item => removeMetadata(item));
+	}
+
+	// Handle objects - remove __metadata and __deferred, recursively process other properties
+	if (typeof value === 'object') {
+		const cleaned: any = {};
+		for (const [key, val] of Object.entries(value)) {
+			// Skip __metadata and __deferred properties
+			if (key !== '__metadata' && key !== '__deferred') {
+				cleaned[key] = removeMetadata(val); // Recursively clean
+			}
+		}
+		return cleaned;
+	}
+
+	// Return all other types unchanged
+	return value;
+}
+
+/**
  * Convert all values in a data object
  * Recursively processes all properties and nested objects
  *
@@ -115,6 +197,7 @@ export function convertValue(value: any): any {
  * const sapData = {
  *   TotalNetAmount: "175.50",
  *   CreationDate: "/Date(1507248000000)/",
+ *   StartTime: "PT14H30M00S",
  *   IsActive: false,
  *   CustomerName: "Acme Corp"
  * };
@@ -124,6 +207,7 @@ export function convertValue(value: any): any {
  * // {
  * //   TotalNetAmount: 175.50,  // Number
  * //   CreationDate: "2017-10-06T00:00:00.000Z",  // ISO Date string
+ * //   StartTime: "14:30:00",  // Time string (HH:MM:SS)
  * //   IsActive: false,  // Boolean (unchanged)
  * //   CustomerName: "Acme Corp"  // String (unchanged)
  * // }

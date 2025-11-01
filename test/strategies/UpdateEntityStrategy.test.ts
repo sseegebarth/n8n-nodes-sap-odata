@@ -48,7 +48,8 @@ describe('UpdateEntityStrategy', () => {
 				.mockReturnValueOnce('list') // entitySetMode
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce('P123') // entityKey
-				.mockReturnValueOnce(updateData); // data
+				.mockReturnValueOnce(updateData) // data
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -61,6 +62,13 @@ describe('UpdateEntityStrategy', () => {
 					Name: 'Updated Product',
 					Price: 149.99,
 				},
+				{},
+				undefined,
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'If-Match': '*',
+					}),
+				}),
 			);
 			expect(result).toEqual([
 				{
@@ -85,7 +93,8 @@ describe('UpdateEntityStrategy', () => {
 				.mockReturnValueOnce('list') // entitySetMode
 				.mockReturnValueOnce('SalesOrderItemSet') // entitySet
 				.mockReturnValueOnce("SalesOrderID='0500000001',ItemPosition='10'") // entityKey
-				.mockReturnValueOnce(updateData); // data
+				.mockReturnValueOnce(updateData) // data
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -95,6 +104,13 @@ describe('UpdateEntityStrategy', () => {
 				'PATCH',
 				"/SalesOrderItemSet(SalesOrderID='0500000001',ItemPosition='10')",
 				{ Quantity: 5 },
+				{},
+				undefined,
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'If-Match': '*',
+					}),
+				}),
 			);
 		});
 
@@ -111,7 +127,8 @@ describe('UpdateEntityStrategy', () => {
 				.mockReturnValueOnce('list') // entitySetMode
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce('P123') // entityKey
-				.mockReturnValueOnce(updateData); // data
+				.mockReturnValueOnce(updateData) // data
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -132,7 +149,8 @@ describe('UpdateEntityStrategy', () => {
 				.mockReturnValueOnce('custom') // entitySetMode
 				.mockReturnValueOnce('MyCustomEntitySet') // customEntitySet
 				.mockReturnValueOnce('123') // entityKey
-				.mockReturnValueOnce(updateData); // data
+				.mockReturnValueOnce(updateData) // data
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -140,8 +158,15 @@ describe('UpdateEntityStrategy', () => {
 
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'PATCH',
-				"/MyCustomEntitySet('123')",
+				'/MyCustomEntitySet(123)',
 				{ Status: 'Active' },
+				{},
+				undefined,
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'If-Match': '*',
+					}),
+				}),
 			);
 		});
 
@@ -154,7 +179,8 @@ describe('UpdateEntityStrategy', () => {
 				.mockReturnValueOnce('list') // entitySetMode
 				.mockReturnValueOnce('ProductSet') // entitySet
 				.mockReturnValueOnce('P123') // entityKey
-				.mockReturnValueOnce(updateData); // data
+				.mockReturnValueOnce(updateData) // data
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 

@@ -64,6 +64,7 @@ describe('FunctionImportStrategy', () => {
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'GET',
 				"/GetCustomerData?Customer='0100000001'&Year=2024",
+				{},
 			);
 			expect(result).toEqual([
 				{
@@ -99,7 +100,8 @@ describe('FunctionImportStrategy', () => {
 
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'POST',
-				"/CreateOrder?ProductID='P001'&Quantity=5",
+				'/CreateOrder',
+				{ ProductID: 'P001', Quantity: 5 },
 			);
 		});
 
@@ -126,6 +128,7 @@ describe('FunctionImportStrategy', () => {
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'GET',
 				'/GetTotalCount',
+				{},
 			);
 			expect(result[0].json).toEqual({ Count: 42 });
 		});
@@ -148,7 +151,8 @@ describe('FunctionImportStrategy', () => {
 
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'POST',
-				"/MyCustomFunction?Param1='Value1'",
+				'/MyCustomFunction',
+				{ Param1: 'Value1' },
 			);
 		});
 
@@ -195,10 +199,15 @@ describe('FunctionImportStrategy', () => {
 
 			await strategy.execute(mockContext as IExecuteFunctions, 0);
 
-			// String parameters get quotes, numeric/boolean don't
+			// POST puts parameters in body
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'POST',
-				"/ComplexFunction?StringParam='Test Value'&NumericParam=100&BoolParam=true",
+				'/ComplexFunction',
+				{
+					StringParam: 'Test Value',
+					NumericParam: 100,
+					BoolParam: true,
+				},
 			);
 		});
 
@@ -221,6 +230,7 @@ describe('FunctionImportStrategy', () => {
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'POST',
 				'/TestFunction',
+				{},
 			);
 		});
 	});

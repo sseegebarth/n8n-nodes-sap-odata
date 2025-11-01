@@ -1,8 +1,8 @@
-import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
-import { IOperationStrategy } from './IOperationStrategy';
-import { CrudStrategy } from './base/CrudStrategy';
-import { validateFunctionName } from '../utils/SecurityUtils';
+import { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { sapOdataApiRequest, formatSapODataValue } from '../../Sap/GenericFunctions';
+import { validateFunctionName } from '../utils/SecurityUtils';
+import { CrudStrategy } from './base/CrudStrategy';
+import { IOperationStrategy } from './IOperationStrategy';
 
 /**
  * Strategy for executing function imports
@@ -38,7 +38,7 @@ export class FunctionImportStrategy extends CrudStrategy implements IOperationSt
 			// Build URL and body based on HTTP method
 			// POST/PATCH/PUT should use JSON body, GET should use URL parameters
 			let url: string;
-			let body: any = {};
+			let body: IDataObject = {};
 
 			if (httpMethod === 'GET') {
 				// GET: Parameters in URL (canonical or query string format)
@@ -54,10 +54,13 @@ export class FunctionImportStrategy extends CrudStrategy implements IOperationSt
 						: `/${functionName}()`;
 				} else {
 					// Query string format: /FunctionName?param1='value1'&param2='value2'
+					// URL encode keys and values to handle special characters
 					const queryParts: string[] = [];
 					for (const [key, value] of Object.entries(parameters)) {
 						const formattedValue = formatSapODataValue(value);
-						queryParts.push(`${key}=${formattedValue}`);
+						const encodedKey = encodeURIComponent(key);
+						const encodedValue = encodeURIComponent(formattedValue);
+						queryParts.push(`${encodedKey}=${encodedValue}`);
 					}
 					url = queryParts.length > 0
 						? `/${functionName}?${queryParts.join('&')}`

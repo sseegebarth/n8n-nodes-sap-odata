@@ -1,7 +1,7 @@
 import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
-import { IOperationStrategy } from './IOperationStrategy';
-import { CrudStrategy } from './base/CrudStrategy';
 import { sapOdataApiRequest, sapOdataApiRequestAllItems } from '../../Sap/GenericFunctions';
+import { CrudStrategy } from './base/CrudStrategy';
+import { IOperationStrategy } from './IOperationStrategy';
 import { IOperationOptions, IAdvancedOptions, IPaginationError } from './types';
 
 /**
@@ -100,7 +100,7 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 
 			// If there were pagination errors or limit was reached, add metadata item
 			if ((paginationErrors && paginationErrors.length > 0) || limitReached) {
-				const metadata: any = {
+				const metadata: IDataObject = {
 					totalItemsFetched: dataArray.length,
 					partial: true,
 					message: partialMessage || `Fetched ${dataArray.length} items`,

@@ -51,7 +51,7 @@ export async function testSapODataConnection(
 		? {
 				username: credential.username as string,
 				password: credential.password as string,
-		  }
+		}
 		: undefined;
 
 	try {
@@ -186,7 +186,12 @@ export async function testSapODataConnection(
 		const totalResponseTime = Date.now() - startTime;
 
 		// Type guard for error object
-		const errorObj = error as any;
+		const errorObj = error as {
+			statusCode?: number;
+			response?: { statusCode?: number };
+			code?: string;
+			message?: string;
+		};
 
 		// Authentication Error
 		if (errorObj.statusCode === 401 || errorObj.response?.statusCode === 401) {
@@ -240,8 +245,8 @@ export async function testSapODataConnection(
 
 		// SSL Certificate Error
 		if (errorObj.code === 'DEPTH_ZERO_SELF_SIGNED_CERT' ||
-		    errorObj.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
-		    errorObj.message?.includes('certificate')) {
+				errorObj.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
+				errorObj.message?.includes('certificate')) {
 			return {
 				status: 'Error',
 				message: '❌ SSL Certificate error\n\n' +

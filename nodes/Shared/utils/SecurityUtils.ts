@@ -56,7 +56,7 @@ export function validateEntityKey(key: string, node: INode): string {
 	if (key.includes('=')) {
 		const parts = key.split(',');
 		for (const part of parts) {
-			if (!part.match(/^[a-zA-Z0-9_\-\.]+='[^']*'$/)) {
+			if (!part.match(/^[a-zA-Z0-9_\-.]+='[^']*'$/)) {
 				throw new NodeOperationError(
 					node,
 					`Invalid composite key format: ${part}`,
@@ -140,7 +140,7 @@ export function validateJsonInput(jsonString: string, fieldName: string, node: I
 
 		// Check for dangerous keys
 		const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
-		const checkKeys = (obj: any, depth = 0): void => {
+		const checkKeys = (obj: Record<string, unknown>, depth = 0): void => {
 			// Prevent deeply nested objects (DoS protection)
 			if (depth > 100) {
 				throw new Error('JSON object is too deeply nested (max 100 levels)');
@@ -151,7 +151,7 @@ export function validateJsonInput(jsonString: string, fieldName: string, node: I
 					throw new Error(`Forbidden property name: ${key}`);
 				}
 				if (typeof obj[key] === 'object' && obj[key] !== null) {
-					checkKeys(obj[key], depth + 1);
+					checkKeys(obj[key] as Record<string, unknown>, depth + 1);
 				}
 			}
 		};

@@ -9,8 +9,7 @@ import {
 	ILoadOptionsFunctions,
 	IDataObject,
 } from 'n8n-workflow';
-
-// Import core modules from Shared
+import { CREDENTIAL_TYPE } from '../Shared/constants';
 import { executeRequest, IApiClientConfig } from '../Shared/core/ApiClient';
 import { fetchAllItems, IPaginationConfig } from '../Shared/core/PaginationHandler';
 import {
@@ -20,10 +19,11 @@ import {
 	parseMetadataForFunctionImports as coreParseMetadataForFunctionImports,
 } from '../Shared/core/QueryBuilder';
 import { buildCsrfTokenRequest } from '../Shared/core/RequestBuilder';
-
-// Import dependencies from Shared
-import { CREDENTIAL_TYPE } from '../Shared/constants';
 import { ISapOdataCredentials, IODataQueryOptions } from '../Shared/types';
+import { resolveServicePath } from '../Shared/utils/ServicePathResolver';
+
+// Re-export for backward compatibility
+export { resolveServicePath };
 
 /**
  * Make an API request to SAP OData service using n8n's httpRequestWithAuthentication
@@ -40,26 +40,18 @@ export async function sapOdataApiRequest(
 	option: IDataObject = {},
 	customServicePath?: string,
 ): Promise<any> {
-	// Get CSRF token for write operations
+	// Resolve service path and get CSRF token for write operations
+	const resolvedServicePath = resolveServicePath(this, customServicePath);
 	let csrfToken: string | undefined;
 	if (method !== 'GET') {
 		const credentials = (await this.getCredentials(CREDENTIAL_TYPE)) as ISapOdataCredentials;
 		if (credentials) {
 			const host = credentials.host.replace(/\/$/, '');
-			// Get servicePath from parameter or node parameter - different methods for different contexts
-			let servicePath = customServicePath || '/sap/opu/odata/sap/';
-			if (!customServicePath) {
-				if ('getNodeParameter' in this) {
-					servicePath = (this.getNodeParameter('servicePath', 0, '/sap/opu/odata/sap/') as string).replace(/\/$/, '');
-				} else if ('getCurrentNodeParameter' in this) {
-					servicePath = (((this as any).getCurrentNodeParameter('servicePath') as string) || '/sap/opu/odata/sap/').replace(/\/$/, '');
-				}
-			}
-			csrfToken = await getCsrfToken.call(this, host, servicePath);
+			csrfToken = await getCsrfToken.call(this, host, resolvedServicePath);
 		}
 	}
 
-	// Delegate to core ApiClient
+	// Delegate to core ApiClient with explicit service path
 	const config: IApiClientConfig = {
 		method,
 		resource,
@@ -68,6 +60,7 @@ export async function sapOdataApiRequest(
 		uri,
 		option,
 		csrfToken,
+		servicePath: resolvedServicePath,
 	};
 
 	return executeRequest.call(this, config);
@@ -245,20 +238,22 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 
 	// Format based on type
 	switch (detectedType) {
-		case 'datetime':
+		case 'datetime': {
 			// SAP OData V2 format: datetime'2024-01-15T10:30:00'
 			// Remove timezone info if present, SAP expects local time
 			const dateStr = typeof value === 'string' ? value : new Date(value).toISOString();
 			const cleanDate = dateStr.replace(/\.\d{3}Z$/, '').replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
 			return `datetime'${cleanDate}'`;
+		}
 
-		case 'datetimeoffset':
-			// SAP OData V4 format: 2024-01-15T10:30:00+01:00 or 2024-01-15T10:30:00Z
-			// Keep timezone info for DateTimeOffset
+		case 'datetimeoffset': {
+			// SAP OData format: datetimeoffset'2024-01-15T10:30:00+01:00' or datetimeoffset'2024-01-15T10:30:00Z'
+			// Keep timezone info for DateTimeOffset - use OData literal syntax
 			const offsetStr = typeof value === 'string' ? value : new Date(value).toISOString();
-			return `${offsetStr}`;
+			return `datetimeoffset'${offsetStr}'`;
+		}
 
-		case 'date':
+		case 'date': {
 			// SAP OData V4 format: 2024-01-15 (date only, no time)
 			let dateOnlyStr: string;
 			if (typeof value === 'string') {
@@ -268,10 +263,11 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 				dateOnlyStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 			}
 			return `${dateOnlyStr}`;
+		}
 
 		case 'timeofday':
-		case 'time':
-			// SAP OData V4 format: 10:30:00 or 10:30:00.123
+		case 'time': {
+			// SAP OData format: time'10:30:00' or time'10:30:00.123' - use OData literal syntax
 			// Extract time portion if full datetime provided
 			let timeStr: string;
 			if (typeof value === 'string') {
@@ -285,22 +281,44 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 				const d = new Date(value);
 				timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 			}
-			return `${timeStr}`;
+			return `time'${timeStr}'`;
+		}
 
-		case 'guid':
+		case 'guid': {
 			// SAP OData format: guid'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
 			const guidStr = String(value).toLowerCase();
 			return `guid'${guidStr}'`;
+		}
 
-		case 'decimal':
+		case 'decimal': {
 			// SAP OData format: 12.34M or 12.34m
 			// Support decimal scale if provided as object: { value: 12.34, scale: 2 }
+			// IMPORTANT: Preserve string representation to avoid precision loss for large currency amounts
 			if (typeof value === 'object' && 'value' in value) {
-				const decimalValue = value.value;
-				const scale = value.scale || 2;
-				return `${Number(decimalValue).toFixed(scale)}M`;
+				const decimalValue = String(value.value);
+				const scale = value.scale;
+
+				// If scale provided, ensure decimal places using string manipulation (not parseFloat)
+				if (scale !== undefined && typeof scale === 'number') {
+					// Validate it's a valid number
+					const num = parseFloat(decimalValue);
+					if (isNaN(num)) {
+						return `${decimalValue}M`; // Return as-is if can't parse
+					}
+
+					// Use string manipulation to preserve precision
+					// Split on decimal point
+					const parts = decimalValue.split('.');
+					const intPart = parts[0];
+					const decPart = (parts[1] || '').padEnd(scale, '0').substring(0, scale);
+
+					return scale > 0 ? `${intPart}.${decPart}M` : `${intPart}M`;
+				}
+				return `${decimalValue}M`;
 			}
-			return `${value}M`;
+			// For simple values, preserve original string representation
+			return `${String(value)}M`;
+		}
 
 		case 'boolean':
 			// Boolean: true or false (lowercase)
@@ -317,9 +335,10 @@ export function formatSapODataValue(value: any, typeHint?: string): string {
 			return String(value);
 
 		case 'string':
-		default:
+		default: {
 			// Strings: escape single quotes by doubling them
 			const escapedValue = String(value).replace(/'/g, "''");
 			return `'${escapedValue}'`;
+		}
 	}
 }

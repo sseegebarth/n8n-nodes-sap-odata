@@ -1,7 +1,7 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
-import { IOperationStrategy } from './IOperationStrategy';
-import { CrudStrategy } from './base/CrudStrategy';
 import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
+import { CrudStrategy } from './base/CrudStrategy';
+import { IOperationStrategy } from './IOperationStrategy';
 import { IOperationOptions, IRequestOptions } from './types';
 
 /**

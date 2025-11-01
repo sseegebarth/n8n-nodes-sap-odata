@@ -4,11 +4,11 @@
  */
 
 import { IExecuteFunctions, INode, IDataObject, INodeExecutionData } from 'n8n-workflow';
-import { validateEntityKey, validateEntitySetName, validateJsonInput, sanitizeErrorMessage } from '../../utils/SecurityUtils';
-import { IODataQueryOptions } from '../../types';
 import { buildODataQuery } from '../../core/QueryBuilder';
+import { IODataQueryOptions } from '../../types';
 import { Logger } from '../../utils/Logger';
-import { convertDataTypes } from '../../utils/TypeConverter';
+import { validateEntityKey, validateEntitySetName, validateJsonInput, sanitizeErrorMessage } from '../../utils/SecurityUtils';
+import { convertDataTypes, removeMetadata } from '../../utils/TypeConverter';
 
 /**
  * Base class for CRUD operation strategies
@@ -69,8 +69,25 @@ export abstract class CrudStrategy {
 	 */
 	protected validateAndFormatKey(key: string, node: INode): string {
 		const validated = validateEntityKey(key, node);
-		// Add quotes around simple keys if not already formatted
-		return validated.includes('=') ? validated : `'${validated}'`;
+		// Add quotes around simple keys if not already formatted, except for numeric and GUID keys
+		if (validated.includes('=')) {
+			return validated; // Composite key, already formatted
+		}
+
+		// IMPORTANT: Check GUID before numeric to catch keys like 005056A0-1234-...
+		// that start with digits but contain hyphens and letters
+		// Check if key is a GUID (pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+		if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(validated)) {
+			return `guid'${validated}'`; // GUID key, use OData guid syntax
+		}
+
+		// Check if key is purely numeric (integer or decimal)
+		if (/^\d+(\.\d+)?$/.test(validated)) {
+			return validated; // Numeric key, no quotes needed
+		}
+
+		// String key, add quotes
+		return `'${validated}'`;
 	}
 
 	/**
@@ -177,7 +194,7 @@ export abstract class CrudStrategy {
 		error: Error,
 		operation: string,
 		itemIndex: number,
-		continueOnFail: boolean = false,
+		continueOnFail = false,
 	): INodeExecutionData[] {
 		const errorMessage = error.message || 'Unknown error occurred';
 		const sanitizedMessage = sanitizeErrorMessage(errorMessage);
@@ -253,8 +270,21 @@ export abstract class CrudStrategy {
 		try {
 			const advancedOptions = context.getNodeParameter('advancedOptions', itemIndex, {}) as any;
 			const shouldConvertTypes = advancedOptions.convertDataTypes !== false; // Default: true
+			const shouldRemoveMetadata = advancedOptions.removeMetadata !== false; // Default: true
 
-			return shouldConvertTypes ? convertDataTypes(data) : data;
+			let result = data;
+
+			// Apply type conversion if enabled
+			if (shouldConvertTypes) {
+				result = convertDataTypes(result);
+			}
+
+			// Remove metadata if enabled
+			if (shouldRemoveMetadata) {
+				result = removeMetadata(result);
+			}
+
+			return result;
 		} catch {
 			// If advanced options not available, return data unchanged
 			return data;

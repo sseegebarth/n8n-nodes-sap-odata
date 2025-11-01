@@ -60,7 +60,7 @@ export class RetryHandler {
 			backoffFactor: options.backoffFactor ?? 2,
 			retryableStatusCodes: options.retryableStatusCodes ?? RETRY_STATUS_CODES,
 			retryNetworkErrors: options.retryNetworkErrors ?? true,
-			onRetry: options.onRetry ?? (() => {}),
+			onRetry: options.onRetry ?? (() => { /* no-op */ }),
 		};
 	}
 

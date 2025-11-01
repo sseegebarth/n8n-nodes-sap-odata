@@ -17,9 +17,14 @@ export const sapODataProperties: INodeProperties[] = [
 		noDataExpression: true,
 		options: [
 			{
+				name: 'Auto-Discover',
+				value: 'discover',
+				description: 'Automatically load available services from SAP system',
+			},
+			{
 				name: 'From List',
 				value: 'list',
-				description: 'Select from discovered SAP services',
+				description: 'Select from pre-configured service catalog',
 			},
 			{
 				name: 'Custom',
@@ -27,8 +32,28 @@ export const sapODataProperties: INodeProperties[] = [
 				description: 'Enter service path manually',
 			},
 		],
-		default: 'list',
+		default: 'discover',
 		description: 'How to specify the OData service path',
+		hint: 'Auto-Discover tests connection and loads all available SAP OData services automatically',
+	},
+
+	// Discovered Service (auto-discover mode)
+	{
+		displayName: 'Service',
+		name: 'discoveredService',
+		type: 'options',
+		typeOptions: {
+			loadOptionsMethod: 'getDiscoveredServices',
+		},
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				servicePathMode: ['discover'],
+			},
+		},
+		description: 'Select from automatically discovered SAP OData services',
+		hint: 'Services are loaded directly from your SAP system using the Gateway Catalog',
 	},
 
 	// Service Category (filter for list mode)
@@ -214,6 +239,7 @@ export const sapODataProperties: INodeProperties[] = [
 		},
 		default: '',
 		description: 'The entity set to query (from service metadata)',
+		hint: 'Auto-populated from SAP $metadata. Switch to Custom mode if empty.',
 	},
 
 	// Entity Set (custom)
@@ -231,6 +257,7 @@ export const sapODataProperties: INodeProperties[] = [
 		default: '',
 		placeholder: 'A_SalesOrder',
 		description: 'The entity set name',
+		hint: 'Examples: A_SalesOrder, ProductSet, ZMY_CUSTOM_ENTITY',
 	},
 
 	// Entity Key (for get, update, delete)
@@ -248,6 +275,7 @@ export const sapODataProperties: INodeProperties[] = [
 		default: '',
 		placeholder: "'0500000001'",
 		description: 'The entity key (use SAP OData format, e.g., \'0500000001\' for strings or 123 for numbers)',
+		hint: 'String keys: \'ABC\' | Numeric keys: 123 | Composite: ProductID=123,Year=2024',
 	},
 
 	// Return All (for getAll)
@@ -263,6 +291,7 @@ export const sapODataProperties: INodeProperties[] = [
 		},
 		default: false,
 		description: 'Whether to return all results or use pagination',
+		hint: 'Enable for small datasets - recommended for less than 1000 items',
 	},
 
 	// Limit (for getAll when returnAll is false)
@@ -445,7 +474,15 @@ export const sapODataProperties: INodeProperties[] = [
 				type: 'boolean',
 				default: true,
 				description: 'Whether to convert SAP-specific data types to JavaScript native types',
-				hint: 'Converts numeric strings (e.g., "175.50" → 175.50) and SAP dates (e.g., "/Date(...)/" → "2017-10-06T00:00:00.000Z") to native types. Recommended for easier data processing.',
+				hint: 'Converts numeric strings ("175.50" → 175.50), SAP dates ("/Date(...)/") → ISO 8601, and SAP times ("PT14H30M00S" → "14:30:00"). Recommended for easier data processing.',
+			},
+			{
+				displayName: 'Data: Remove Metadata',
+				name: 'removeMetadata',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to remove __metadata field from results',
+				hint: 'Removes the __metadata object (id, uri, type) from SAP OData responses for cleaner output.',
 			},
 
 			// Connection Pool Options
@@ -516,7 +553,17 @@ export const sapODataProperties: INodeProperties[] = [
 				hint: 'Use this when SAP service metadata has changed (new fields, entity sets). Cache is automatically cleared on 404 errors.',
 			},
 
-			// Debug Options
+			// Monitoring Options
+		{
+			displayName: 'Output: Include Metrics',
+			name: 'includeMetrics',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to include execution metrics in the output',
+			hint: 'Adds a _metrics object to the last item with performance data (execution time, cache hits, API calls). Useful for monitoring workflows.',
+		},
+
+		// Debug Options
 			{
 				displayName: 'Debug: Enable Logging',
 				name: 'debugLogging',

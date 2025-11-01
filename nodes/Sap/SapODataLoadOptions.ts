@@ -9,6 +9,7 @@ import { ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 import {
 	parseMetadataForEntitySets,
 	parseMetadataForFunctionImports,
+	resolveServicePath,
 	sapOdataApiRequest,
 } from './GenericFunctions';
 
@@ -164,14 +165,156 @@ export const sapODataLoadOptions = {
 		}
 	},
 
+	// Get Discovered Services (auto-discover mode) - directly from SAP Gateway Catalog
+	async getDiscoveredServices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+		try {
+			const { discoverServices, getCommonServices } = await import('./DiscoveryService');
+			const { CacheManager } = await import('../Shared/utils/CacheManager');
+			const credentials = await this.getCredentials('sapOdataApi');
+
+			// Try to get from cache first
+			const cached = await CacheManager.getServiceCatalog(this, credentials.host as string);
+
+			if (cached && cached.length > 0) {
+				return cached.map((service) => ({
+					name: `${service.title} (${service.technicalName})`,
+					value: service.servicePath,
+					description: service.description || 'No description available',
+				}));
+			}
+
+			// Try to discover services from SAP Gateway Catalog Service
+			const discoveredServices = await discoverServices(this);
+
+			if (discoveredServices && discoveredServices.length > 0) {
+				// Cache the discovered services
+				await CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
+
+				// Sort services: Standard SAP services (API_*, C_*) before Custom Z-services (Z*, Y*)
+				// This ensures standard services are selected by default
+				const sortedServices = discoveredServices.sort((a, b) => {
+					const aIsStandard = a.technicalName.startsWith('API_') || a.technicalName.startsWith('C_');
+					const bIsStandard = b.technicalName.startsWith('API_') || b.technicalName.startsWith('C_');
+					const aIsCustom = a.technicalName.startsWith('Z') || a.technicalName.startsWith('Y');
+					const bIsCustom = b.technicalName.startsWith('Z') || b.technicalName.startsWith('Y');
+
+					// Standard services come first
+					if (aIsStandard && !bIsStandard) return -1;
+					if (!aIsStandard && bIsStandard) return 1;
+
+					// Custom services come last
+					if (aIsCustom && !bIsCustom) return 1;
+					if (!aIsCustom && bIsCustom) return -1;
+
+					// Otherwise alphabetical
+					return a.technicalName.localeCompare(b.technicalName);
+				});
+
+				return sortedServices.map((service) => ({
+					name: `${service.title} (${service.technicalName})`,
+					value: service.servicePath,
+					description: service.description || 'No description available',
+				}));
+			}
+
+			// Fallback: Return common SAP services if catalog discovery fails
+			const commonServices = getCommonServices();
+
+			// Return services with warning message at the end (not as first item to avoid empty selection)
+			return [
+				...commonServices.map((service) => ({
+					name: `${service.title} (${service.technicalName})`,
+					value: service.servicePath,
+					description: service.description || 'No description available',
+				})),
+				{
+					name: '─────────────────────────────────',
+					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
+					description: 'Separator',
+				},
+				{
+					name: '⚠️ Auto-discovery unavailable - Using common services list',
+					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
+					description: 'Check credentials and Gateway Catalog Service (/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/) access or switch to Custom mode',
+				},
+			];
+		} catch (error) {
+			// If service discovery fails completely, return common services
+			const { getCommonServices } = await import('./DiscoveryService');
+			const commonServices = getCommonServices();
+
+			// Return services with warning message at the end (not as first item to avoid empty selection)
+			return [
+				...commonServices.map((service) => ({
+					name: `${service.title} (${service.technicalName})`,
+					value: service.servicePath,
+					description: service.description || 'No description available',
+				})),
+				{
+					name: '─────────────────────────────────',
+					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
+					description: 'Separator',
+				},
+				{
+					name: '⚠️ Auto-discovery failed - Using common services list',
+					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
+					description: 'Check connection or switch to "Custom" mode to enter service path manually',
+				},
+			];
+		}
+	},
+
 	// Get Entity Sets from $metadata (with caching)
 	async getEntitySets(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 		try {
 			const credentials = await this.getCredentials('sapOdataApi');
 			const { CacheManager } = await import('../Shared/utils/CacheManager');
 
-			// Get servicePath from current node parameter
-			const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
+			// Try to resolve service path from multiple possible sources
+			// n8n's getCurrentNodeParameter sometimes returns undefined for dependent dropdowns
+			let servicePath = '';
+
+			// Try all three modes to find the service path
+			const servicePathMode = (this.getCurrentNodeParameter('servicePathMode') as string) || '';
+
+			// Debug logging
+			console.log('[getEntitySets] servicePathMode:', servicePathMode);
+
+			if (servicePathMode === 'discover') {
+				servicePath = (this.getCurrentNodeParameter('discoveredService') as string) || '';
+				console.log('[getEntitySets] discoveredService value:', servicePath);
+			} else if (servicePathMode === 'list') {
+				servicePath = (this.getCurrentNodeParameter('servicePathFromList') as string) || '';
+				console.log('[getEntitySets] servicePathFromList value:', servicePath);
+			} else if (servicePathMode === 'custom') {
+				servicePath = (this.getCurrentNodeParameter('servicePath') as string) || '';
+				console.log('[getEntitySets] servicePath value:', servicePath);
+			}
+
+			// Fallback: try all parameters if mode-specific one is empty
+			if (!servicePath || servicePath === '') {
+				console.log('[getEntitySets] Service path empty, trying fallback...');
+				const discovered = (this.getCurrentNodeParameter('discoveredService') as string) || '';
+				const fromList = (this.getCurrentNodeParameter('servicePathFromList') as string) || '';
+				const custom = (this.getCurrentNodeParameter('servicePath') as string) || '';
+				console.log('[getEntitySets] Fallback - discovered:', discovered, '| fromList:', fromList, '| custom:', custom);
+
+				servicePath = discovered || fromList || custom || '';
+			}
+
+			console.log('[getEntitySets] Final resolved servicePath:', servicePath);
+
+			// Validate that we have a specific service path (not just the base path)
+			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
+				console.log('[getEntitySets] Service path validation failed - returning error');
+				return [
+					{
+						name: '⚠️ No service selected',
+						value: '',
+						description: 'Please select a service from the "Service" dropdown above first',
+					},
+				];
+			}
 
 			// Try to get from cache first
 			const cached = await CacheManager.getMetadata(
@@ -213,6 +356,21 @@ export const sapODataLoadOptions = {
 			// If metadata fetch fails, return helpful message
 			// User can switch to "Custom" mode to manually enter entity set name
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+			// Check if this is a 403 Forbidden error
+			const isForbidden = errorMessage.toLowerCase().includes('forbidden') ||
+			                     errorMessage.toLowerCase().includes('403');
+
+			if (isForbidden) {
+				return [
+					{
+						name: '⚠️ Access Forbidden - Missing SAP Authorizations',
+						value: '',
+						description: 'Your SAP user lacks permissions for this service. Contact SAP Administrator or switch to "Custom" mode',
+					},
+				];
+			}
+
 			return [
 				{
 					name: `⚠️ Could not load entity sets - ${errorMessage.substring(0, 60)}`,
@@ -229,8 +387,8 @@ export const sapODataLoadOptions = {
 			const credentials = await this.getCredentials('sapOdataApi');
 			const { CacheManager } = await import('../Shared/utils/CacheManager');
 
-			// Get servicePath from current node parameter
-			const servicePath = this.getCurrentNodeParameter('servicePath') as string || '/sap/opu/odata/sap/';
+			// Use centralized service path resolver (no duplication)
+			const servicePath = resolveServicePath(this);
 
 			// Try to get from cache first
 			const cached = await CacheManager.getMetadata(

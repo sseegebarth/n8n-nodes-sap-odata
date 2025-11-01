@@ -43,6 +43,9 @@ export interface IAdvancedOptions {
 	// Cache
 	clearCache?: boolean;
 
+	// Monitoring
+	includeMetrics?: boolean;
+
 	// Debug
 	debugLogging?: boolean;
 
@@ -59,12 +62,12 @@ export interface IAdvancedOptions {
  */
 export interface ISapODataResponse {
 	d?: {
-		results?: any[];
-		[key: string]: any;
+		results?: IDataObject[];
+		[key: string]: unknown;
 	};
 	__count?: number;
 	__next?: string;
-	[key: string]: any;
+	[key: string]: unknown;
 }
 
 /**
@@ -90,12 +93,11 @@ export interface IPaginationError {
 /**
  * Request options for HTTP requests
  */
-export interface IRequestOptions {
+export interface IRequestOptions extends IDataObject {
 	headers?: {
 		'If-Match'?: string;
 		[key: string]: string | undefined;
 	};
-	[key: string]: any;
 }
 
 /**
@@ -125,6 +127,6 @@ export interface IOperationResult {
 		itemIndex: number;
 		pagination?: IPaginationMetadata;
 		errors?: IPaginationError[];
-		[key: string]: any;
+		[key: string]: unknown;
 	};
 }

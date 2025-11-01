@@ -4,8 +4,8 @@
  */
 
 import { IDataObject } from 'n8n-workflow';
-import { validateODataFilter } from '../utils/SecurityUtils';
 import { IODataQueryOptions } from '../types';
+import { validateODataFilter } from '../utils/SecurityUtils';
 
 /**
  * Escape single quotes in OData filter values
@@ -91,6 +91,7 @@ export function normalizeODataOptions(options: any): IODataQueryOptions {
  * })
  * // Returns: { $filter: "Name eq 'John'", $select: "Name,Age", $top: 10 }
  */
+// eslint-disable-next-line no-useless-escape
 export function buildODataQuery(options: IODataQueryOptions): IDataObject {
 	// Normalize options to ensure $ prefix
 	const normalizedOptions = normalizeODataOptions(options);
@@ -132,6 +133,7 @@ export function buildODataQuery(options: IODataQueryOptions): IDataObject {
 		query.$count = normalizedOptions.$count;
 	}
 
+	// eslint-disable-next-line no-useless-escape
 	if (normalizedOptions.$search) {
 		query.$search = normalizedOptions.$search;
 	}
@@ -141,6 +143,42 @@ export function buildODataQuery(options: IODataQueryOptions): IDataObject {
 	}
 
 	return query;
+}
+
+/**
+ * Build URI-encoded query string from key-value pairs
+ * Properly encodes both keys and values, skips empty/null/undefined values
+ *
+ * @param params - Object with parameter key-value pairs
+ * @param separator - Separator between parameters ('&' for query string, ',' for OData path)
+ * @returns URI-encoded parameter string
+ *
+ * @example
+ * buildEncodedQueryString({ Name: "O'Brien", Age: 25 }, '&')
+ * // Returns: "Name=O%27Brien&Age=25"
+ *
+ * buildEncodedQueryString({ ID: "'100'", Type: 'A' }, ',')
+ * // Returns: "ID=%27100%27,Type=A"
+ */
+export function buildEncodedQueryString(
+	params: Record<string, any>,
+	separator = '&',
+): string {
+	const parts: string[] = [];
+
+	for (const [key, value] of Object.entries(params)) {
+		// Skip empty, null, or undefined values
+		if (value === undefined || value === null || value === '') {
+			continue;
+		}
+
+		// URI encode both key and value
+		const encodedKey = encodeURIComponent(key);
+		const encodedValue = encodeURIComponent(String(value));
+		parts.push(`${encodedKey}=${encodedValue}`);
+	}
+
+	return parts.join(separator);
 }
 
 /**

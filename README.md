@@ -12,6 +12,7 @@ This is an n8n community node that lets you interact with SAP systems via OData 
 - [Compatibility](#compatibility)
 - [Security](#security)
 - [Usage](#usage)
+- [📚 API Cookbook](#api-cookbook) ⭐
 - [Examples](#examples)
 - [Performance](#performance)
 - [Resources](#resources)
@@ -114,6 +115,68 @@ For detailed security documentation, see [SECURITY.md](SECURITY.md)
 Please report security vulnerabilities via [GitHub Security Advisories](https://github.com/your-repo/security/advisories/new) - **do not** create public issues.
 
 ## Usage
+
+### Service Path Configuration
+
+This node offers three modes for configuring the SAP OData service path:
+
+#### 1. Auto-Discover Mode (Recommended) ✨
+
+**What it does:**
+- Automatically connects to your SAP system and loads all available OData services
+- Uses SAP Gateway Catalog Service (`/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/`)
+- Caches discovered services for better performance
+- Shows service names, technical names, and descriptions
+
+**When to use:**
+- ✅ First time connecting to a new SAP system
+- ✅ When you want to explore available services
+- ✅ When SAP Gateway Catalog Service is accessible
+- ✅ For the best user experience
+
+**How it works:**
+1. Select "Auto-Discover" in Service Path Mode (default)
+2. Click on the "Service" dropdown
+3. Wait for services to load from your SAP system
+4. Select a service from the list
+5. Entity sets and function imports load automatically
+
+**Troubleshooting:**
+- If you see "⚠️ Auto-discovery unavailable", it means the Gateway Catalog Service is not accessible
+- Common reasons: Missing authorization, service not activated, or network restrictions
+- Fallback: The node will show 7 common SAP services (Business Partner, Sales Order, etc.)
+- Alternative: Switch to "From List" or "Custom" mode
+
+#### 2. From List Mode
+
+**What it does:**
+- Uses a pre-configured catalog of common SAP services
+- Filters services by category (SAP Standard APIs, Custom Z* services, etc.)
+- No runtime discovery needed
+
+**When to use:**
+- ✅ When Auto-Discover is not available
+- ✅ When working with well-known SAP services
+- ✅ For faster configuration in production workflows
+
+#### 3. Custom Mode
+
+**What it does:**
+- Allows manual entry of the service path
+- Full flexibility for any OData endpoint
+
+**When to use:**
+- ✅ Working with custom/non-standard service paths
+- ✅ Connecting to external OData services
+- ✅ When service discovery is not possible
+- ✅ For advanced users who know the exact path
+
+**Example paths:**
+```
+/sap/opu/odata/sap/API_BUSINESS_PARTNER/
+/sap/opu/odata/sap/API_SALES_ORDER_SRV/
+/sap/opu/odata/SAP/ZMY_CUSTOM_SERVICE/
+```
 
 ### Understanding Operations and HTTP Methods
 
@@ -273,6 +336,28 @@ Parameters:
 }
 ```
 
+## 📚 API Cookbook
+
+**New!** Check out our comprehensive [API Cookbook](docs/cookbook/README.md) with practical, copy-paste-ready examples:
+
+1. **[Basic Operations](docs/cookbook/01-basic-operations.md)** - CRUD operations (Create, Read, Update, Delete)
+2. **[Filtering & Sorting](docs/cookbook/02-filtering-sorting.md)** - Advanced queries with `$filter`, `$orderby`, `$top`, `$skip`
+3. **[Function Imports](docs/cookbook/03-function-imports.md)** - Execute SAP-specific function imports
+4. **[Pagination](docs/cookbook/04-pagination.md)** - Handle large datasets with server-driven paging
+5. **[Error Handling](docs/cookbook/05-error-handling.md)** - Robust error handling and retry strategies
+6. **[Monitoring](docs/cookbook/06-monitoring.md)** - Performance tracking and workflow monitoring
+
+Each guide includes:
+- 📖 Concept explanations
+- 💻 Copy-paste-ready examples
+- 🎯 Real-world scenarios
+- ⚠️ Common pitfalls
+- 🔍 Troubleshooting tips
+
+**Perfect for both beginners and advanced users!**
+
+---
+
 ## OData Query Syntax
 
 ### Filter Operators
@@ -296,6 +381,8 @@ Parameters:
 
 - **$select**: Choose specific fields (`Name,Price`)
 - **$expand**: Include related entities (`ToItems,ToPartner`)
+
+💡 **For detailed examples and advanced patterns**, see the [Filtering & Sorting Guide](docs/cookbook/02-filtering-sorting.md)
 
 ## Performance
 

@@ -1,0 +1,194 @@
+{
+  "name": "SAP Error Handler - Example",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-on-error",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.workflow.name }}",
+              "operation": "contains",
+              "value2": "SAP"
+            }
+          ]
+        }
+      },
+      "id": "filter-sap-errors",
+      "name": "Filter SAP Workflows",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract SAP-specific error information\nconst error = $input.item.json;\nconst execution = error.execution;\n\n// Parse error message for SAP-specific codes\nconst errorMsg = error.error?.message || 'Unknown error';\nconst sapErrorMatch = errorMsg.match(/SAP Error (\\d+)/);\nconst httpStatusMatch = errorMsg.match(/status code (\\d+)/);\n\n// Determine error severity\nlet severity = 'MEDIUM';\nif (httpStatusMatch) {\n  const status = parseInt(httpStatusMatch[1]);\n  if (status >= 500) severity = 'CRITICAL';\n  else if (status === 401 || status === 403) severity = 'HIGH';\n  else if (status === 404) severity = 'LOW';\n}\n\nreturn {\n  timestamp: new Date().toISOString(),\n  workflow: {\n    id: execution.workflowId,\n    name: error.workflow.name,\n    executionId: execution.id\n  },\n  error: {\n    message: errorMsg,\n    sapErrorCode: sapErrorMatch ? sapErrorMatch[1] : null,\n    httpStatus: httpStatusMatch ? parseInt(httpStatusMatch[1]) : null,\n    severity: severity,\n    node: error.node?.name || 'Unknown',\n    itemIndex: error.error?.cause?.itemIndex || 0\n  },\n  details: {\n    mode: execution.mode,\n    startedAt: execution.startedAt,\n    stoppedAt: execution.stoppedAt\n  }\n};"
+      },
+      "id": "parse-error",
+      "name": "Parse SAP Error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.error.severity }}",
+              "operation": "equals",
+              "value2": "CRITICAL"
+            }
+          ]
+        }
+      },
+      "id": "check-severity",
+      "name": "Is Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "channel": "#sap-alerts",
+        "text": "=🚨 *CRITICAL SAP ERROR*\n\n*Workflow:* {{ $json.workflow.name }}\n*Node:* {{ $json.error.node }}\n*Error:* {{ $json.error.message }}\n*SAP Code:* {{ $json.error.sapErrorCode || 'N/A' }}\n*HTTP Status:* {{ $json.error.httpStatus || 'N/A' }}\n\n*Execution ID:* {{ $json.workflow.executionId }}\n*Time:* {{ $json.timestamp }}\n\n<https://your-n8n.com/workflow/{{ $json.workflow.id }}/executions/{{ $json.workflow.executionId }}|View Execution>",
+        "otherOptions": {}
+      },
+      "id": "slack-critical",
+      "name": "Send Slack Alert (Critical)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1050, 100],
+      "credentials": {
+        "slackApi": {
+          "id": "1",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "sap_error_log",
+        "columns": "timestamp, workflow_id, workflow_name, execution_id, error_message, sap_error_code, http_status, severity, node_name, item_index",
+        "additionalFields": {}
+      },
+      "id": "log-to-database",
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "credentials": {
+        "postgres": {
+          "id": "2",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "#sap-monitoring",
+        "text": "=⚠️ *SAP Error* ({{ $json.error.severity }})\n\n*Workflow:* {{ $json.workflow.name }}\n*Error:* {{ $json.error.message }}\n\n<https://your-n8n.com/workflow/{{ $json.workflow.id }}/executions/{{ $json.workflow.executionId }}|View Details>",
+        "otherOptions": {}
+      },
+      "id": "slack-normal",
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [1050, 400],
+      "credentials": {
+        "slackApi": {
+          "id": "1",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter SAP Workflows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter SAP Workflows": {
+      "main": [
+        [
+          {
+            "node": "Parse SAP Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse SAP Error": {
+      "main": [
+        [
+          {
+            "node": "Check Severity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Critical?": {
+      "main": [
+        [
+          {
+            "node": "Send Slack Alert (Critical)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Slack Notification",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "SAP",
+      "id": "sap-tag"
+    },
+    {
+      "name": "Monitoring",
+      "id": "monitoring-tag"
+    }
+  ],
+  "meta": {
+    "instanceId": "example"
+  }
+}

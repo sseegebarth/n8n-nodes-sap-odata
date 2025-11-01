@@ -4,11 +4,11 @@
  */
 
 import { IDataObject, IHttpRequestOptions, INode } from 'n8n-workflow';
-import { buildSecureUrl, validateUrl, sanitizeHeaderValue } from '../utils/SecurityUtils';
 import { HEADERS, DEFAULT_TIMEOUT } from '../constants';
 import { ISapOdataCredentials } from '../types';
 import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
 import { Logger } from '../utils/Logger';
+import { buildSecureUrl, validateUrl, sanitizeHeaderValue } from '../utils/SecurityUtils';
 
 /**
  * Configuration for building HTTP requests
@@ -132,7 +132,7 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 
 				// Validate header name (RFC 7230)
 				const headerName = String(key).toLowerCase().trim();
-				if (!/^[a-z0-9\-]+$/i.test(headerName)) {
+				if (!/^[a-z0-9-]+$/i.test(headerName)) {
 					Logger.warn('Invalid custom header name skipped', {
 						module: 'RequestBuilder',
 						headerName: key,

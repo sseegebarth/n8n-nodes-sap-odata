@@ -176,6 +176,23 @@ export function getCommonServices(): ISapODataService[] {
 			version: '1',
 			description: 'Manage outbound deliveries',
 		},
+		// Custom Service Examples (Z-Namespace)
+		{
+			id: 'z_custom_service',
+			title: 'Custom Service Example',
+			technicalName: 'Z_CUSTOM_SERVICE',
+			servicePath: '/sap/opu/odata/sap/Z_CUSTOM_SERVICE/',
+			version: '1',
+			description: 'Customer-specific service (example)',
+		},
+		{
+			id: 'y_custom_service',
+			title: 'Y-Namespace Example',
+			technicalName: 'Y_CUSTOM_API',
+			servicePath: '/sap/opu/odata/sap/Y_CUSTOM_API/',
+			version: '1',
+			description: 'Customer-specific Y-namespace service (example)',
+		},
 	];
 }
 
@@ -216,9 +233,18 @@ export function groupServicesByCategory(
 	};
 
 	services.forEach((service) => {
-		if (service.technicalName.startsWith('API_')) {
+		// Check for standard API prefix in both technicalName and title
+		const isStandardAPI = service.technicalName.startsWith('API_') ||
+		                      service.technicalName.startsWith('C_') ||
+		                      service.title.startsWith('API_') ||
+		                      service.title.startsWith('C_');
+
+		// ZAPI_* and ZC_* are custom wrappers around standard APIs - treat as standard
+		const isWrappedStandardAPI = /^Z(API_|C_)/.test(service.technicalName);
+
+		if (isStandardAPI || isWrappedStandardAPI) {
 			groups['SAP Standard APIs'].push(service);
-		} else if (service.technicalName.startsWith('Z')) {
+		} else if (service.technicalName.startsWith('Z') || service.technicalName.startsWith('Y')) {
 			groups['Custom Services (Z*)'].push(service);
 		} else {
 			groups['Other Services'].push(service);

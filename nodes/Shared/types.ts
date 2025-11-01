@@ -23,7 +23,7 @@ export interface IODataV2Response<T = IODataEntity> {
 		results?: T[];
 		__next?: string;
 		__count?: number;
-		[key: string]: any;
+		[key: string]: unknown;
 	} | T;
 }
 
@@ -127,6 +127,7 @@ export interface IMetadataCacheEntry {
 	entitySets: string[];
 	functionImports: string[];
 	expires: number;
+	parsedMetadata?: unknown; // Optional: Full parsed metadata for advanced features
 }
 
 /**

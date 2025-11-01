@@ -1,10 +1,10 @@
-import { IOperationStrategy } from './IOperationStrategy';
 import { CreateEntityStrategy } from './CreateEntityStrategy';
-import { GetEntityStrategy } from './GetEntityStrategy';
-import { GetAllEntitiesStrategy } from './GetAllEntitiesStrategy';
-import { UpdateEntityStrategy } from './UpdateEntityStrategy';
 import { DeleteEntityStrategy } from './DeleteEntityStrategy';
 import { FunctionImportStrategy } from './FunctionImportStrategy';
+import { GetAllEntitiesStrategy } from './GetAllEntitiesStrategy';
+import { GetEntityStrategy } from './GetEntityStrategy';
+import { IOperationStrategy } from './IOperationStrategy';
+import { UpdateEntityStrategy } from './UpdateEntityStrategy';
 
 /**
  * Factory for creating operation strategies

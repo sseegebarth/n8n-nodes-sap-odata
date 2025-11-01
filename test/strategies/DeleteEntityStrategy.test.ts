@@ -34,7 +34,8 @@ describe('DeleteEntityStrategy', () => {
 			(mockContext.getNodeParameter as jest.Mock)
 				.mockReturnValueOnce('list') // entitySetMode
 				.mockReturnValueOnce('ProductSet') // entitySet
-				.mockReturnValueOnce('0500000001'); // entityKey
+				.mockReturnValueOnce('0500000001') // entityKey
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(null);
 
@@ -42,7 +43,15 @@ describe('DeleteEntityStrategy', () => {
 
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'DELETE',
-				"/ProductSet('0500000001')",
+				'/ProductSet(0500000001)',
+				{},
+				{},
+				undefined,
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'If-Match': '*',
+					}),
+				}),
 			);
 			expect(result).toEqual([
 				{
@@ -58,7 +67,8 @@ describe('DeleteEntityStrategy', () => {
 			(mockContext.getNodeParameter as jest.Mock)
 				.mockReturnValueOnce('list') // entitySetMode
 				.mockReturnValueOnce('SalesOrderSet') // entitySet
-				.mockReturnValueOnce("SalesOrderID='0500000001',ItemPosition='10'"); // entityKey
+				.mockReturnValueOnce("SalesOrderID='0500000001',ItemPosition='10'") // entityKey
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -67,6 +77,14 @@ describe('DeleteEntityStrategy', () => {
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'DELETE',
 				"/SalesOrderSet(SalesOrderID='0500000001',ItemPosition='10')",
+				{},
+				{},
+				undefined,
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'If-Match': '*',
+					}),
+				}),
 			);
 		});
 
@@ -76,7 +94,8 @@ describe('DeleteEntityStrategy', () => {
 			(mockContext.getNodeParameter as jest.Mock)
 				.mockReturnValueOnce('custom') // entitySetMode
 				.mockReturnValueOnce('CustomEntitySet') // customEntitySet
-				.mockReturnValueOnce('123'); // entityKey
+				.mockReturnValueOnce('123') // entityKey
+				.mockReturnValueOnce({}); // options
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
 
@@ -84,7 +103,15 @@ describe('DeleteEntityStrategy', () => {
 
 			expect(sapOdataApiRequestSpy).toHaveBeenCalledWith(
 				'DELETE',
-				"/CustomEntitySet('123')",
+				'/CustomEntitySet(123)',
+				{},
+				{},
+				undefined,
+				expect.objectContaining({
+					headers: expect.objectContaining({
+						'If-Match': '*',
+					}),
+				}),
 			);
 		});
 	});

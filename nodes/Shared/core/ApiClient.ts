@@ -10,16 +10,16 @@ import {
 	IDataObject,
 	NodeOperationError,
 } from 'n8n-workflow';
-
-import { buildRequestOptions, parseStatusCodes, parsePoolConfig } from './RequestBuilder';
+import { resolveServicePath } from '../../Sap/GenericFunctions';
+import { CREDENTIAL_TYPE, ERROR_MESSAGES } from '../constants';
+import { ISapOdataCredentials } from '../types';
+import { CacheManager } from '../utils/CacheManager';
+import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
 import { ODataErrorHandler } from '../utils/ErrorHandler';
 import { Logger } from '../utils/Logger';
 import { RetryHandler } from '../utils/RetryUtils';
 import { ThrottleManager, ThrottleStrategy } from '../utils/ThrottleManager';
-import { CREDENTIAL_TYPE, ERROR_MESSAGES } from '../constants';
-import { ISapOdataCredentials } from '../types';
-import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
-import { CacheManager } from '../utils/CacheManager';
+import { buildRequestOptions, parseStatusCodes, parsePoolConfig } from './RequestBuilder';
 
 /**
  * Get or create throttle manager scoped to workflow execution
@@ -61,6 +61,7 @@ export interface IApiClientConfig {
 	uri?: string;
 	option?: IDataObject;
 	csrfToken?: string;
+	servicePath?: string;
 }
 
 /**
@@ -95,23 +96,9 @@ export async function executeRequest(
 
 	const host = credentials.host.replace(/\/$/, '');
 
-	// Get servicePath from node parameter - different methods for different contexts
-	let servicePath = '/sap/opu/odata/sap/';
-	if ('getNodeParameter' in this) {
-		try {
-			servicePath = this.getNodeParameter('servicePath', 0, '/sap/opu/odata/sap/') as string;
-		} catch {
-			// If servicePath parameter doesn't exist (e.g., in credential test), use default
-			servicePath = '/sap/opu/odata/sap/';
-		}
-	} else if ('getCurrentNodeParameter' in this) {
-		try {
-			servicePath = ((this as any).getCurrentNodeParameter('servicePath') as string) || '/sap/opu/odata/sap/';
-		} catch {
-			servicePath = '/sap/opu/odata/sap/';
-		}
-	}
-	servicePath = servicePath.replace(/\/$/, '');
+	// Use explicit service path from config (if provided), otherwise resolve from context
+	// This ensures DiscoveryService and other helpers can override the service path
+	const servicePath = config.servicePath || resolveServicePath(this);
 
 	// Security warning for disabled SSL validation (only once per execution)
 	if (credentials.allowUnauthorizedCerts === true) {
@@ -277,7 +264,7 @@ export async function executeRequest(
 					module: 'ApiClient',
 					resource,
 				});
-				CacheManager.invalidateCacheOn404(this, credentials.host, servicePath);
+				await CacheManager.invalidateCacheOn404(this, credentials.host, servicePath);
 			}
 
 			return ODataErrorHandler.handleApiError(error, this.getNode(), {

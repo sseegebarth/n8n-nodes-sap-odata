@@ -1,7 +1,7 @@
 import { NodeApiError, NodeOperationError, INode } from 'n8n-workflow';
-import { sanitizeErrorMessage } from './SecurityUtils';
 import { ERROR_MESSAGES } from '../constants';
 import { IErrorContext } from '../types';
+import { sanitizeErrorMessage } from './SecurityUtils';
 
 /**
  * Centralized error handling for SAP OData Node
@@ -115,9 +115,9 @@ export class ODataErrorHandler {
 			case 403:
 				throw new NodeOperationError(
 					node,
-					'Access Forbidden',
+					'Access Forbidden - Missing SAP Authorizations',
 					{
-						description: `${description}\n\nYou do not have permission to access this resource.\n\nCheck:\n- User has required authorization objects in SAP\n- Service is activated for your user role\n- Check authorization trace in SAP (transaction: ST01)`,
+						description: `${description}\n\nYour SAP user does not have permission to access this resource.\n\nCommon causes:\n- Missing authorization objects (S_SERVICE, S_ICF)\n- Service is not activated for your user role\n- Custom Z-services require specific custom authorizations\n\nHow to fix:\n1. Check authorization trace in SAP (transaction: ST01)\n2. Request access from SAP Administrator\n3. Verify service is activated in /IWFND/MAINT_SERVICE\n4. Test in SAP Gateway Client (/IWFND/GW_CLIENT)\n\nNote: Connection Test may succeed while data access fails if you only have metadata permissions.`,
 						itemIndex: context.itemIndex,
 					},
 				);

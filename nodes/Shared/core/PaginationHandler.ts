@@ -4,8 +4,8 @@
  */
 
 import { IDataObject } from 'n8n-workflow';
-import { Logger } from '../utils/Logger';
 import { DEFAULT_PAGE_SIZE } from '../constants';
+import { Logger } from '../utils/Logger';
 import { sanitizeErrorMessage } from '../utils/SecurityUtils';
 
 /**

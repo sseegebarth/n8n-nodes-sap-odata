@@ -15,9 +15,12 @@ export class CacheManager {
 	/**
 	 * Get cache key for a specific host, service path, and credentials
 	 * Includes credential identifier to prevent cache leaks between users
+	 * Normalizes service paths to avoid cache misses from trailing slashes
 	 */
 	private static getCacheKey(host: string, servicePath: string, credentialId?: string): string {
-		const baseKey = `${host}${servicePath}`;
+		// Normalize service path: remove trailing slash for consistent cache keys
+		const normalizedPath = servicePath.endsWith('/') ? servicePath.slice(0, -1) : servicePath;
+		const baseKey = `${host}${normalizedPath}`;
 		// Include credential ID in key for multi-tenant isolation
 		// If credentialId not provided, use host-only for backward compatibility
 		const fullKey = credentialId ? `${credentialId}_${baseKey}` : baseKey;
@@ -27,15 +30,32 @@ export class CacheManager {
 	/**
 	 * Extract credential identifier from context
 	 * Used to create user-specific cache keys for multi-tenant isolation
+	 * Includes client and language to prevent cross-client cache contamination
+	 *
+	 * IMPORTANT: Computes fingerprint per call to support runtime credential expressions
+	 * Do NOT cache the credential ID as it may change between items in multi-item executions
 	 */
-	private static async getCredentialId(context: IContextType): Promise<string | undefined> {
+	private static async getCredentialId(context: IContextType, itemIndex?: number): Promise<string | undefined> {
 		try {
-			const credentials = await context.getCredentials('sapOdataApi');
-			// Use username + host as unique identifier
-			// This prevents cache sharing between different users/credentials
+			// Fetch credentials dynamically - DO NOT use cached value
+			// This ensures per-item credential expressions work correctly
+			const credentials = itemIndex !== undefined && 'getCredentials' in context
+				? await (context as IExecuteFunctions).getCredentials('sapOdataApi', itemIndex)
+				: await context.getCredentials('sapOdataApi');
+
+			// Use username + host + client + language as unique identifier
+			// This prevents cache sharing between different users/credentials/clients
 			const username = credentials.username as string || '';
 			const host = credentials.host as string || '';
-			return username && host ? `${username}@${host}` : undefined;
+			const client = credentials.sapClient as string || '';
+			const lang = credentials.sapLanguage as string || 'EN';
+
+			if (!username || !host) return undefined;
+
+			// Include client and language in fingerprint to avoid multi-client cache bleed
+			const credentialId = `${username}@${host}:${client}:${lang}`;
+
+			return credentialId;
 		} catch {
 			// If credentials not available, return undefined
 			return undefined;
@@ -55,17 +75,19 @@ export class CacheManager {
 
 	/**
 	 * Get CSRF token from cache
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
 	static async getCsrfToken(
 		context: IContextType,
 		host: string,
 		servicePath: string,
+		itemIndex?: number,
 	): Promise<string | null> {
 		try {
 			// Trigger periodic cleanup
 			this.maybeRunCleanup(context);
 
-			const credentialId = await this.getCredentialId(context);
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const cacheKey = `csrf_${this.getCacheKey(host, servicePath, credentialId)}`;
 			const cached = staticData[cacheKey] as ICsrfTokenCacheEntry | undefined;
@@ -89,15 +111,17 @@ export class CacheManager {
 
 	/**
 	 * Set CSRF token in cache
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
 	static async setCsrfToken(
 		context: IContextType,
 		host: string,
 		servicePath: string,
 		token: string,
+		itemIndex?: number,
 	): Promise<void> {
 		try {
-			const credentialId = await this.getCredentialId(context);
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const cacheKey = `csrf_${this.getCacheKey(host, servicePath, credentialId)}`;
 
@@ -112,17 +136,19 @@ export class CacheManager {
 
 	/**
 	 * Get metadata from cache
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
 	static async getMetadata(
 		context: IContextType,
 		host: string,
 		servicePath: string,
+		itemIndex?: number,
 	): Promise<IMetadataCacheEntry | null> {
 		try {
 			// Trigger periodic cleanup
 			this.maybeRunCleanup(context);
 
-			const credentialId = await this.getCredentialId(context);
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const cacheKey = `metadata_${this.getCacheKey(host, servicePath, credentialId)}`;
 			const cached = staticData[cacheKey] as IMetadataCacheEntry | undefined;
@@ -146,6 +172,7 @@ export class CacheManager {
 
 	/**
 	 * Set metadata in cache
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
 	static async setMetadata(
 		context: IContextType,
@@ -153,9 +180,10 @@ export class CacheManager {
 		servicePath: string,
 		entitySets: string[],
 		functionImports: string[],
+		itemIndex?: number,
 	): Promise<void> {
 		try {
-			const credentialId = await this.getCredentialId(context);
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const cacheKey = `metadata_${this.getCacheKey(host, servicePath, credentialId)}`;
 
@@ -171,15 +199,18 @@ export class CacheManager {
 
 	/**
 	 * Clear all cache for a specific service
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
-	static clearCache(
+	static async clearCache(
 		context: IContextType,
 		host: string,
 		servicePath: string,
-	): void {
+		itemIndex?: number,
+	): Promise<void> {
 		try {
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
-			const baseKey = this.getCacheKey(host, servicePath);
+			const baseKey = this.getCacheKey(host, servicePath, credentialId);
 
 			delete staticData[`csrf_${baseKey}`];
 			delete staticData[`metadata_${baseKey}`];
@@ -191,15 +222,18 @@ export class CacheManager {
 	/**
 	 * Invalidate cache when 404 error occurs
 	 * This ensures stale cache doesn't persist after service path changes
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
-	static invalidateCacheOn404(
+	static async invalidateCacheOn404(
 		context: IContextType,
 		host: string,
 		servicePath: string,
-	): void {
+		itemIndex?: number,
+	): Promise<void> {
 		try {
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
-			const baseKey = this.getCacheKey(host, servicePath);
+			const baseKey = this.getCacheKey(host, servicePath, credentialId);
 
 			// Remove metadata cache on 404 (service/entity not found)
 			// CSRF token cache is preserved as authentication is separate
@@ -211,16 +245,18 @@ export class CacheManager {
 
 	/**
 	 * Get service catalog from cache
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
 	static async getServiceCatalog(
 		context: IContextType,
 		host: string,
+		itemIndex?: number,
 	): Promise<any[] | null> {
 		try {
 			// Trigger periodic cleanup
 			this.maybeRunCleanup(context);
 
-			const credentialId = await this.getCredentialId(context);
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const hostKey = host.replace(/[^a-zA-Z0-9]/g, '_');
 			const cacheKey = credentialId ? `services_${credentialId}_${hostKey}` : `services_${hostKey}`;
@@ -245,14 +281,16 @@ export class CacheManager {
 
 	/**
 	 * Set service catalog in cache
+	 * @param itemIndex - Optional item index for per-item credential expressions
 	 */
 	static async setServiceCatalog(
 		context: IContextType,
 		host: string,
 		services: any[],
+		itemIndex?: number,
 	): Promise<void> {
 		try {
-			const credentialId = await this.getCredentialId(context);
+			const credentialId = await this.getCredentialId(context, itemIndex);
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const hostKey = host.replace(/[^a-zA-Z0-9]/g, '_');
 			const cacheKey = credentialId ? `services_${credentialId}_${hostKey}` : `services_${hostKey}`;
