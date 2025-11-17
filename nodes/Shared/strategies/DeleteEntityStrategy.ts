@@ -15,7 +15,12 @@ export class DeleteEntityStrategy extends CrudStrategy implements IOperationStra
 	): Promise<INodeExecutionData[]> {
 
 			const entitySet = this.getEntitySet(context, itemIndex);
-			const entityKey = context.getNodeParameter('entityKey', itemIndex) as string;
+
+			// Extract entity key from Resource Locator
+			const entityKeyParam = context.getNodeParameter('entityKey', itemIndex) as string | { mode: string; value: string };
+			const entityKey = typeof entityKeyParam === 'string'
+				? entityKeyParam
+				: entityKeyParam.value;
 
 			// Validate and format the entity key
 			const formattedKey = this.validateAndFormatKey(entityKey, context.getNode());

@@ -155,14 +155,30 @@ export class ThrottleManager {
 	 * Start the token refill timer
 	 */
 	private startRefillTimer(): void {
+		// Clear any existing timer first to prevent leaks
+		if (this.refillTimer) {
+			clearInterval(this.refillTimer);
+			this.refillTimer = null;
+		}
+
 		this.refillTimer = setInterval(() => {
 			if (this.destroyed) {
+				// Clean up timer when destroyed
+				if (this.refillTimer) {
+					clearInterval(this.refillTimer);
+					this.refillTimer = null;
+				}
 				return;
 			}
 
 			this.refillTokens();
 			this.processQueue();
 		}, 100); // Check every 100ms
+
+		// Ensure timer doesn't prevent process exit
+		if (this.refillTimer && typeof this.refillTimer.unref === 'function') {
+			this.refillTimer.unref();
+		}
 	}
 
 	/**

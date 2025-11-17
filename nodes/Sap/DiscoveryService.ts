@@ -235,9 +235,9 @@ export function groupServicesByCategory(
 	services.forEach((service) => {
 		// Check for standard API prefix in both technicalName and title
 		const isStandardAPI = service.technicalName.startsWith('API_') ||
-		                      service.technicalName.startsWith('C_') ||
-		                      service.title.startsWith('API_') ||
-		                      service.title.startsWith('C_');
+			service.technicalName.startsWith('C_') ||
+			service.title.startsWith('API_') ||
+			service.title.startsWith('C_');
 
 		// ZAPI_* and ZC_* are custom wrappers around standard APIs - treat as standard
 		const isWrappedStandardAPI = /^Z(API_|C_)/.test(service.technicalName);

@@ -75,37 +75,18 @@ export async function getCsrfToken(
 	host: string,
 	servicePath: string,
 ): Promise<string> {
-	// Try to get token from cache first
-	const { CacheManager } = await import('../Shared/utils/CacheManager');
-	const cachedToken = await CacheManager.getCsrfToken(this, host, servicePath);
-	if (cachedToken) {
-		return cachedToken;
-	}
+	// Use SAP Gateway compatibility utility for enhanced session management
+	const { SapGatewayCompat } = await import('../Shared/utils/SapGatewayCompat');
 
 	const credentials = (await this.getCredentials(CREDENTIAL_TYPE)) as ISapOdataCredentials;
 
-	// Build request for CSRF token
-	const options = buildCsrfTokenRequest(host, servicePath, credentials, this.getNode());
-
-	try {
-		const response = await this.helpers.httpRequestWithAuthentication.call(
-			this,
-			CREDENTIAL_TYPE,
-			options,
-		);
-		const token = response.headers['x-csrf-token'] || '';
-
-		// Cache the token for future requests
-		if (token) {
-			await CacheManager.setCsrfToken(this, host, servicePath, token);
-		}
-
-		return token;
-	} catch (error) {
-		// If CSRF token fetch fails, return empty string
-		// This is expected for public services without authentication
-		return '';
-	}
+	// Fetch token with enhanced session management
+	return SapGatewayCompat.fetchCsrfToken(
+		this,
+		host,
+		servicePath,
+		(h, sp) => buildCsrfTokenRequest(h, sp, credentials, this.getNode()),
+	);
 }
 
 /**

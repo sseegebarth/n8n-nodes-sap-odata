@@ -133,18 +133,18 @@ export async function testSapODataConnection(
 			const entitySetPreview = entitySets.slice(0, 5);
 			const moreCount = entitySets.length - 5;
 
-			let message = '✅ Connection successful!\n\n';
+			let message = 'Connection successful!\n\n';
 
 			if (catalogServiceAvailable) {
-				message += `📊 Catalog Service: Available (${catalogResponseTime}ms)\n`;
+				message += `Catalog Service: Available (${catalogResponseTime}ms)\n`;
 			}
 
 			if (metadataAccessible) {
-				message += `📋 Metadata Access: OK\n`;
-				message += `🔢 Entity Sets Found: ${entitySets.length}\n`;
+				message += `Metadata Access: OK\n`;
+				message += `Entity Sets Found: ${entitySets.length}\n`;
 
 				if (entitySetPreview.length > 0) {
-					message += `\n📦 Sample Entity Sets:\n`;
+					message += `\nSample Entity Sets:\n`;
 					entitySetPreview.forEach((es, idx) => {
 						message += `   ${idx + 1}. ${es}\n`;
 					});
@@ -155,10 +155,10 @@ export async function testSapODataConnection(
 				}
 			}
 
-			message += `\n⏱️  Response Time: ${totalResponseTime}ms`;
+			message += `\nResponse Time: ${totalResponseTime}ms`;
 
 			if (sapClient) {
-				message += `\n🏢 SAP Client: ${sapClient}`;
+				message += `\nSAP Client: ${sapClient}`;
 			}
 
 			return {
@@ -185,19 +185,18 @@ export async function testSapODataConnection(
 		// ========================================
 		const totalResponseTime = Date.now() - startTime;
 
-		// Type guard for error object
-		const errorObj = error as {
-			statusCode?: number;
-			response?: { statusCode?: number };
-			code?: string;
-			message?: string;
-		};
+		// Import type guards for robust error checking
+		const { getHttpStatusCode, isNetworkError, isTimeoutError, isCertificateError, getErrorMessage } =
+			await import('../Shared/utils/TypeGuards');
+
+		const statusCode = getHttpStatusCode(error);
+		const errorMessage = getErrorMessage(error);
 
 		// Authentication Error
-		if (errorObj.statusCode === 401 || errorObj.response?.statusCode === 401) {
+		if (statusCode === 401) {
 			return {
 				status: 'Error',
-				message: '❌ Authentication failed\n\n' +
+				message: 'Authentication failed\n\n' +
 					'Invalid username or password.\n' +
 					'Please check your credentials.\n\n' +
 					`Response Time: ${totalResponseTime}ms`,
@@ -205,10 +204,10 @@ export async function testSapODataConnection(
 		}
 
 		// Forbidden
-		if (errorObj.statusCode === 403 || errorObj.response?.statusCode === 403) {
+		if (statusCode === 403) {
 			return {
 				status: 'Error',
-				message: '❌ Access forbidden\n\n' +
+				message: 'Access forbidden\n\n' +
 					'User does not have permission to access OData services.\n' +
 					'Please check SAP authorizations.\n\n' +
 					`Response Time: ${totalResponseTime}ms`,
@@ -216,10 +215,10 @@ export async function testSapODataConnection(
 		}
 
 		// Timeout
-		if (errorObj.code === 'ETIMEDOUT' || errorObj.code === 'ESOCKETTIMEDOUT') {
+		if (isTimeoutError(error)) {
 			return {
 				status: 'Error',
-				message: '❌ Connection timeout\n\n' +
+				message: 'Connection timeout\n\n' +
 					'SAP system not reachable.\n' +
 					'Please check:\n' +
 					'• Is VPN connected?\n' +
@@ -229,11 +228,11 @@ export async function testSapODataConnection(
 			};
 		}
 
-		// DNS/Network Error
-		if (errorObj.code === 'ENOTFOUND' || errorObj.code === 'ECONNREFUSED') {
+		// Network/DNS Error
+		if (isNetworkError(error) && !isCertificateError(error)) {
 			return {
 				status: 'Error',
-				message: '❌ Host not found\n\n' +
+				message: 'Host not found\n\n' +
 					'Cannot resolve hostname or connection refused.\n' +
 					'Please check:\n' +
 					'• Host URL spelling\n' +
@@ -244,12 +243,10 @@ export async function testSapODataConnection(
 		}
 
 		// SSL Certificate Error
-		if (errorObj.code === 'DEPTH_ZERO_SELF_SIGNED_CERT' ||
-				errorObj.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' ||
-				errorObj.message?.includes('certificate')) {
+		if (isCertificateError(error)) {
 			return {
 				status: 'Error',
-				message: '❌ SSL Certificate error\n\n' +
+				message: 'SSL Certificate error\n\n' +
 					'Cannot verify SSL certificate.\n\n' +
 					'Options:\n' +
 					'• Enable "Ignore SSL Issues" (not recommended for production)\n' +
@@ -259,10 +256,9 @@ export async function testSapODataConnection(
 		}
 
 		// Generic Error
-		const errorMessage = errorObj.message || String(error);
 		return {
 			status: 'Error',
-			message: '❌ Connection test failed\n\n' +
+			message: 'Connection test failed\n\n' +
 				`Error: ${sanitizeErrorMessage(errorMessage)}\n\n` +
 				`Response Time: ${totalResponseTime}ms`,
 		};

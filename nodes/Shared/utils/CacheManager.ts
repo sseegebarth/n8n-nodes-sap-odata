@@ -11,20 +11,45 @@ type IContextType = IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions;
 export class CacheManager {
 	private static accessCounter = 0;
 	private static readonly CLEANUP_INTERVAL = 10; // Run cleanup every 10 cache accesses
+	private static cleanupInProgress = false; // Prevent concurrent cleanup operations
 
 	/**
 	 * Get cache key for a specific host, service path, and credentials
 	 * Includes credential identifier to prevent cache leaks between users
 	 * Normalizes service paths to avoid cache misses from trailing slashes
+	 * Uses secure hashing to prevent key collisions and information leakage
 	 */
 	private static getCacheKey(host: string, servicePath: string, credentialId?: string): string {
-		// Normalize service path: remove trailing slash for consistent cache keys
-		const normalizedPath = servicePath.endsWith('/') ? servicePath.slice(0, -1) : servicePath;
-		const baseKey = `${host}${normalizedPath}`;
-		// Include credential ID in key for multi-tenant isolation
-		// If credentialId not provided, use host-only for backward compatibility
-		const fullKey = credentialId ? `${credentialId}_${baseKey}` : baseKey;
-		return fullKey.replace(/[^a-zA-Z0-9_]/g, '_');
+		// Normalize inputs for consistency
+		const normalizedHost = host.toLowerCase().replace(/\/$/, ''); // Remove trailing slash
+		const normalizedPath = servicePath.replace(/^\//, '').replace(/\/$/, ''); // Remove leading/trailing slashes
+
+		// Create a unique key combining all parameters
+		const keyComponents = [
+			normalizedHost,
+			normalizedPath,
+			credentialId || 'anonymous'
+		];
+
+		// Create a deterministic hash of the components
+		// This prevents information leakage in cache keys while maintaining uniqueness
+		const keyString = keyComponents.join('::');
+
+		// Simple hash function for cache key generation
+		// Not cryptographically secure but sufficient for cache isolation
+		let hash = 0;
+		for (let i = 0; i < keyString.length; i++) {
+			const char = keyString.charCodeAt(i);
+			hash = ((hash << 5) - hash) + char;
+			hash = hash & hash; // Convert to 32-bit integer
+		}
+
+		// Return a safe cache key with prefix and hash
+		const safeKey = `cache_${Math.abs(hash).toString(36)}`;
+
+		// Add suffix to differentiate between similar hashes (collision mitigation)
+		const suffix = keyString.length.toString(36);
+		return `${safeKey}_${suffix}`;
 	}
 
 	/**
@@ -64,12 +89,18 @@ export class CacheManager {
 
 	/**
 	 * Trigger cleanup periodically based on access count
+	 * Prevents concurrent cleanup operations to avoid race conditions
 	 */
 	private static maybeRunCleanup(context: IContextType): void {
 		this.accessCounter++;
-		if (this.accessCounter >= this.CLEANUP_INTERVAL) {
+		if (this.accessCounter >= this.CLEANUP_INTERVAL && !this.cleanupInProgress) {
 			this.accessCounter = 0;
-			this.cleanupExpiredCache(context);
+			this.cleanupInProgress = true;
+			try {
+				this.cleanupExpiredCache(context);
+			} finally {
+				this.cleanupInProgress = false;
+			}
 		}
 	}
 

@@ -359,7 +359,7 @@ export const sapODataLoadOptions = {
 
 			// Check if this is a 403 Forbidden error
 			const isForbidden = errorMessage.toLowerCase().includes('forbidden') ||
-			                     errorMessage.toLowerCase().includes('403');
+				errorMessage.toLowerCase().includes('403');
 
 			if (isForbidden) {
 				return [

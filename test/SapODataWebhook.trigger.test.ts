@@ -7,13 +7,13 @@ describe('SapODataWebhook.trigger', () => {
 	let webhookNode: INodeType;
 
 	beforeAll(async () => {
-		const { SapODataWebhookTrigger } = await import('../nodes/SapWebhook/SapODataWebhook.trigger');
-		webhookNode = new SapODataWebhookTrigger();
+		const { SapODataWebhook } = await import('../nodes/SapWebhook/SapODataWebhook.node');
+		webhookNode = new SapODataWebhook();
 	});
 
 	describe('Node Definition', () => {
 		it('should have correct node properties', () => {
-			expect(webhookNode.description.displayName).toBe('SAP OData Webhook');
+			expect(webhookNode.description.displayName).toBe('SAP Connect OData Webhook');
 			expect(webhookNode.description.name).toBe('sapODataWebhook');
 			expect(webhookNode.description.group).toContain('trigger');
 			expect(webhookNode.description.version).toBe(1);

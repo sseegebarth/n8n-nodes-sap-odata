@@ -19,6 +19,10 @@ export const RATE_LIMIT_WINDOW = 60000; // 1 minute in ms
 export const METADATA_CACHE_TTL = 300000; // 5 minutes
 export const CSRF_TOKEN_CACHE_TTL = 600000; // 10 minutes
 
+// SAP Gateway Session
+export const SAP_GATEWAY_SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+export const SAP_GATEWAY_CSRF_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+
 // HTTP Headers
 export const HEADERS = {
 	ACCEPT: 'application/json',

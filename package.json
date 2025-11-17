@@ -44,7 +44,6 @@
     ],
     "nodes": [
       "dist/nodes/Sap/SapOData.node.js",
-      "dist/nodes/SapAdvanced/SapAdvanced.node.js",
       "dist/nodes/SapIdoc/SapIdoc.node.js",
       "dist/nodes/SapIdocWebhook/SapIdocWebhook.node.js",
       "dist/nodes/SapRfc/SapRfc.node.js",

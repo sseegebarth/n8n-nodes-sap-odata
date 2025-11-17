@@ -3,6 +3,30 @@ import { ERROR_MESSAGES } from '../constants';
 import { IErrorContext } from '../types';
 import { sanitizeErrorMessage } from './SecurityUtils';
 
+interface IHttpError {
+	message?: string;
+	response?: {
+		status?: number;
+		statusCode?: number;
+		data?: {
+			error?: ISapError;
+		};
+	};
+	statusCode?: number;
+	error?: ISapError;
+}
+
+interface ISapError {
+	code?: string;
+	message?: {
+		value?: string;
+	} | string;
+	innererror?: {
+		type?: string;
+		[key: string]: unknown;
+	};
+}
+
 /**
  * Centralized error handling for SAP OData Node
  */
@@ -10,17 +34,19 @@ export class ODataErrorHandler {
 	/**
 	 * Handle API errors with context
 	 */
-	static handleApiError(error: any, node: INode, context: IErrorContext = {}): never {
+	static handleApiError(error: unknown, node: INode, context: IErrorContext = {}): never {
+		const httpError = error as IHttpError;
+
 		// Sanitize error message
-		const sanitizedMessage = sanitizeErrorMessage(error.message || 'Unknown error');
+		const sanitizedMessage = sanitizeErrorMessage(httpError.message || 'Unknown error');
 
 		// Extract status code
-		const statusCode = error.response?.status || error.statusCode || context.statusCode;
+		const statusCode = httpError.response?.status || httpError.response?.statusCode || httpError.statusCode || context.statusCode;
 
 		// Extract SAP-specific error details
-		const sapError = error.response?.data?.error || error.error;
+		const sapError = httpError.response?.data?.error || httpError.error;
 		const sapCode = sapError?.code;
-		const sapMessage = sapError?.message?.value || sapError?.message;
+		const sapMessage = typeof sapError?.message === 'string' ? sapError.message : sapError?.message?.value;
 		const innererror = sapError?.innererror;
 
 		// Build error description
@@ -190,7 +216,7 @@ export class ODataErrorHandler {
 					{
 						message: sanitizedMessage,
 						description,
-						...error,
+						...(typeof error === 'object' && error !== null ? error : {}),
 					},
 					{
 						itemIndex: context.itemIndex,

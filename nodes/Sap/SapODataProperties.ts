@@ -260,11 +260,12 @@ export const sapODataProperties: INodeProperties[] = [
 		hint: 'Examples: A_SalesOrder, ProductSet, ZMY_CUSTOM_ENTITY',
 	},
 
-	// Entity Key (for get, update, delete)
+	// Entity Key (for get, update, delete) - Resource Locator
 	{
-		displayName: 'Entity Key',
+		displayName: 'Entity',
 		name: 'entityKey',
-		type: 'string',
+		type: 'resourceLocator',
+		default: { mode: 'id', value: '' },
 		required: true,
 		displayOptions: {
 			show: {
@@ -272,10 +273,44 @@ export const sapODataProperties: INodeProperties[] = [
 				operation: ['get', 'update', 'delete'],
 			},
 		},
-		default: '',
-		placeholder: "'0500000001'",
-		description: 'The entity key (use SAP OData format, e.g., \'0500000001\' for strings or 123 for numbers)',
-		hint: 'String keys: \'ABC\' | Numeric keys: 123 | Composite: ProductID=123,Year=2024',
+		modes: [
+			{
+				displayName: 'By ID',
+				name: 'id',
+				type: 'string',
+				placeholder: "'0500000001'",
+				validation: [
+					{
+						type: 'regex',
+						properties: {
+							regex: "^(['\"]?\\w+['\"]?|\\w+=.+)$",
+							errorMessage: 'Invalid entity key format. Use: \'ABC\' for strings, 123 for numbers, or Key1=\'A\',Key2=123 for composite keys',
+						},
+					},
+				],
+				hint: 'String keys: \'ABC\' | Numeric keys: 123 | Composite: ProductID=123,Year=2024',
+			},
+			{
+				displayName: 'By URL',
+				name: 'url',
+				type: 'string',
+				placeholder: 'https://sap-system.com/sap/opu/odata/sap/SERVICE/EntitySet(\'KEY\')',
+				extractValue: {
+					type: 'regex',
+					regex: "\\(([^)]+)\\)\\s*$",
+				},
+				validation: [
+					{
+						type: 'regex',
+						properties: {
+							regex: 'https?://.+/.*\\(.+\\)',
+							errorMessage: 'Please provide a valid OData entity URL',
+						},
+					},
+				],
+			},
+		],
+		description: 'The entity to operate on',
 	},
 
 	// Return All (for getAll)
@@ -474,7 +509,7 @@ export const sapODataProperties: INodeProperties[] = [
 				type: 'boolean',
 				default: true,
 				description: 'Whether to convert SAP-specific data types to JavaScript native types',
-				hint: 'Converts numeric strings ("175.50" → 175.50), SAP dates ("/Date(...)/") → ISO 8601, and SAP times ("PT14H30M00S" → "14:30:00"). Recommended for easier data processing.',
+				hint: 'Converts numeric strings ("175.50" → 175.50), SAP dates ("/Date(...)/" → "2025-11-02"), and SAP times ("PT14H30M00S" → "14:30:00"). Recommended for easier data processing.',
 			},
 			{
 				displayName: 'Data: Remove Metadata',

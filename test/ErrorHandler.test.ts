@@ -46,8 +46,8 @@ describe('ODataErrorHandler', () => {
 				});
 			} catch (e: any) {
 				expect(e).toBeInstanceOf(NodeOperationError);
-				expect(e.message).toBe('Access Forbidden');
-				expect(e.description).toContain('do not have permission');
+				expect(e.message).toBe('Access Forbidden - Missing SAP Authorizations');
+				expect(e.description).toContain('does not have permission');
 			}
 		});
 

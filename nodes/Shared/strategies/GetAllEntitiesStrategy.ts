@@ -93,10 +93,16 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 			const dataArray = Array.isArray(responseData) ? responseData : [responseData];
 
 			// Map to INodeExecutionData with optional type conversion
-			const executionData = dataArray.map((item) => ({
-				json: this.applyTypeConversion(context, itemIndex, item),
-				pairedItem: { item: itemIndex },
-			}));
+			const executionData: INodeExecutionData[] = dataArray.map((item) => {
+				const converted = this.applyTypeConversion(context, itemIndex, item);
+				const jsonData: IDataObject = (typeof converted === 'object' && converted !== null)
+					? converted as IDataObject
+					: { value: converted as string | number | boolean };
+				return {
+					json: jsonData,
+					pairedItem: { item: itemIndex },
+				};
+			});
 
 			// If there were pagination errors or limit was reached, add metadata item
 			if ((paginationErrors && paginationErrors.length > 0) || limitReached) {

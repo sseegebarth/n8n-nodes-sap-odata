@@ -1,0 +1,43 @@
+# Source files
+nodes/**/*.ts
+credentials/**/*.ts
+test/
+!dist/**/*.d.ts
+
+# Config files
+tsconfig.json
+.eslintrc.js
+jest.config.js
+prettier.config.js
+
+# Development files
+.git
+.github
+.vscode
+.idea
+*.log
+coverage/
+node_modules/
+
+# Documentation archive (not published)
+docs/archive/
+
+# Internal development docs
+CODE_HUMANIZATION_GUIDE.md
+CLEANUP_PLAN.md
+scripts/
+
+# Backup directories
+docs-backup-*/
+
+# Examples and workflows (optional - keep commented to include)
+# examples/
+# workflows/
+
+# Development markdown
+*.md
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!LICENSE
+!docs/**/*.md

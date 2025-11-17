@@ -191,11 +191,38 @@ export function validateUrl(url: string, node: INode): void {
 		// Prevent access to private IP ranges (SSRF protection)
 		const hostname = parsedUrl.hostname.toLowerCase();
 
-		// Normalize hostname to detect encoded/obfuscated IPs
-		// This prevents bypasses like 0177.0000.0000.0001 (octal) or 2130706433 (integer)
-		const normalizedHostname = hostname
-			.replace(/^0+/g, '') // Remove leading zeros
-			.replace(/\s+/g, ''); // Remove whitespace
+		// Convert hostname to IP if it's a numeric format to detect obfuscated IPs
+		// This handles decimal (2130706433), octal (0177.0.0.1), hex (0x7f.0x0.0x0.0x1) formats
+		const isNumericIp = /^[\d.x]+$/.test(hostname);
+		let normalizedHostname = hostname;
+
+		if (isNumericIp) {
+			// Try to parse as IP address in various formats
+			const parts = hostname.split('.');
+			if (parts.length <= 4) {
+				try {
+					const ipParts = parts.map(part => {
+						// Handle hex (0x prefix)
+						if (part.startsWith('0x')) {
+							return parseInt(part, 16);
+						}
+						// Handle octal (leading 0)
+						if (part.startsWith('0') && part.length > 1) {
+							return parseInt(part, 8);
+						}
+						// Handle decimal
+						return parseInt(part, 10);
+					});
+
+					// Validate all parts are valid numbers
+					if (ipParts.every(p => !isNaN(p) && p >= 0 && p <= 255)) {
+						normalizedHostname = ipParts.join('.');
+					}
+				} catch {
+					// If parsing fails, keep original hostname
+				}
+			}
+		}
 
 		// Block localhost and loopback (check both original and normalized)
 		const localhostPatterns = ['localhost', '127.', '0.0.0.0', '::1', '0:0:0:0:0:0:0:1', '[::1]'];

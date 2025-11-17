@@ -1,14 +1,16 @@
 /**
  * CrudStrategy - Enhanced Base Class for CRUD Operations
  * Provides common validation, error handling, and response formatting
+ *
+ * NOTE: This class now delegates to StrategyHelpers for most functionality.
+ * Direct usage of StrategyHelpers is recommended for new code.
+ * This class is maintained for backward compatibility.
  */
 
 import { IExecuteFunctions, INode, IDataObject, INodeExecutionData } from 'n8n-workflow';
-import { buildODataQuery } from '../../core/QueryBuilder';
-import { IODataQueryOptions } from '../../types';
 import { Logger } from '../../utils/Logger';
-import { validateEntityKey, validateEntitySetName, validateJsonInput, sanitizeErrorMessage } from '../../utils/SecurityUtils';
-import { convertDataTypes, removeMetadata } from '../../utils/TypeConverter';
+import * as StrategyHelpers from '../../utils/StrategyHelpers';
+import { sanitizeErrorMessage } from '../../utils/SecurityUtils';
 
 /**
  * Base class for CRUD operation strategies
@@ -22,17 +24,10 @@ export abstract class CrudStrategy {
 	 * @param context - Execution context
 	 * @param itemIndex - Current item index
 	 * @returns Service path
+	 * @deprecated Use StrategyHelpers.getServicePath() directly
 	 */
 	protected getServicePath(context: IExecuteFunctions, itemIndex: number): string {
-		const mode = context.getNodeParameter('servicePathMode', itemIndex, 'custom') as string;
-
-		if (mode === 'list') {
-			// Get from dropdown list
-			return context.getNodeParameter('servicePathFromList', itemIndex, '/sap/opu/odata/sap/') as string;
-		} else {
-			// Get custom path
-			return context.getNodeParameter('servicePath', itemIndex, '/sap/opu/odata/sap/') as string;
-		}
+		return StrategyHelpers.getServicePath(context, itemIndex);
 	}
 
 	/**
@@ -43,19 +38,10 @@ export abstract class CrudStrategy {
 	 * @param itemIndex - Current item index
 	 * @returns Validated entity set name
 	 * @throws NodeOperationError if entity set is invalid
+	 * @deprecated Use StrategyHelpers.getEntitySet() directly
 	 */
 	protected getEntitySet(context: IExecuteFunctions, itemIndex: number): string {
-		const mode = context.getNodeParameter('entitySetMode', itemIndex, 'list') as string;
-		let entitySet: string;
-
-		if (mode === 'custom') {
-			entitySet = context.getNodeParameter('customEntitySet', itemIndex) as string;
-		} else {
-			entitySet = context.getNodeParameter('entitySet', itemIndex) as string;
-		}
-
-		// Validate entity set name for security
-		return validateEntitySetName(entitySet, context.getNode());
+		return StrategyHelpers.getEntitySet(context, itemIndex);
 	}
 
 	/**
@@ -66,28 +52,10 @@ export abstract class CrudStrategy {
 	 * @param node - Node instance for error context
 	 * @returns Formatted and validated key
 	 * @throws NodeOperationError if key is invalid
+	 * @deprecated Use StrategyHelpers.validateAndFormatKey() directly
 	 */
 	protected validateAndFormatKey(key: string, node: INode): string {
-		const validated = validateEntityKey(key, node);
-		// Add quotes around simple keys if not already formatted, except for numeric and GUID keys
-		if (validated.includes('=')) {
-			return validated; // Composite key, already formatted
-		}
-
-		// IMPORTANT: Check GUID before numeric to catch keys like 005056A0-1234-...
-		// that start with digits but contain hyphens and letters
-		// Check if key is a GUID (pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-		if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(validated)) {
-			return `guid'${validated}'`; // GUID key, use OData guid syntax
-		}
-
-		// Check if key is purely numeric (integer or decimal)
-		if (/^\d+(\.\d+)?$/.test(validated)) {
-			return validated; // Numeric key, no quotes needed
-		}
-
-		// String key, add quotes
-		return `'${validated}'`;
+		return StrategyHelpers.validateAndFormatKey(key, node);
 	}
 
 	/**
@@ -96,59 +64,22 @@ export abstract class CrudStrategy {
 	 * @param context - Execution context
 	 * @param itemIndex - Current item index
 	 * @returns Built OData query parameters
+	 * @deprecated Use StrategyHelpers.getQueryOptions() directly
 	 */
 	protected getQueryOptions(context: IExecuteFunctions, itemIndex: number): IDataObject {
-		const options = context.getNodeParameter('options', itemIndex, {}) as IODataQueryOptions;
-		return buildODataQuery(options);
+		return StrategyHelpers.getQueryOptions(context, itemIndex);
 	}
 
 	/**
 	 * Extract result from OData response
 	 * Handles both V2 (d.results / d) and V4 (value) formats
-	 * Specifically enhanced for Function Import responses in V4 format
 	 *
 	 * @param response - Raw OData response
 	 * @returns Extracted data
-	 *
-	 * OData V2 Response Formats:
-	 * - Single entity: { d: { ID: '123', Name: 'Test' } }
-	 * - Collection: { d: { results: [...] } }
-	 * - Function Import: { d: { results: [...] } } or { d: <single result> }
-	 *
-	 * OData V4 Response Formats:
-	 * - Single entity: { ID: '123', Name: 'Test' }
-	 * - Collection: { value: [...], @odata.count: 10 }
-	 * - Function Import: { value: [...] } or direct result
+	 * @deprecated Use StrategyHelpers.extractResult() directly
 	 */
-	protected extractResult(response: any): any {
-		// Handle array responses (direct array return from some function imports)
-		if (Array.isArray(response)) {
-			return response;
-		}
-
-		// OData V4: Check for 'value' property (collection response)
-		// This is common for function imports that return collections in V4
-		if (response.value !== undefined) {
-			// If value is an array, return it directly
-			if (Array.isArray(response.value)) {
-				return response.value;
-			}
-			// If value is a single item, return as-is
-			return response.value;
-		}
-
-		// OData V2: Check for 'd.results' (collection response)
-		if (response.d?.results) {
-			return response.d.results;
-		}
-
-		// OData V2: Check for 'd' property (single entity response)
-		if (response.d) {
-			return response.d;
-		}
-
-		// Fallback: Return response as-is (handles direct value responses)
-		return response;
+	protected extractResult(response: unknown): unknown {
+		return StrategyHelpers.extractResult(response as IDataObject);
 	}
 
 	/**
@@ -159,22 +90,28 @@ export abstract class CrudStrategy {
 	 * @param node - Node instance for error context
 	 * @returns Parsed JSON object
 	 * @throws NodeOperationError if JSON is invalid
+	 * @deprecated Use StrategyHelpers.validateAndParseJson() directly
 	 */
 	protected validateAndParseJson(dataString: string, fieldName: string, node: INode): IDataObject {
-		return validateJsonInput(dataString, fieldName, node) as IDataObject;
+		return StrategyHelpers.validateAndParseJson(dataString, fieldName, node) as IDataObject;
 	}
 
 	/**
 	 * Format successful response as node execution data
 	 *
 	 * @param data - Response data to format
-	 * @param itemIndex - Current item index for pairing
+	 * @param itemIndex - Current item index for pairing (backward compatibility)
 	 * @returns Formatted node execution data
+	 * @deprecated Signature differs from StrategyHelpers. Consider using StrategyHelpers.formatSuccessResponse() with operation string
 	 */
-	protected formatSuccessResponse(data: any, itemIndex: number): INodeExecutionData[] {
+	protected formatSuccessResponse(data: unknown, itemIndex: number): INodeExecutionData[] {
+		// Keep backward compatible implementation for strategies using itemIndex
+		const jsonData: IDataObject = (typeof data === 'object' && data !== null)
+			? data as IDataObject
+			: { value: data as string | number | boolean };
 		return [
 			{
-				json: data,
+				json: jsonData,
 				pairedItem: { item: itemIndex },
 			},
 		];
@@ -189,6 +126,7 @@ export abstract class CrudStrategy {
 	 * @param continueOnFail - Whether to continue on failure
 	 * @returns Error formatted as execution data or throws
 	 * @throws NodeOperationError if continueOnFail is false
+	 * @deprecated Signature differs from StrategyHelpers. Keep for backward compatibility.
 	 */
 	protected handleOperationError(
 		error: Error,
@@ -227,16 +165,10 @@ export abstract class CrudStrategy {
 	 * @param entitySet - Entity set name
 	 * @param entityKey - Optional entity key for single entity operations
 	 * @returns Formatted resource path
-	 *
-	 * @example
-	 * buildResourcePath('ProductSet') // '/ProductSet'
-	 * buildResourcePath('ProductSet', "'123'") // '/ProductSet('123')'
+	 * @deprecated Use StrategyHelpers.buildResourcePath() directly (supports navigationProperty parameter)
 	 */
 	protected buildResourcePath(entitySet: string, entityKey?: string): string {
-		if (entityKey) {
-			return `/${entitySet}(${entityKey})`;
-		}
-		return `/${entitySet}`;
+		return StrategyHelpers.buildResourcePath(entitySet, entityKey);
 	}
 
 	/**
@@ -261,33 +193,18 @@ export abstract class CrudStrategy {
 	 * @param itemIndex - Current item index
 	 * @param data - Data to convert
 	 * @returns Converted data (or original if conversion disabled)
+	 * @deprecated Use StrategyHelpers.applyTypeConversion() directly (note parameter order: data, context, itemIndex)
 	 */
 	protected applyTypeConversion(
 		context: IExecuteFunctions,
 		itemIndex: number,
-		data: any,
-	): any {
-		try {
-			const advancedOptions = context.getNodeParameter('advancedOptions', itemIndex, {}) as any;
-			const shouldConvertTypes = advancedOptions.convertDataTypes !== false; // Default: true
-			const shouldRemoveMetadata = advancedOptions.removeMetadata !== false; // Default: true
-
-			let result = data;
-
-			// Apply type conversion if enabled
-			if (shouldConvertTypes) {
-				result = convertDataTypes(result);
-			}
-
-			// Remove metadata if enabled
-			if (shouldRemoveMetadata) {
-				result = removeMetadata(result);
-			}
-
-			return result;
-		} catch {
-			// If advanced options not available, return data unchanged
-			return data;
-		}
+		data: unknown,
+	): unknown {
+		// Delegate to StrategyHelpers with correct parameter order
+		return StrategyHelpers.applyTypeConversion(
+			data as IDataObject | IDataObject[],
+			context,
+			itemIndex
+		);
 	}
 }
