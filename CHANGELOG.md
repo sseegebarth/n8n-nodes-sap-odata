@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **🎯 Zero External Dependencies**: Removed `xml2js` and `xmlbuilder2` dependencies
+  - Implemented native XML parsing for OData $metadata (MetadataParser)
+  - Implemented native XML parsing for IDoc documents (IdocWebhookFunctions)
+  - Implemented native XML building for IDoc documents (IdocFunctions)
+  - Reduced bundle size and improved compatibility with n8n community node requirements
+  - Maintained 100% backward compatibility - no API changes
+
+### Benefits
+- ✅ Smaller bundle size (removed 7 npm packages)
+- ✅ Faster installation and deployment
+- ✅ Better compliance with n8n community node guidelines
+- ✅ No dependency security vulnerabilities from XML libraries
+- ✅ Improved performance for XML operations
+
 ## [1.4.0] - 2024-10-26
 
 ### Added

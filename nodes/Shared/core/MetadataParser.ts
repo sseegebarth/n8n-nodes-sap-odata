@@ -8,9 +8,10 @@
  * - Key properties
  *
  * Supports both OData V2 and V4 metadata formats.
+ *
+ * IMPORTANT: Uses native XML parsing (no external dependencies)
+ * to maintain compatibility with n8n community node requirements.
  */
-
-import { parseStringPromise } from 'xml2js';
 
 export interface IEntityProperty {
 	name: string;
@@ -53,31 +54,18 @@ export interface IParsedMetadata {
  */
 export class MetadataParser {
 	/**
-	 * Parse XML metadata document
+	 * Parse XML metadata document using native string parsing
 	 */
 	static async parseMetadata(xml: string): Promise<IParsedMetadata> {
 		try {
-			const parsed = await parseStringPromise(xml, {
-				explicitArray: false,
-				mergeAttrs: true,
-				tagNameProcessors: [this.stripNamespaces],
-				attrNameProcessors: [this.stripNamespaces],
-			});
-
-			// Extract schema from parsed XML
-			const schema = this.extractSchema(parsed);
-			if (!schema) {
-				throw new Error('No schema found in metadata');
-			}
-
 			// Parse entity types
-			const entityTypes = this.parseEntityTypes(schema);
+			const entityTypes = this.parseEntityTypes(xml);
 
 			// Parse entity sets
-			const entitySets = this.parseEntitySets(schema);
+			const entitySets = this.parseEntitySets(xml);
 
 			// Parse associations (for navigation properties)
-			const associations = this.parseAssociations(schema);
+			const associations = this.parseAssociations(xml);
 
 			// Resolve navigation property targets
 			this.resolveNavigationTargets(entityTypes, associations);
@@ -93,112 +81,124 @@ export class MetadataParser {
 	}
 
 	/**
-	 * Strip XML namespaces from tag and attribute names
+	 * Extract attribute value from XML tag
 	 */
-	private static stripNamespaces(name: string): string {
-		return name.replace(/^.*:/, '');
+	private static extractAttribute(tag: string, attrName: string): string | undefined {
+		// Match attribute with various quote styles and namespace prefixes
+		const pattern = new RegExp(`(?:^|\\s)(?:[^:]+:)?${attrName}\\s*=\\s*["']([^"']*)["']`, 'i');
+		const match = tag.match(pattern);
+		return match ? match[1] : undefined;
 	}
 
 	/**
-	 * Extract schema element from parsed XML
+	 * Strip namespace prefix from qualified name
 	 */
-	private static extractSchema(parsed: any): any {
-		// OData V2: edmx:Edmx > edmx:DataServices > Schema
-		// OData V4: edmx:Edmx > DataServices > Schema
-		const edmx = parsed.Edmx || parsed['edmx:Edmx'];
-		if (!edmx) return null;
-
-		const dataServices = edmx.DataServices || edmx['edmx:DataServices'];
-		if (!dataServices) return null;
-
-		const schema = dataServices.Schema;
-		return Array.isArray(schema) ? schema[0] : schema;
+	private static stripNamespace(qualifiedName: string): string {
+		const parts = qualifiedName.split('.');
+		return parts[parts.length - 1];
 	}
 
 	/**
-	 * Parse EntityType definitions
+	 * Extract all tags matching a pattern
 	 */
-	private static parseEntityTypes(schema: any): Map<string, IEntityType> {
+	private static extractTags(xml: string, tagName: string): string[] {
+		const tags: string[] = [];
+		// Match both self-closing and paired tags, ignoring namespaces
+		const pattern = new RegExp(`<(?:[^:]+:)?${tagName}(?:\\s[^>]*)?(?:/>|>([\\s\\S]*?)</(?:[^:]+:)?${tagName}>)`, 'gi');
+		let match;
+		while ((match = pattern.exec(xml)) !== null) {
+			tags.push(match[0]);
+		}
+		return tags;
+	}
+
+	/**
+	 * Parse EntityType definitions from XML
+	 */
+	private static parseEntityTypes(xml: string): Map<string, IEntityType> {
 		const entityTypes = new Map<string, IEntityType>();
 
-		const entityTypeElements = this.ensureArray(schema.EntityType);
-		for (const entityTypeElement of entityTypeElements) {
-			const entityType = this.parseEntityType(entityTypeElement);
-			if (entityType) {
-				entityTypes.set(entityType.name, entityType);
+		// Extract all EntityType elements
+		const entityTypeTags = this.extractTags(xml, 'EntityType');
+
+		for (const entityTypeTag of entityTypeTags) {
+			const name = this.extractAttribute(entityTypeTag, 'Name');
+			if (!name) continue;
+
+			// Parse keys
+			const keys: string[] = [];
+			const keySection = entityTypeTag.match(/<(?:[^:]+:)?Key[^>]*>([\s\S]*?)<\/(?:[^:]+:)?Key>/i);
+			if (keySection) {
+				const propertyRefs = this.extractTags(keySection[1], 'PropertyRef');
+				for (const ref of propertyRefs) {
+					const keyName = this.extractAttribute(ref, 'Name');
+					if (keyName) keys.push(keyName);
+				}
 			}
+
+			// Parse properties
+			const properties: IEntityProperty[] = [];
+			const propertyTags = this.extractTags(entityTypeTag, 'Property');
+			for (const propTag of propertyTags) {
+				const propName = this.extractAttribute(propTag, 'Name');
+				const propType = this.extractAttribute(propTag, 'Type');
+				if (propName && propType) {
+					properties.push({
+						name: propName,
+						type: propType,
+						nullable: this.extractAttribute(propTag, 'Nullable') === 'true',
+						maxLength: this.extractAttribute(propTag, 'MaxLength'),
+						precision: this.extractAttribute(propTag, 'Precision'),
+						scale: this.extractAttribute(propTag, 'Scale'),
+						isKey: keys.includes(propName),
+					});
+				}
+			}
+
+			// Parse navigation properties
+			const navigationProperties: INavigationProperty[] = [];
+			const navTags = this.extractTags(entityTypeTag, 'NavigationProperty');
+			for (const navTag of navTags) {
+				const navName = this.extractAttribute(navTag, 'Name');
+				const relationship = this.extractAttribute(navTag, 'Relationship');
+				const toRole = this.extractAttribute(navTag, 'ToRole');
+				const fromRole = this.extractAttribute(navTag, 'FromRole');
+				if (navName && relationship && toRole && fromRole) {
+					navigationProperties.push({
+						name: navName,
+						relationship,
+						toRole,
+						fromRole,
+					});
+				}
+			}
+
+			entityTypes.set(name, {
+				name,
+				properties,
+				navigationProperties,
+				keys,
+			});
 		}
 
 		return entityTypes;
 	}
 
 	/**
-	 * Parse a single EntityType
+	 * Parse EntitySet definitions from XML
 	 */
-	private static parseEntityType(element: any): IEntityType | null {
-		const name = element.Name;
-		if (!name) return null;
-
-		// Parse keys
-		const keys: string[] = [];
-		if (element.Key && element.Key.PropertyRef) {
-			const keyRefs = this.ensureArray(element.Key.PropertyRef);
-			keys.push(...keyRefs.map((ref: any) => ref.Name));
-		}
-
-		// Parse properties
-		const properties: IEntityProperty[] = [];
-		if (element.Property) {
-			const propertyElements = this.ensureArray(element.Property);
-			for (const prop of propertyElements) {
-				properties.push({
-					name: prop.Name,
-					type: prop.Type,
-					nullable: prop.Nullable === 'true',
-					maxLength: prop.MaxLength,
-					precision: prop.Precision,
-					scale: prop.Scale,
-					isKey: keys.includes(prop.Name),
-				});
-			}
-		}
-
-		// Parse navigation properties
-		const navigationProperties: INavigationProperty[] = [];
-		if (element.NavigationProperty) {
-			const navElements = this.ensureArray(element.NavigationProperty);
-			for (const nav of navElements) {
-				navigationProperties.push({
-					name: nav.Name,
-					relationship: nav.Relationship,
-					toRole: nav.ToRole,
-					fromRole: nav.FromRole,
-				});
-			}
-		}
-
-		return {
-			name,
-			properties,
-			navigationProperties,
-			keys,
-		};
-	}
-
-	/**
-	 * Parse EntitySet definitions
-	 */
-	private static parseEntitySets(schema: any): Map<string, IEntitySet> {
+	private static parseEntitySets(xml: string): Map<string, IEntitySet> {
 		const entitySets = new Map<string, IEntitySet>();
 
-		// Find EntityContainer (can be nested differently in V2/V4)
-		const entityContainer = schema.EntityContainer;
-		if (!entityContainer) return entitySets;
+		// Extract EntityContainer section
+		const containerMatch = xml.match(/<(?:[^:]+:)?EntityContainer[^>]*>([\s\S]*?)<\/(?:[^:]+:)?EntityContainer>/i);
+		if (!containerMatch) return entitySets;
 
-		const entitySetElements = this.ensureArray(entityContainer.EntitySet);
-		for (const entitySetElement of entitySetElements) {
-			const name = entitySetElement.Name;
-			const entityType = entitySetElement.EntityType;
+		// Extract all EntitySet elements within container
+		const entitySetTags = this.extractTags(containerMatch[1], 'EntitySet');
+		for (const entitySetTag of entitySetTags) {
+			const name = this.extractAttribute(entitySetTag, 'Name');
+			const entityType = this.extractAttribute(entitySetTag, 'EntityType');
 			if (name && entityType) {
 				entitySets.set(name, {
 					name,
@@ -211,26 +211,37 @@ export class MetadataParser {
 	}
 
 	/**
-	 * Parse Association definitions (for navigation properties)
+	 * Parse Association definitions (for navigation properties) from XML
 	 */
-	private static parseAssociations(schema: any): Map<string, any> {
+	private static parseAssociations(xml: string): Map<string, any> {
 		const associations = new Map<string, any>();
 
-		if (!schema.Association) return associations;
+		// Extract all Association elements
+		const associationTags = this.extractTags(xml, 'Association');
 
-		const associationElements = this.ensureArray(schema.Association);
-		for (const assoc of associationElements) {
-			const name = assoc.Name;
+		for (const assocTag of associationTags) {
+			const name = this.extractAttribute(assocTag, 'Name');
 			if (!name) continue;
 
-			const ends = this.ensureArray(assoc.End);
+			// Parse association ends
+			const ends: any[] = [];
+			const endTags = this.extractTags(assocTag, 'End');
+			for (const endTag of endTags) {
+				const role = this.extractAttribute(endTag, 'Role');
+				const type = this.extractAttribute(endTag, 'Type');
+				const multiplicity = this.extractAttribute(endTag, 'Multiplicity');
+				if (role && type) {
+					ends.push({
+						role,
+						type: this.stripNamespace(type),
+						multiplicity,
+					});
+				}
+			}
+
 			associations.set(name, {
 				name,
-				ends: ends.map((end: any) => ({
-					role: end.Role,
-					type: this.stripNamespace(end.Type),
-					multiplicity: end.Multiplicity,
-				})),
+				ends,
 			});
 		}
 
@@ -259,22 +270,6 @@ export class MetadataParser {
 				}
 			}
 		}
-	}
-
-	/**
-	 * Strip namespace prefix from qualified name
-	 */
-	private static stripNamespace(qualifiedName: string): string {
-		const parts = qualifiedName.split('.');
-		return parts[parts.length - 1];
-	}
-
-	/**
-	 * Ensure value is array (xml2js sometimes returns single element as object)
-	 */
-	private static ensureArray(value: any): any[] {
-		if (!value) return [];
-		return Array.isArray(value) ? value : [value];
 	}
 
 	/**

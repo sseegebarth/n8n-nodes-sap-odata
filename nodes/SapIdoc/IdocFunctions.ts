@@ -5,10 +5,12 @@
  * - IDoc XML generation from JSON
  * - IDoc transmission to SAP
  * - XML validation and formatting
+ *
+ * IMPORTANT: Uses native XML building (no external dependencies)
+ * to maintain compatibility with n8n community node requirements.
  */
 
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
-import { create } from 'xmlbuilder2';
 
 export interface IIdocControlRecord {
 	DOCNUM?: string;
@@ -37,19 +39,10 @@ export interface IIdocData {
 }
 
 /**
- * Build IDoc XML from structured data
+ * Build IDoc XML from structured data using native string building
  */
 export function buildIdocXml(idocData: IIdocData): string {
 	const { idocType, controlRecord, dataRecords } = idocData;
-
-	// Create root element with IDoc type name
-	const root = create({ version: '1.0', encoding: 'UTF-8' }).ele(idocType);
-
-	// Create IDOC container
-	const idoc = root.ele('IDOC', { BEGIN: '1' });
-
-	// Add control record (EDI_DC40)
-	const ediDc40 = idoc.ele('EDI_DC40', { SEGMENT: '1' });
 
 	// Default control record values
 	const defaultControlRecord: IIdocControlRecord = {
@@ -78,29 +71,48 @@ export function buildIdocXml(idocData: IIdocData): string {
 		...controlRecord,
 	};
 
-	// Add all control record fields
+	// Build XML header
+	let xml = '<?xml version="1.0" encoding="UTF-8"?>';
+
+	// Root element with IDoc type
+	xml += `<${idocType}>`;
+
+	// IDOC container
+	xml += '<IDOC BEGIN="1">';
+
+	// Control record (EDI_DC40)
+	xml += '<EDI_DC40 SEGMENT="1">';
 	for (const [key, value] of Object.entries(defaultControlRecord)) {
-		ediDc40.ele(key).txt(String(value || ''));
+		xml += `<${key}>${escapeXmlValue(String(value || ''))}</${key}>`;
 	}
+	xml += '</EDI_DC40>';
 
-	// Add data records (segments)
-	for (let i = 0; i < dataRecords.length; i++) {
-		const record = dataRecords[i];
-		const segment = idoc.ele(record.segmentType, { SEGMENT: '1' });
-
-		// Add all fields to segment
+	// Data records (segments)
+	for (const record of dataRecords) {
+		xml += `<${record.segmentType} SEGMENT="1">`;
 		for (const [key, value] of Object.entries(record.fields)) {
-			segment.ele(key).txt(String(value || ''));
+			xml += `<${key}>${escapeXmlValue(String(value || ''))}</${key}>`;
 		}
+		xml += `</${record.segmentType}>`;
 	}
 
-	// Generate XML string
-	let xml = root.end({ prettyPrint: false });
-
-	// Remove all whitespace between tags (critical for SAP)
-	xml = xml.replace(/>\s+</g, '><');
+	// Close IDOC and root
+	xml += '</IDOC>';
+	xml += `</${idocType}>`;
 
 	return xml;
+}
+
+/**
+ * Escape XML special characters in element values
+ */
+function escapeXmlValue(value: string): string {
+	return value
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;');
 }
 
 /**

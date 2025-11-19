@@ -73,10 +73,6 @@
     "n8n-core": "*",
     "n8n-workflow": "*"
   },
-  "dependencies": {
-    "xml2js": "^0.6.2",
-    "xmlbuilder2": "^3.1.1"
-  },
   "optionalDependencies": {
     "node-rfc": "^3.3.1"
   }

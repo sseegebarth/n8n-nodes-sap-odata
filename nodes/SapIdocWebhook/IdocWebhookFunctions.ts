@@ -5,9 +5,10 @@
  * - Parsing IDoc XML to JSON
  * - Building SAP-compliant responses
  * - IDoc validation
+ *
+ * IMPORTANT: Uses native XML parsing (no external dependencies)
+ * to maintain compatibility with n8n community node requirements.
  */
-
-import { parseStringPromise } from 'xml2js';
 
 export interface IParsedIdoc {
 	idocType?: string;
@@ -37,69 +38,61 @@ export interface IParseOptions {
 }
 
 /**
- * Parse IDoc XML to structured JSON
+ * Parse IDoc XML to structured JSON using native string parsing
  */
 export async function parseIdocXml(
 	xml: string,
 	options: IParseOptions = {},
 ): Promise<IParsedIdoc> {
 	try {
-		// Parse XML to JavaScript object
-		const parsed = await parseStringPromise(xml, {
-			explicitArray: false,
-			mergeAttrs: true,
-			tagNameProcessors: [stripNamespaces],
-			attrNameProcessors: [stripNamespaces],
-			trim: true,
-		});
-
-		// Extract root IDoc type
-		const rootKeys = Object.keys(parsed);
-		const idocType = rootKeys[0]; // First element is the IDoc type (e.g., DEBMAS06)
-
-		if (!idocType) {
+		// Extract root IDoc type (e.g., DEBMAS06, ORDERS05)
+		const rootMatch = xml.match(/<([A-Z0-9_]+)>/);
+		if (!rootMatch) {
 			throw new Error('No IDoc root element found');
 		}
+		const idocType = rootMatch[1];
 
-		const idocRoot = parsed[idocType];
-		const idocElement = idocRoot.IDOC;
-
-		if (!idocElement) {
+		// Extract IDOC element content
+		const idocMatch = xml.match(/<IDOC[^>]*>([\s\S]*?)<\/IDOC>/i);
+		if (!idocMatch) {
 			throw new Error('No IDOC element found in XML');
 		}
+		const idocContent = idocMatch[1];
 
 		// Extract control record (EDI_DC40)
-		const ediDc40 = idocElement.EDI_DC40;
-		if (!ediDc40) {
+		const controlRecordMatch = idocContent.match(/<EDI_DC40[^>]*>([\s\S]*?)<\/EDI_DC40>/i);
+		if (!controlRecordMatch) {
 			throw new Error('No EDI_DC40 control record found');
 		}
 
-		const controlRecord = flattenObject(ediDc40);
+		const controlRecord = parseXmlFields(controlRecordMatch[1]);
 
-		// Extract data segments
+		// Extract all data segments (anything that's not EDI_DC40)
 		const dataRecords: IIdocSegment[] = [];
-		const segmentKeys = Object.keys(idocElement).filter((key) => key !== 'EDI_DC40' && key !== 'BEGIN');
 
-		if (options.extractSegmentsAsArray !== false) {
-			// Extract all segments as flat array
-			for (const segmentType of segmentKeys) {
-				const segments = ensureArray(idocElement[segmentType]);
-				for (const segment of segments) {
-					dataRecords.push({
-						segmentType,
-						fields: flattenObject(segment),
-					});
-				}
+		// Match all segment tags (uppercase names, excluding EDI_DC40)
+		const segmentPattern = /<([A-Z0-9_]+)(?:\s+SEGMENT="(\d+)")?[^>]*>([\s\S]*?)<\/\1>/gi;
+		let segmentMatch;
+
+		while ((segmentMatch = segmentPattern.exec(idocContent)) !== null) {
+			const segmentType = segmentMatch[1];
+
+			// Skip control record
+			if (segmentType === 'EDI_DC40') {
+				continue;
 			}
-		} else {
-			// Keep hierarchical structure
-			for (const segmentType of segmentKeys) {
-				const segments = idocElement[segmentType];
-				dataRecords.push({
-					segmentType,
-					fields: flattenObject(segments),
-				});
-			}
+
+			const segmentNumber = segmentMatch[2] ? parseInt(segmentMatch[2], 10) : undefined;
+			const segmentContent = segmentMatch[3];
+
+			// Parse segment fields
+			const fields = parseXmlFields(segmentContent);
+
+			dataRecords.push({
+				segmentType,
+				segmentNumber,
+				fields,
+			});
 		}
 
 		// Build metadata
@@ -129,6 +122,39 @@ export async function parseIdocXml(
 	} catch (error) {
 		throw new Error(`Failed to parse IDoc XML: ${error instanceof Error ? error.message : String(error)}`);
 	}
+}
+
+/**
+ * Parse XML fields from element content
+ */
+function parseXmlFields(xmlContent: string): Record<string, any> {
+	const fields: Record<string, any> = {};
+
+	// Match simple field elements: <FIELDNAME>value</FIELDNAME>
+	const fieldPattern = /<([A-Z0-9_]+)>([^<]*)<\/\1>/gi;
+	let fieldMatch;
+
+	while ((fieldMatch = fieldPattern.exec(xmlContent)) !== null) {
+		const fieldName = fieldMatch[1];
+		const fieldValue = fieldMatch[2].trim();
+
+		// Decode XML entities
+		fields[fieldName] = decodeXmlEntities(fieldValue);
+	}
+
+	return fields;
+}
+
+/**
+ * Decode XML entities
+ */
+function decodeXmlEntities(text: string): string {
+	return text
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.replace(/&quot;/g, '"')
+		.replace(/&apos;/g, "'")
+		.replace(/&amp;/g, '&');
 }
 
 /**
@@ -172,54 +198,6 @@ export function buildErrorResponse(errorMessage: string): any {
   </body>
 </html>`,
 	};
-}
-
-/**
- * Strip XML namespaces from tag and attribute names
- */
-function stripNamespaces(name: string): string {
-	return name.replace(/^.*:/, '');
-}
-
-/**
- * Ensure value is array
- */
-function ensureArray(value: any): any[] {
-	if (!value) return [];
-	return Array.isArray(value) ? value : [value];
-}
-
-/**
- * Flatten XML object to simple key-value pairs
- */
-function flattenObject(obj: any): Record<string, any> {
-	if (!obj || typeof obj !== 'object') {
-		return {};
-	}
-
-	const result: Record<string, any> = {};
-
-	for (const [key, value] of Object.entries(obj)) {
-		// Skip XML attributes and metadata
-		if (key === '$' || key === '_' || key === 'SEGMENT' || key === 'BEGIN') {
-			continue;
-		}
-
-		// If value is object with just text content, extract the text
-		if (value && typeof value === 'object' && '_' in value) {
-			result[key] = (value as any)._;
-		} else if (typeof value === 'object' && !Array.isArray(value)) {
-			// Nested object - recursively flatten
-			const nested = flattenObject(value);
-			if (Object.keys(nested).length > 0) {
-				result[key] = nested;
-			}
-		} else {
-			result[key] = value;
-		}
-	}
-
-	return result;
 }
 
 /**
