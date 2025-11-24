@@ -3,6 +3,7 @@ import { sapOdataApiRequest, sapOdataApiRequestAllItems } from '../../Sap/Generi
 import { CrudStrategy } from './base/CrudStrategy';
 import { IOperationStrategy } from './IOperationStrategy';
 import { IOperationOptions, IAdvancedOptions, IPaginationError } from './types';
+import { ODataVersionHelper } from '../utils/ODataVersionHelper';
 
 /**
  * Strategy for getting all entities with optional pagination
@@ -20,8 +21,19 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 			const entitySet = this.getEntitySet(context, itemIndex);
 			const returnAll = context.getNodeParameter('returnAll', itemIndex) as boolean;
 
+			// Get OData version
+			const odataVersion = await ODataVersionHelper.getODataVersion(context);
+
 			// Get query options
-			const query = this.getQueryOptions(context, itemIndex);
+			let query = this.getQueryOptions(context, itemIndex);
+
+			// Apply version-specific parameter mapping
+			if (returnAll) {
+				query = ODataVersionHelper.getVersionSpecificParams(odataVersion, {
+					...query,
+					includeCount: true,
+				});
+			}
 
 			// Apply batch size if configured
 			const options = context.getNodeParameter('options', itemIndex, {}) as IOperationOptions;
@@ -61,21 +73,28 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 					maxItems,
 				);
 
-				// Check if result contains metadata (partial result, errors, or limit reached)
-				if (result && typeof result === 'object' && result.partial === true) {
+				// Check if result is IPaginationResult (has data property) or IDataObject[]
+				if (Array.isArray(result)) {
+					// Result is IDataObject[] (simple array)
+					responseData = result;
+				} else {
+					// Result is IPaginationResult (object with data property)
 					responseData = result.data;
-					paginationErrors = result.errors;
+					// Map PaginationHandler errors to IPaginationError format
+					paginationErrors = result.errors?.map((err) => ({
+						page: err.page,
+						error: err.error,
+						timestamp: new Date(),
+					}));
 					limitReached = result.limitReached === true;
 					partialMessage = result.message;
-				} else {
-					responseData = result;
 				}
 			} else {
 				// Fetch only one page
 				const limit = context.getNodeParameter('limit', itemIndex) as number;
 				query.$top = limit;
 
-				const response = await sapOdataApiRequest.call(
+				const response: any = await sapOdataApiRequest.call(
 					context,
 					'GET',
 					this.buildResourcePath(entitySet),
@@ -83,10 +102,8 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 					query,
 				);
 
-				// Extract results from response
-				// OData V2: response.d.results (array) or response.d (single)
-				// OData V4: response.value (array) or response (single)
-				responseData = response.d?.results || response.value || response.d || response;
+				// Extract results from response using version-specific logic
+				responseData = ODataVersionHelper.extractData(response, odataVersion);
 			}
 
 			// Convert to array if not already

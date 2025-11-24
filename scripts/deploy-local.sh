@@ -67,6 +67,10 @@ cp "$PROJECT_DIR/package.json" "$N8N_CUSTOM_DIR/"
 if [ -d "$PROJECT_DIR/icons" ]; then
     echo "  - Copying icons..."
     cp -r "$PROJECT_DIR/icons" "$N8N_CUSTOM_DIR/"
+
+    # Icons auch direkt zu den Node-Verzeichnissen kopieren
+    echo "  - Fixing icon paths..."
+    bash "$PROJECT_DIR/scripts/fix-icons.sh" > /dev/null 2>&1
 fi
 
 echo -e "${GREEN}✓ Files copied successfully${NC}"

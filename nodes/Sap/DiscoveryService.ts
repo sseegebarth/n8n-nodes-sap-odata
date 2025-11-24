@@ -26,6 +26,9 @@ export interface IServiceCollectionEntry {
 	TechnicalServiceName?: string;
 	TechnicalServiceVersion?: string;
 	Description?: string;
+	ServiceUrl?: string;
+	BaseUrl?: string;
+	Namespace?: string;
 }
 
 /**
@@ -42,15 +45,18 @@ export async function discoverServices(
 		const { sapOdataApiRequest } = await import('./GenericFunctions');
 
 		// Query the catalog service for all services
-		// We use $select to only get the fields we need
-		const response = await sapOdataApiRequest.call(
+		// Note: We don't use $select to ensure we get all available fields
+		// Some SAP versions may not have ServiceUrl/BaseUrl/Namespace fields
+		const response: any = await sapOdataApiRequest.call(
 			context,
 			'GET',
 			'/ServiceCollection',
 			{},
 			{
-				$select: 'ID,Title,TechnicalServiceName,TechnicalServiceVersion,Description',
+				// Only basic query parameters that work on all SAP versions
 				$orderby: 'Title asc',
+				// Optional: limit results for better performance
+				// $top: 1000,
 			},
 			undefined, // uri parameter
 			{}, // option parameter
@@ -58,7 +64,7 @@ export async function discoverServices(
 		);
 
 		// Extract results from OData V2 response format
-		const results = response?.d?.results || [];
+		const results = (response?.d?.results as IServiceCollectionEntry[]) || [];
 
 		// Transform catalog entries to our service format
 		const services: ISapODataService[] = results
@@ -68,11 +74,34 @@ export async function discoverServices(
 			})
 			.map((entry: IServiceCollectionEntry) => {
 				// Construct the service path
-				// SAP service paths typically follow: /sap/opu/odata/sap/SERVICE_NAME/
-				const servicePath = constructServicePath(
-					entry.TechnicalServiceName!,
-					entry.TechnicalServiceVersion,
-				);
+				// Priority: 1. ServiceUrl/BaseUrl, 2. ID (external name), 3. TechnicalServiceName
+				let servicePath: string;
+
+				if (entry.ServiceUrl) {
+					// Use the provided service URL
+					servicePath = entry.ServiceUrl;
+					// Ensure it ends with /
+					if (!servicePath.endsWith('/')) {
+						servicePath += '/';
+					}
+				} else if (entry.BaseUrl) {
+					// Use base URL if available
+					servicePath = entry.BaseUrl;
+					if (!servicePath.endsWith('/')) {
+						servicePath += '/';
+					}
+				} else {
+					// Construct path from ID (external service name) or technical name
+					// ID is usually the external service name that should be used in the URL
+					const serviceNameForUrl = entry.ID || entry.TechnicalServiceName!;
+					const namespace = entry.Namespace || 'sap';
+
+					servicePath = constructServicePath(
+						serviceNameForUrl,
+						entry.TechnicalServiceVersion,
+						namespace,
+					);
+				}
 
 				return {
 					id: entry.ID!,
@@ -88,25 +117,31 @@ export async function discoverServices(
 	} catch (error) {
 		// If catalog service is not available or user lacks permissions,
 		// return empty array to allow fallback to manual input
+		console.log('[DiscoveryService] Catalog service unavailable:', error instanceof Error ? error.message : String(error));
+
+		// Return empty array so UI can fallback to manual input or common services
 		return [];
 	}
 }
 
 /**
- * Construct SAP OData service path from technical name and version
+ * Construct SAP OData service path from service name, version and namespace
  *
- * @param technicalName - Technical service name (e.g., "API_SALES_ORDER_SRV")
+ * @param serviceName - Service name (external or technical)
  * @param version - Service version (optional)
+ * @param namespace - Service namespace (default: 'sap')
  * @returns Full service path (e.g., "/sap/opu/odata/sap/API_SALES_ORDER_SRV/")
  */
-function constructServicePath(technicalName: string, version?: string): string {
+function constructServicePath(serviceName: string, version?: string, namespace: string = 'sap'): string {
 	// Standard SAP OData service path pattern
-	let path = `/sap/opu/odata/sap/${technicalName}/`;
+	// Use the actual service name from the catalog (ID field)
+	let path = `/sap/opu/odata/${namespace}/${serviceName}/`;
 
 	// Some services include version in the path
 	// Example: /sap/opu/odata/sap/SERVICE_NAME;v=2/
-	if (version && version !== '1') {
-		path = `/sap/opu/odata/sap/${technicalName};v=${version}/`;
+	if (version && version !== '1' && version !== '0001') {
+		// Remove the trailing slash before adding version
+		path = `/sap/opu/odata/${namespace}/${serviceName};v=${version}/`;
 	}
 
 	return path;

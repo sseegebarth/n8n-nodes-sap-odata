@@ -4,8 +4,13 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	IWebhookResponseData,
+	NodeOperationError,
 } from 'n8n-workflow';
 import { parseIdocXml, buildSuccessResponse, buildErrorResponse } from './IdocWebhookFunctions';
+import {
+	verifyHmacSignature,
+	buildWebhookErrorResponse,
+} from '../Shared/utils/WebhookUtils';
 
 export class SapIdocWebhook implements INodeType {
 	description: INodeTypeDescription = {
@@ -27,7 +32,7 @@ export class SapIdocWebhook implements INodeType {
 				required: false,
 				displayOptions: {
 					show: {
-						authentication: ['basicAuth'],
+						authentication: ['hmacSignature', 'basicAuth'],
 					},
 				},
 			},
@@ -49,14 +54,48 @@ export class SapIdocWebhook implements INodeType {
 					{
 						name: 'None',
 						value: 'none',
+						description: 'No authentication (not recommended for production)',
 					},
 					{
-						name: 'Basic Auth',
+						name: 'HMAC Signature',
+						value: 'hmacSignature',
+						description: 'Validate using HMAC signature (recommended)',
+					},
+					{
+						name: 'Basic Auth (Legacy)',
 						value: 'basicAuth',
+						description: 'Username and password authentication (insecure, legacy support only)',
 					},
 				],
-				default: 'none',
-				description: 'Authentication method for incoming webhook requests',
+				default: 'hmacSignature',
+				description: 'Method to authenticate incoming webhook requests',
+			},
+			{
+				displayName: '⚠️ Security Warning',
+				name: 'basicAuthWarning',
+				type: 'notice',
+				displayOptions: {
+					show: {
+						authentication: ['basicAuth'],
+					},
+				},
+				default: '',
+				// eslint-disable-next-line n8n-nodes-base/node-param-description-miscased-id
+				description: 'Basic Authentication is INSECURE and should only be used with HTTPS in controlled environments. Consider using HMAC signature authentication instead for production systems. Username and password are transmitted in Base64 encoding which can be easily decoded.',
+			},
+			{
+				displayName: 'Signature Header Name',
+				name: 'signatureHeaderName',
+				type: 'string',
+				displayOptions: {
+					show: {
+						authentication: ['hmacSignature'],
+					},
+				},
+				default: 'X-SAP-Signature',
+				placeholder: 'X-SAP-Signature',
+				description: 'Name of the header that contains the HMAC signature',
+				required: true,
 			},
 			{
 				displayName: 'Filter by IDoc Type',
@@ -230,29 +269,123 @@ export class SapIdocWebhook implements INodeType {
 		const filterIdocType = this.getNodeParameter('filterIdocType', 0) as boolean;
 		const responseMode = this.getNodeParameter('responseMode', 0) as string;
 
-		// Validate authentication if required
-		if (authentication === 'basicAuth') {
-			const credentials = await this.getCredentials('sapIdocWebhookApi');
-			const req = this.getRequestObject();
-			const authHeader = req.headers.authorization;
+		// Get raw request body BEFORE any processing for signature verification
+		const req = this.getRequestObject();
+		const rawBody = (req as any).rawBody || this.getBodyData();
 
-			if (!authHeader || !authHeader.startsWith('Basic ')) {
+		// Convert body to string if needed
+		let bodyString: string;
+		if (typeof rawBody === 'string') {
+			bodyString = rawBody;
+		} else if (Buffer.isBuffer(rawBody)) {
+			bodyString = rawBody.toString('utf-8');
+		} else {
+			bodyString = JSON.stringify(rawBody);
+		}
+
+		// Validate authentication if required
+		if (authentication === 'hmacSignature') {
+			try {
+				const credentials = await this.getCredentials('sapIdocWebhookApi');
+				const signatureHeaderName = this.getNodeParameter('signatureHeaderName', 0) as string || 'X-SAP-Signature';
+				const signature = req.headers[signatureHeaderName.toLowerCase()] as string;
+
+				if (!signature) {
+					throw new NodeOperationError(
+						this.getNode(),
+						`Missing signature header: ${signatureHeaderName}`,
+						{ description: 'Unauthorized', itemIndex: 0 }
+					);
+				}
+
+				// Verify HMAC signature
+				const secret = credentials.secret as string;
+				const algorithm = (credentials.algorithm as 'sha256' | 'sha512') || 'sha256';
+
+				if (!secret) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Missing HMAC secret in credentials',
+						{ description: 'Configuration Error', itemIndex: 0 }
+					);
+				}
+
+				const isValid = verifyHmacSignature(bodyString, signature, secret, algorithm);
+
+				if (!isValid) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Invalid HMAC signature',
+						{ description: 'Unauthorized', itemIndex: 0 }
+					);
+				}
+			} catch (error) {
+				if (error instanceof NodeOperationError) {
+					throw error;
+				}
 				return {
-					webhookResponse: buildErrorResponse('Authentication required'),
+					webhookResponse: buildWebhookErrorResponse('Authentication failed', 401),
 					workflowData: [],
 				};
 			}
+		} else if (authentication === 'basicAuth') {
+			try {
+				// Check if connection is HTTPS (required for Basic Auth)
+				const protocol = req.protocol || (req.secure ? 'https' : 'http');
+				const forwardedProto = req.headers['x-forwarded-proto'] as string;
+				const isHttps = protocol === 'https' || forwardedProto === 'https';
 
-			const base64Credentials = authHeader.substring(6);
-			const decodedCredentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
-			const [username, password] = decodedCredentials.split(':');
+				if (!isHttps) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Basic Authentication requires HTTPS connection for security',
+						{ description: 'Insecure Connection', itemIndex: 0 }
+					);
+				}
 
-			if (
-				username !== credentials.username ||
-				password !== credentials.password
-			) {
+				// Get Basic Auth credentials
+				const credentials = await this.getCredentials('sapIdocWebhookApi');
+				const expectedUsername = credentials.username as string;
+				const expectedPassword = credentials.password as string;
+
+				if (!expectedUsername || !expectedPassword) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Missing username or password in credentials',
+						{ description: 'Configuration Error', itemIndex: 0 }
+					);
+				}
+
+				// Extract Basic Auth header
+				const authHeader = req.headers.authorization || req.headers['authorization'];
+
+				if (!authHeader || !authHeader.startsWith('Basic ')) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Missing or invalid Authorization header',
+						{ description: 'Unauthorized', itemIndex: 0 }
+					);
+				}
+
+				// Decode Basic Auth credentials
+				const base64Credentials = authHeader.slice('Basic '.length);
+				const decodedCredentials = Buffer.from(base64Credentials, 'base64').toString('utf-8');
+				const [username, password] = decodedCredentials.split(':');
+
+				// Validate credentials
+				if (username !== expectedUsername || password !== expectedPassword) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Invalid username or password',
+						{ description: 'Unauthorized', itemIndex: 0 }
+					);
+				}
+			} catch (error) {
+				if (error instanceof NodeOperationError) {
+					throw error;
+				}
 				return {
-					webhookResponse: buildErrorResponse('Invalid credentials'),
+					webhookResponse: buildWebhookErrorResponse('Authentication failed', 401),
 					workflowData: [],
 				};
 			}

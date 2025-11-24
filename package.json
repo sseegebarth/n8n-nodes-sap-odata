@@ -19,8 +19,9 @@
     "url": "git+https://github.com/yourusername/n8n-nodes-sap-odata.git"
   },
   "scripts": {
-    "build": "tsc && npm run copy-icons",
+    "build": "tsc && npm run copy-icons && npm run fix-icons",
     "copy-icons": "copyfiles -u 1 \"icons/**/*\" dist/",
+    "fix-icons": "bash scripts/fix-icons.sh",
     "dev": "tsc --watch",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "lint": "eslint nodes credentials --ext .ts",

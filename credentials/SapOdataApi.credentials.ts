@@ -98,6 +98,30 @@ export class SapOdataApi implements ICredentialType {
 			description: 'Additional HTTP headers to send with every request (as JSON object)',
 			placeholder: '{"X-Custom-Header": "value"}',
 		},
+		{
+			displayName: 'OData Version',
+			name: 'version',
+			type: 'options',
+			options: [
+				{
+					name: 'Auto-Detect',
+					value: 'auto',
+					description: 'Automatically detect OData version from service metadata',
+				},
+				{
+					name: 'OData V2',
+					value: 'v2',
+					description: 'Use OData V2 protocol (most common in SAP)',
+				},
+				{
+					name: 'OData V4',
+					value: 'v4',
+					description: 'Use OData V4 protocol (newer SAP services)',
+				},
+			],
+			default: 'auto',
+			description: 'The OData protocol version. Auto-detect will determine the version from the service response.',
+		},
 	];
 
 	// Conditional authentication based on authentication type

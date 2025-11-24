@@ -5,7 +5,7 @@ import {
 	INodeTypeDescription,
 	NodeOperationError,
 } from 'n8n-workflow';
-import { sendIdoc, buildIdocXml, prepareIdocData } from './IdocFunctions';
+import { IdocStrategyFactory } from '../Shared/strategies/idoc/IdocStrategyFactory';
 
 export class SapIdoc implements INodeType {
 	description: INodeTypeDescription = {
@@ -399,31 +399,19 @@ export class SapIdoc implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
-		const operation = this.getNodeParameter('operation', 0) as string;
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				if (operation === 'send') {
-					// Send IDoc to SAP
-					const result = await sendIdoc.call(this, i);
-					returnData.push({
-						json: result,
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'build') {
-					// Build IDoc XML without sending
-					const idocData = prepareIdocData.call(this, i);
-					const xml = buildIdocXml(idocData);
-					returnData.push({
-						json: {
-							success: true,
-							xml,
-							idocType: idocData.idocType,
-							docnum: idocData.controlRecord.DOCNUM,
-						},
-						pairedItem: { item: i },
-					});
-				}
+				// Get operation for current item (allows different operations per item)
+				const operation = this.getNodeParameter('operation', i) as string;
+
+				// Get the appropriate strategy from the factory
+				const strategy = IdocStrategyFactory.getStrategy(operation);
+
+				// Execute the strategy and collect results
+				const results = await strategy.execute(this, i);
+				returnData.push(...results);
+
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({

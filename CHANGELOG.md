@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **🔧 OData Service Discovery**: Fixed autodiscovery to use correct external service name
+  - Now uses `ServiceUrl`, `BaseUrl`, or `ID` field from SAP Gateway Catalog Service instead of technical name
+  - Priority order: ServiceUrl → BaseUrl → ID (external name) → TechnicalServiceName
+  - Fixes issue where wrong service path was generated (technical name instead of external name)
+  - Respects namespace configuration (sap, custom, etc.)
+  - Location: `nodes/Sap/DiscoveryService.ts`
+
+- **🔒 Webhook Authentication**: Added Basic Authentication as legacy option alongside HMAC
+  - HMAC-SHA256/SHA512 remains the recommended and default method
+  - Basic Auth requires HTTPS connection (enforced at runtime)
+  - Security warnings displayed when Basic Auth is selected
+  - Dual authentication support in credentials
+  - Location: `credentials/SapIdocWebhookApi.credentials.ts`, `nodes/SapIdocWebhook/SapIdocWebhook.node.ts`
+
+- **🎨 Icon Loading**: Fixed SAP icon (sap.svg) not loading in n8n UI
+  - Icons now correctly deployed to `~/.n8n/custom/dist/nodes/*/` directories
+  - Automated icon deployment in build scripts
+  - Added verification step in deployment process
+  - Location: `scripts/fix-icons.sh`, `package.json`, `scripts/deploy-local.sh`
+
+### Added
+- **📚 Documentation**: Extensive documentation for testing and architecture
+  - Test guide with webhook testing examples (`TEST_GUIDE.md`)
+  - OData V2/V4 handling documentation (`docs/ODATA_VERSION_HANDLING.md`)
+  - Credential architecture explanation (`docs/CREDENTIAL_ARCHITECTURE.md`)
+  - Quick start guide (`QUICK_START.md`)
+  - Fix instructions for common issues (`FIX_INSTRUCTIONS.md`)
+
 ### Changed
 - **🎯 Zero External Dependencies**: Removed `xml2js` and `xmlbuilder2` dependencies
   - Implemented native XML parsing for OData $metadata (MetadataParser)
@@ -15,12 +44,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Reduced bundle size and improved compatibility with n8n community node requirements
   - Maintained 100% backward compatibility - no API changes
 
+- **🏗️ Code Architecture Improvements**: Refactored value formatting for better maintainability
+  - Implemented Strategy Pattern for OData value formatting (`ODataValueFormatter`)
+  - Separated type detection logic into dedicated `TypeDetector` class
+  - Created specialized formatters for each EDM type (DateTime, Guid, Decimal, etc.)
+  - Reduced `formatSapODataValue` from 150+ lines to simple delegation pattern
+  - Added comprehensive unit tests (49 new tests for formatters)
+
+- **📘 Type Safety**: Enhanced TypeScript type definitions
+  - Added generic type parameters to API request functions (`sapOdataApiRequest<T>`)
+  - Introduced typed OData responses (`IODataResponse<T>`)
+  - Defined strong types for EDM types and formatting options
+  - Improved IDE autocomplete and type inference
+
+### Added
+- **⚙️ Configurable Timezone Handling**: New options for DateTime formatting
+  - `timezoneHandling`: 'preserve' | 'utc' | 'local' | 'strip' (default: 'strip')
+  - `targetTimezone`: Specify target timezone for conversions
+  - Configurable per-request via `IFormatOptions`
+
+- **🔍 Enhanced Type Detection**: Improved auto-detection with warnings
+  - Opt-in auto-detection via `autoDetect` option (default: false for new code)
+  - Warning system for ambiguous type detection
+  - Strict mode for error on ambiguous patterns
+  - Helper methods: `isDateTimeType()`, `isNumericType()`
+
+### Fixed
+- **🔄 Circular Dependency**: Eliminated inefficient call chain in pagination
+  - `sapOdataApiRequestAllItems` now calls `executeRequest` directly
+  - Removed intermediate delegation through deprecated `sapOdataApiRequest`
+  - Improved performance by reducing function call overhead
+
+- **📘 Type Safety**: Fixed `Promise<any>` return type in pagination
+  - Changed return type to `Promise<IDataObject[] | IPaginationResult>`
+  - Properly handles both array results and pagination metadata
+  - Added type guard for array vs object result discrimination
+
 ### Benefits
 - ✅ Smaller bundle size (removed 7 npm packages)
 - ✅ Faster installation and deployment
 - ✅ Better compliance with n8n community node guidelines
 - ✅ No dependency security vulnerabilities from XML libraries
 - ✅ Improved performance for XML operations
+- ✅ Reduced code complexity (function complexity reduced by ~70%)
+- ✅ Better testability (each formatter < 40 lines)
+- ✅ Enhanced type safety and IDE support
+- ✅ More flexible DateTime handling for different SAP systems
 
 ## [1.4.0] - 2024-10-26
 

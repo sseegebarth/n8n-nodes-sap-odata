@@ -5,7 +5,7 @@ import {
 	INodeTypeDescription,
 	NodeOperationError,
 } from 'n8n-workflow';
-import { invokeRfc, executeStatefulCalls } from './RfcFunctions';
+import { RfcStrategyFactory } from '../Shared/strategies/rfc/RfcStrategyFactory';
 
 export class SapRfc implements INodeType {
 	description: INodeTypeDescription = {
@@ -344,25 +344,19 @@ export class SapRfc implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
-		const operation = this.getNodeParameter('operation', 0) as string;
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				if (operation === 'callFunction') {
-					// Single function call
-					const result = await invokeRfc.call(this, i);
-					returnData.push({
-						json: result,
-						pairedItem: { item: i },
-					});
-				} else if (operation === 'callMultiple') {
-					// Multiple function calls in same session (stateful)
-					const result = await executeStatefulCalls.call(this, i);
-					returnData.push({
-						json: result,
-						pairedItem: { item: i },
-					});
-				}
+				// Get operation for current item (allows different operations per item)
+				const operation = this.getNodeParameter('operation', i) as string;
+
+				// Get the appropriate strategy from the factory
+				const strategy = RfcStrategyFactory.getStrategy(operation);
+
+				// Execute the strategy and collect results
+				const results = await strategy.execute(this, i);
+				returnData.push(...results);
+
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({

@@ -2,6 +2,7 @@ import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
 import { CrudStrategy } from './base/CrudStrategy';
 import { IOperationStrategy } from './IOperationStrategy';
+import { ODataVersionHelper } from '../utils/ODataVersionHelper';
 
 /**
  * Strategy for getting a single entity by key
@@ -15,14 +16,18 @@ export class GetEntityStrategy extends CrudStrategy implements IOperationStrateg
 
 			const entitySet = this.getEntitySet(context, itemIndex);
 
+			// Get OData version
+			const odataVersion = await ODataVersionHelper.getODataVersion(context);
+
 			// Extract entity key from Resource Locator
 			const entityKeyParam = context.getNodeParameter('entityKey', itemIndex) as string | { mode: string; value: string };
 			const entityKey = typeof entityKeyParam === 'string'
 				? entityKeyParam
 				: entityKeyParam.value;
 
-			// Validate and format the entity key
-			const formattedKey = this.validateAndFormatKey(entityKey, context.getNode());
+			// Validate and format the entity key with version-specific formatting
+			let formattedKey = this.validateAndFormatKey(entityKey, context.getNode());
+			formattedKey = ODataVersionHelper.formatEntityKey(formattedKey, odataVersion);
 
 			// Get query options
 			const query = this.getQueryOptions(context, itemIndex);
@@ -43,8 +48,8 @@ export class GetEntityStrategy extends CrudStrategy implements IOperationStrateg
 				query,
 			);
 
-			// Extract result and apply type conversion
-			const result = this.extractResult(response);
+			// Extract result using version-specific logic and apply type conversion
+			const result = ODataVersionHelper.extractData(response, odataVersion);
 			const convertedResult = this.applyTypeConversion(context, itemIndex, result);
 			return this.formatSuccessResponse(convertedResult, itemIndex);
 	}

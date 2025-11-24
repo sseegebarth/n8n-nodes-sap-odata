@@ -8,6 +8,14 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 import { sanitizeErrorMessage } from '../Shared/utils/SecurityUtils';
+import {
+	verifyHmacSignature,
+	isIpAllowed,
+	isValidSapODataPayload,
+	parseSapDates,
+	extractEventInfo,
+	extractChangedFields,
+} from '../Shared/utils/WebhookUtils';
 
 /**
  * SAP OData Webhook Trigger Node
@@ -61,6 +69,11 @@ export class SapODataWebhook implements INodeType {
 						description: 'No authentication (not recommended)',
 					},
 					{
+						name: 'HMAC Signature',
+						value: 'hmacSignature',
+						description: 'Validate using HMAC signature (recommended)',
+					},
+					{
 						name: 'Header Auth',
 						value: 'headerAuth',
 						description: 'Validate using HTTP header token',
@@ -71,23 +84,23 @@ export class SapODataWebhook implements INodeType {
 						description: 'Validate using query parameter token',
 					},
 				],
-				default: 'headerAuth',
+				default: 'hmacSignature',
 				description: 'Method to authenticate incoming webhook requests',
 			},
 
-			// Header Auth - Header Name
+			// Signature/Token Header Name
 			{
 				displayName: 'Header Name',
 				name: 'headerName',
 				type: 'string',
 				displayOptions: {
 					show: {
-						authentication: ['headerAuth'],
+						authentication: ['headerAuth', 'hmacSignature'],
 					},
 				},
 				default: 'X-SAP-Signature',
 				placeholder: 'X-SAP-Signature',
-				description: 'Name of the header that contains the authentication token',
+				description: 'Name of the header that contains the signature or authentication token',
 				required: true,
 			},
 
@@ -306,9 +319,40 @@ export class SapODataWebhook implements INodeType {
 			 * Called when workflow is activated
 			 */
 			async checkExists(this: IHookFunctions): Promise<boolean> {
-				// Webhooks in n8n are always created dynamically
-				// Return false to indicate n8n should create the webhook
-				return false;
+				try {
+					const staticData = this.getWorkflowStaticData('node');
+					const subscriptionId = staticData.subscriptionId as string;
+
+					if (!subscriptionId) {
+						// No subscription ID stored - webhook needs to be created
+						return false;
+					}
+
+					// Check if subscription still exists in SAP
+					const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
+					if (!credentials) {
+						// Can't check SAP - assume webhook exists locally
+						return true;
+					}
+
+					try {
+						const { sapOdataApiRequest } = await import('../Sap/GenericFunctions');
+						await sapOdataApiRequest.call(
+							this,
+							'GET',
+							`/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`
+						);
+						// Subscription exists in SAP
+						return true;
+					} catch (error) {
+						// Subscription doesn't exist in SAP anymore
+						delete staticData.subscriptionId;
+						return false;
+					}
+				} catch (error) {
+					// Error checking - assume webhook needs recreation
+					return false;
+				}
 			},
 
 			/**
@@ -319,14 +363,61 @@ export class SapODataWebhook implements INodeType {
 				const webhookUrl = this.getNodeWebhookUrl('default') as string;
 				const authentication = this.getNodeParameter('authentication') as string;
 
-				// Log webhook creation
-				console.log(`SAP OData Webhook created: ${webhookUrl}`);
-				console.log(`Authentication method: ${authentication}`);
+				try {
+					// Only register with SAP if we have OData credentials
+					const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
+					if (!credentials) {
+						console.log('No SAP OData credentials found - webhook will receive events but not auto-register');
+						return true;
+					}
 
-				// In a real implementation, you might:
-				// 1. Register webhook URL with SAP Gateway
-				// 2. Store webhook ID in workflow static data
-				// 3. Configure SAP to send events to this URL
+					// Build subscription payload based on node parameters
+					const eventFilter = this.getNodeParameter('eventFilter', {}) as IDataObject;
+					const subscriptionPayload: IDataObject = {
+						DeliveryAddress: webhookUrl,
+						PersistNotifications: true,
+					};
+
+					// Add filter criteria if specified
+					if (eventFilter.entitySet) {
+						subscriptionPayload.Collection = eventFilter.entitySet;
+					}
+					if (eventFilter.changeType) {
+						subscriptionPayload.ChangeType = eventFilter.changeType;
+					}
+					if (eventFilter.filter) {
+						subscriptionPayload.Filter = eventFilter.filter;
+					}
+
+					// Add authentication info to payload
+					if (authentication === 'hmacSignature') {
+						subscriptionPayload.AuthType = 'HMAC';
+						subscriptionPayload.SignatureHeader = this.getNodeParameter('headerName', 'X-SAP-Signature');
+						// Note: Secret should be configured on SAP side, not sent in request
+					}
+
+					// Register webhook with SAP Gateway Event Hub
+					const { sapOdataApiRequest } = await import('../Sap/GenericFunctions');
+					const response = await sapOdataApiRequest.call(
+						this,
+						'POST',
+						'/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions',
+						subscriptionPayload
+					) as any;
+
+					// Store subscription ID for later use
+					const staticData = this.getWorkflowStaticData('node');
+					staticData.subscriptionId = response?.d?.SubscriptionID || response?.SubscriptionID || response?.id;
+
+					console.log(`SAP OData Webhook registered: ${webhookUrl}`);
+					console.log(`Subscription ID: ${staticData.subscriptionId}`);
+
+				} catch (error) {
+					const errorMessage = error instanceof Error ? error.message : String(error);
+					console.error('Failed to auto-register webhook with SAP:', sanitizeErrorMessage(errorMessage));
+					console.log('Webhook created locally - manual configuration in SAP may be required');
+					// Don't fail - allow manual webhook configuration
+				}
 
 				return true;
 			},
@@ -338,12 +429,31 @@ export class SapODataWebhook implements INodeType {
 			async delete(this: IHookFunctions): Promise<boolean> {
 				const webhookUrl = this.getNodeWebhookUrl('default') as string;
 
-				// Log webhook deletion
-				console.log(`SAP OData Webhook deleted: ${webhookUrl}`);
+				try {
+					const staticData = this.getWorkflowStaticData('node');
+					const subscriptionId = staticData.subscriptionId as string;
 
-				// In a real implementation, you might:
-				// 1. Unregister webhook from SAP Gateway
-				// 2. Clean up stored webhook ID
+					if (subscriptionId) {
+						// Try to unregister from SAP
+						const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
+						if (credentials) {
+							const { sapOdataApiRequest } = await import('../Sap/GenericFunctions');
+							await sapOdataApiRequest.call(
+								this,
+								'DELETE',
+								`/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`
+							);
+							console.log(`SAP OData Webhook unregistered. Subscription ID: ${subscriptionId}`);
+						}
+						delete staticData.subscriptionId;
+					} else {
+						console.log(`SAP OData Webhook deleted locally: ${webhookUrl}`);
+					}
+				} catch (error) {
+					const errorMessage = error instanceof Error ? error.message : String(error);
+					console.error('Failed to unregister webhook from SAP:', sanitizeErrorMessage(errorMessage));
+					// Don't fail - allow workflow deactivation even if unregistration fails
+				}
 
 				return true;
 			},
@@ -360,6 +470,17 @@ export class SapODataWebhook implements INodeType {
 		const responseMode = this.getNodeParameter('responseMode', 'immediate') as string;
 		const responseCode = this.getNodeParameter('responseCode', 200) as number;
 		const options = this.getNodeParameter('options', {}) as IDataObject;
+
+		// Get raw request body for HMAC verification
+		const rawBody = (req as any).rawBody || this.getBodyData();
+		let bodyString: string;
+		if (typeof rawBody === 'string') {
+			bodyString = rawBody;
+		} else if (Buffer.isBuffer(rawBody)) {
+			bodyString = rawBody.toString('utf-8');
+		} else {
+			bodyString = JSON.stringify(rawBody);
+		}
 
 		try {
 			// ========================================
@@ -379,19 +500,58 @@ export class SapODataWebhook implements INodeType {
 			// 2. Authentication Validation
 			// ========================================
 			if (authentication !== 'none') {
-				// Custom authentication validation
-				if (authentication === 'headerAuth') {
+				// HMAC Signature Authentication
+				if (authentication === 'hmacSignature') {
+					try {
+						const credentials = await this.getCredentials('sapOdataWebhookApi');
+						const headerName = this.getNodeParameter('headerName', 'X-SAP-Signature') as string;
+						const signature = req.headers[headerName.toLowerCase()] as string;
+
+						if (!signature) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Missing signature header: ${headerName}`,
+								{ description: 'Unauthorized' }
+							);
+						}
+
+						const secret = credentials.secret as string;
+						const algorithm = (credentials.algorithm as 'sha256' | 'sha512') || 'sha256';
+
+						const isValid = verifyHmacSignature(bodyString, signature, secret, algorithm);
+
+						if (!isValid) {
+							throw new NodeOperationError(
+								this.getNode(),
+								'Invalid HMAC signature',
+								{ description: 'Unauthorized' }
+							);
+						}
+					} catch (error) {
+						if (error instanceof NodeOperationError) {
+							resp.status(401).json({ error: sanitizeErrorMessage(error.message) });
+							return { noWebhookResponse: true };
+						}
+						throw error;
+					}
+				}
+				// Header Token Authentication
+				else if (authentication === 'headerAuth') {
+					const credentials = await this.getCredentials('sapOdataWebhookApi');
 					const headerName = this.getNodeParameter('headerName') as string;
-					const expectedValue = this.getNodeParameter('headerValue') as string;
+					const expectedValue = credentials.secret as string; // Use secret field for token
 					const actualValue = req.headers[headerName.toLowerCase()];
 
 					if (actualValue !== expectedValue) {
 						resp.status(401).json({ error: 'Invalid authentication header' });
 						return { noWebhookResponse: true };
 					}
-				} else if (authentication === 'queryAuth') {
+				}
+				// Query Parameter Authentication
+				else if (authentication === 'queryAuth') {
+					const credentials = await this.getCredentials('sapOdataWebhookApi');
 					const paramName = this.getNodeParameter('queryParameterName') as string;
-					const expectedValue = this.getNodeParameter('queryParameterValue') as string;
+					const expectedValue = credentials.secret as string; // Use secret field for token
 					const actualValue = req.query[paramName];
 
 					if (actualValue !== expectedValue) {
@@ -518,153 +678,3 @@ export class SapODataWebhook implements INodeType {
 	}
 }
 
-/**
- * Check if IP is in whitelist
- */
-function isIpAllowed(clientIp: string, whitelist: string[]): boolean {
-	// Remove IPv6 prefix if present
-	const ip = clientIp.replace('::ffff:', '');
-
-	for (const allowed of whitelist) {
-		// Simple exact match (CIDR matching would require additional library)
-		if (ip === allowed || allowed === '*') {
-			return true;
-		}
-		// Check if CIDR range (basic check)
-		if (allowed.includes('/')) {
-			// For production, use a proper CIDR matching library like 'ip-range-check'
-			// For now, just check if IP starts with the network prefix
-			const [network] = allowed.split('/');
-			if (ip.startsWith(network.split('.').slice(0, -1).join('.'))) {
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
-/**
- * Validate SAP OData event payload format
- */
-function isValidSapODataPayload(payload: any): boolean {
-	// SAP OData events typically have these structures:
-	// 1. Direct entity data
-	// 2. Wrapped in "d" property (OData V2)
-	// 3. Has operation/event metadata
-
-	if (!payload || typeof payload !== 'object') {
-		return false;
-	}
-
-	// Check for common SAP OData structures
-	const hasODataV2Structure = 'd' in payload;
-	const hasODataV4Structure = 'value' in payload || '@odata.context' in payload;
-	const hasEventMetadata = 'event' in payload || 'operation' in payload || 'entityType' in payload;
-
-	return hasODataV2Structure || hasODataV4Structure || hasEventMetadata || Object.keys(payload).length > 0;
-}
-
-/**
- * Parse SAP date formats
- */
-function parseSapDates(obj: any): any {
-	if (typeof obj !== 'object' || obj === null) {
-		return obj;
-	}
-
-	if (Array.isArray(obj)) {
-		return obj.map(parseSapDates);
-	}
-
-	const result: any = {};
-	for (const [key, value] of Object.entries(obj)) {
-		if (typeof value === 'string' && value.match(/^\/Date\((\d+)\)\/$/)) {
-			// SAP date format: /Date(1234567890000)/
-			const timestamp = parseInt(value.match(/\d+/)![0], 10);
-			result[key] = new Date(timestamp).toISOString();
-		} else if (typeof value === 'object') {
-			result[key] = parseSapDates(value);
-		} else {
-			result[key] = value;
-		}
-	}
-
-	return result;
-}
-
-/**
- * Extract event information from payload
- */
-function extractEventInfo(payload: any): IDataObject {
-	const event: IDataObject = {};
-
-	// Try to extract common SAP event fields
-	if (payload.event) {
-		event.type = payload.event;
-	}
-
-	if (payload.operation) {
-		event.operation = payload.operation;
-	}
-
-	if (payload.entityType || payload.EntityType) {
-		event.entityType = payload.entityType || payload.EntityType;
-	}
-
-	if (payload.entityKey || payload.EntityKey) {
-		event.entityKey = payload.entityKey || payload.EntityKey;
-	}
-
-	// Extract entity data
-	if (payload.d) {
-		// OData V2 format
-		event.data = payload.d;
-		if (payload.d.results) {
-			event.data = payload.d.results;
-		}
-	} else if (payload.value) {
-		// OData V4 format
-		event.data = payload.value;
-	} else {
-		// Direct entity data
-		event.data = payload;
-	}
-
-	// Extract old/new values for updates
-	if (payload.oldValue || payload.old) {
-		event.oldValue = payload.oldValue || payload.old;
-	}
-
-	if (payload.newValue || payload.new) {
-		event.newValue = payload.newValue || payload.new;
-	}
-
-	// Timestamp
-	event.timestamp = payload.timestamp || payload.changedAt || new Date().toISOString();
-
-	return event;
-}
-
-/**
- * Extract changed fields between old and new values
- */
-function extractChangedFields(oldValue: any, newValue: any): IDataObject {
-	const changes: IDataObject = {};
-
-	if (typeof oldValue !== 'object' || typeof newValue !== 'object') {
-		return changes;
-	}
-
-	for (const [key, newVal] of Object.entries(newValue)) {
-		const oldVal = oldValue[key];
-		if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-			changes[key] = {
-				old: oldVal,
-				new: newVal,
-			};
-		}
-	}
-
-	return changes;
-}
