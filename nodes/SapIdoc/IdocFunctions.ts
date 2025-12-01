@@ -11,6 +11,7 @@
  */
 
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
+import { LoggerAdapter } from '../Shared/utils/LoggerAdapter';
 
 export interface IIdocControlRecord {
 	DOCNUM?: string;
@@ -294,12 +295,18 @@ function validateIdocXml(xml: string): void {
 
 	// Check for whitespace (common error)
 	if (/>\s+</.test(xml)) {
-		console.warn('WARNING: IDoc XML contains whitespace between tags. This may cause errors in SAP.');
+		LoggerAdapter.warn('IDoc XML contains whitespace between tags - this may cause errors in SAP', {
+			module: 'IdocFunctions',
+			operation: 'validateIdocXml',
+		});
 	}
 
 	// Check encoding
 	if (xml.includes('encoding=') && !xml.includes('UTF-8') && !xml.includes('utf-8')) {
-		console.warn('WARNING: IDoc XML should use UTF-8 encoding');
+		LoggerAdapter.warn('IDoc XML should use UTF-8 encoding', {
+			module: 'IdocFunctions',
+			operation: 'validateIdocXml',
+		});
 	}
 }
 

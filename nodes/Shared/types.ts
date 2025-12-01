@@ -149,6 +149,74 @@ export interface IErrorContext {
 }
 
 /**
+ * Service Catalog Entry
+ * Represents a discovered SAP OData service for caching and display
+ */
+export interface IServiceCatalogEntry {
+	id: string;
+	title: string;
+	technicalName: string;
+	servicePath: string;
+	version: string;
+	description?: string;
+}
+
+/**
+ * Service Catalog Cache Entry
+ */
+export interface IServiceCatalogCacheEntry {
+	services: IServiceCatalogEntry[];
+	expires: number;
+}
+
+/**
+ * Webhook Event Info
+ */
+export interface IWebhookEventInfo {
+	type?: string;
+	operation?: string;
+	entityType?: string;
+	entityKey?: string;
+	timestamp?: string;
+	data?: IDataObject;
+}
+
+/**
+ * Connection Pool Configuration
+ */
+export interface IConnectionPoolConfig {
+	maxSockets: number;
+	maxFreeSockets: number;
+	timeout: number;
+	keepAliveTimeout: number;
+}
+
+/**
+ * Connection Pool Statistics
+ */
+export interface IConnectionPoolStats {
+	totalConnections: number;
+	activeConnections: number;
+	idleConnections: number;
+	totalConnectionsCreated: number;
+	totalConnectionsReused: number;
+}
+
+/**
+ * API Client Configuration
+ */
+export interface IApiClientConfig {
+	method: string;
+	resource: string;
+	body?: IDataObject;
+	qs?: IDataObject;
+	uri?: string;
+	option?: IDataObject;
+	csrfToken?: string;
+	servicePath?: string;
+}
+
+/**
  * Operation Strategy Interface
  * All strategy implementations must implement this interface
  */

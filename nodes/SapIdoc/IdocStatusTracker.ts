@@ -345,8 +345,8 @@ export class IdocStatusTracker {
 	 */
 	async waitForFinalStatus(
 		docnum: string,
-		maxWaitMs: number = 60000,
-		pollIntervalMs: number = 2000,
+		maxWaitMs = 60000,
+		pollIntervalMs = 2000,
 		signal?: AbortSignal,
 	): Promise<IIdocStatus> {
 		const startTime = Date.now();

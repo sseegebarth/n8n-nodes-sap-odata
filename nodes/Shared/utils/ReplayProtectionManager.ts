@@ -499,7 +499,7 @@ export class ReplayProtectionManager {
 	 * @returns {string} Hex-encoded nonce
 	 *
 	 */
-	static generateNonce(length: number = 32): string {
+	static generateNonce(length = 32): string {
 		const crypto = require('crypto');
 		return crypto.randomBytes(length).toString('hex');
 	}

@@ -7,6 +7,8 @@ import {
 	IWebhookResponseData,
 	NodeOperationError,
 } from 'n8n-workflow';
+import { MAX_WEBHOOK_BODY_SIZE } from '../Shared/constants';
+import { LoggerAdapter } from '../Shared/utils/LoggerAdapter';
 import { sanitizeErrorMessage } from '../Shared/utils/SecurityUtils';
 import {
 	verifyHmacSignature,
@@ -367,7 +369,10 @@ export class SapODataWebhook implements INodeType {
 					// Only register with SAP if we have OData credentials
 					const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
 					if (!credentials) {
-						console.log('No SAP OData credentials found - webhook will receive events but not auto-register');
+						LoggerAdapter.info('No SAP OData credentials found - webhook will receive events but not auto-register', {
+							module: 'SapODataWebhook',
+							operation: 'create',
+						});
 						return true;
 					}
 
@@ -409,13 +414,20 @@ export class SapODataWebhook implements INodeType {
 					const staticData = this.getWorkflowStaticData('node');
 					staticData.subscriptionId = response?.d?.SubscriptionID || response?.SubscriptionID || response?.id;
 
-					console.log(`SAP OData Webhook registered: ${webhookUrl}`);
-					console.log(`Subscription ID: ${staticData.subscriptionId}`);
+					LoggerAdapter.info('SAP OData Webhook registered', {
+						module: 'SapODataWebhook',
+						operation: 'create',
+						webhookUrl,
+						subscriptionId: staticData.subscriptionId,
+					});
 
 				} catch (error) {
 					const errorMessage = error instanceof Error ? error.message : String(error);
-					console.error('Failed to auto-register webhook with SAP:', sanitizeErrorMessage(errorMessage));
-					console.log('Webhook created locally - manual configuration in SAP may be required');
+					LoggerAdapter.warn('Failed to auto-register webhook with SAP - manual configuration may be required', {
+						module: 'SapODataWebhook',
+						operation: 'create',
+						error: sanitizeErrorMessage(errorMessage),
+					});
 					// Don't fail - allow manual webhook configuration
 				}
 
@@ -443,15 +455,27 @@ export class SapODataWebhook implements INodeType {
 								'DELETE',
 								`/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`
 							);
-							console.log(`SAP OData Webhook unregistered. Subscription ID: ${subscriptionId}`);
+							LoggerAdapter.info('SAP OData Webhook unregistered', {
+								module: 'SapODataWebhook',
+								operation: 'delete',
+								subscriptionId,
+							});
 						}
 						delete staticData.subscriptionId;
 					} else {
-						console.log(`SAP OData Webhook deleted locally: ${webhookUrl}`);
+						LoggerAdapter.info('SAP OData Webhook deleted locally', {
+							module: 'SapODataWebhook',
+							operation: 'delete',
+							webhookUrl,
+						});
 					}
 				} catch (error) {
 					const errorMessage = error instanceof Error ? error.message : String(error);
-					console.error('Failed to unregister webhook from SAP:', sanitizeErrorMessage(errorMessage));
+					LoggerAdapter.warn('Failed to unregister webhook from SAP', {
+						module: 'SapODataWebhook',
+						operation: 'delete',
+						error: sanitizeErrorMessage(errorMessage),
+					});
 					// Don't fail - allow workflow deactivation even if unregistration fails
 				}
 
@@ -480,6 +504,21 @@ export class SapODataWebhook implements INodeType {
 			bodyString = rawBody.toString('utf-8');
 		} else {
 			bodyString = JSON.stringify(rawBody);
+		}
+
+		// Validate request body size to prevent DoS attacks
+		if (bodyString.length > MAX_WEBHOOK_BODY_SIZE) {
+			LoggerAdapter.warn('Webhook request body too large', {
+				module: 'SapODataWebhook',
+				operation: 'webhook',
+				bodySize: bodyString.length,
+				maxSize: MAX_WEBHOOK_BODY_SIZE,
+			});
+			resp.status(413).json({
+				error: 'Request body too large',
+				maxSize: `${MAX_WEBHOOK_BODY_SIZE / 1024 / 1024}MB`,
+			});
+			return { noWebhookResponse: true };
 		}
 
 		try {

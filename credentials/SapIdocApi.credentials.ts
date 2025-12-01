@@ -8,7 +8,7 @@ import {
 export class SapIdocApi implements ICredentialType {
 	name = 'sapIdocApi';
 	displayName = 'SAP IDoc API';
-	documentationUrl = 'https://github.com/yourusername/n8n-nodes-sap-odata';
+	documentationUrl = 'https://github.com/seeppp/n8n-nodes-sap-odata';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'SAP Host',

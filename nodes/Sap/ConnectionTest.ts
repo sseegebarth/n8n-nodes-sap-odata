@@ -3,6 +3,7 @@ import {
 	ICredentialTestFunctions,
 	INodeCredentialTestResult,
 } from 'n8n-workflow';
+import { CONNECTION_TEST_TIMEOUT } from '../Shared/constants';
 import { parseMetadataForEntitySets } from './GenericFunctions';
 
 /**
@@ -68,7 +69,7 @@ export async function testSapODataConnection(
 				url: `${host}/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/`,
 				auth,
 				skipSslCertificateValidation: allowUnauthorizedCerts,
-				timeout: 10000,
+				timeout: CONNECTION_TEST_TIMEOUT,
 				headers: buildSapHeaders(sapClient, sapLanguage),
 			});
 			catalogResponseTime = Date.now() - catalogStartTime;
@@ -97,7 +98,7 @@ export async function testSapODataConnection(
 					url: `${host}${path}`,
 					auth,
 					skipSslCertificateValidation: allowUnauthorizedCerts,
-					timeout: 10000,
+					timeout: CONNECTION_TEST_TIMEOUT,
 					headers: buildSapHeaders(sapClient, sapLanguage),
 				});
 				metadataXml = typeof metadataResponse === 'string'

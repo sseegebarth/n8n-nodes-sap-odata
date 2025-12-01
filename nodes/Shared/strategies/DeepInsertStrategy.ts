@@ -8,13 +8,12 @@
  */
 
 import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
-import { CrudStrategy } from './base/CrudStrategy';
 import { executeRequest } from '../core/ApiClient';
+import { Logger } from '../utils/Logger';
 import {
 	NavigationPropertyHelper,
 	IDeepInsertConfig,
 } from '../utils/NavigationPropertyHelper';
-import { Logger } from '../utils/Logger';
 import {
 	getEntitySet,
 	getServicePath,
@@ -25,6 +24,7 @@ import {
 	extractResult,
 	validateNavigationProperties,
 } from '../utils/StrategyHelpers';
+import { CrudStrategy } from './base/CrudStrategy';
 
 export class DeepInsertStrategy extends CrudStrategy {
 	async execute(

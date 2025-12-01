@@ -16,11 +16,11 @@ import {
 	NodeOperationError,
 	INodeExecutionData,
 } from 'n8n-workflow';
-import { sanitizeErrorMessage } from './SecurityUtils';
-import { convertDataTypes } from './TypeConverter';
-import { Logger } from './Logger';
 import { buildODataQuery } from '../core/QueryBuilder';
 import { IODataQueryOptions } from '../types';
+import { Logger } from './Logger';
+import { sanitizeErrorMessage } from './SecurityUtils';
+import { convertDataTypes } from './TypeConverter';
 
 /**
  * Get entity set name from node parameters with validation

@@ -1,4 +1,5 @@
 import { ILoadOptionsFunctions } from 'n8n-workflow';
+import { LoggerAdapter } from '../Shared/utils/LoggerAdapter';
 
 /**
  * DiscoveryService - SAP OData Service Discovery
@@ -117,7 +118,10 @@ export async function discoverServices(
 	} catch (error) {
 		// If catalog service is not available or user lacks permissions,
 		// return empty array to allow fallback to manual input
-		console.log('[DiscoveryService] Catalog service unavailable:', error instanceof Error ? error.message : String(error));
+		LoggerAdapter.debug('Catalog service unavailable', {
+			module: 'DiscoveryService',
+			error: error instanceof Error ? error.message : String(error),
+		});
 
 		// Return empty array so UI can fallback to manual input or common services
 		return [];
@@ -132,7 +136,7 @@ export async function discoverServices(
  * @param namespace - Service namespace (default: 'sap')
  * @returns Full service path (e.g., "/sap/opu/odata/sap/API_SALES_ORDER_SRV/")
  */
-function constructServicePath(serviceName: string, version?: string, namespace: string = 'sap'): string {
+function constructServicePath(serviceName: string, version?: string, namespace = 'sap'): string {
 	// Standard SAP OData service path pattern
 	// Use the actual service name from the catalog (ID field)
 	let path = `/sap/opu/odata/${namespace}/${serviceName}/`;

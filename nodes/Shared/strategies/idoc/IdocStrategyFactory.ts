@@ -1,7 +1,7 @@
 import { NodeOperationError } from 'n8n-workflow';
+import { BuildIdocXmlStrategy } from './BuildIdocXmlStrategy';
 import { IIdocOperationStrategy } from './IIdocOperationStrategy';
 import { SendIdocStrategy } from './SendIdocStrategy';
-import { BuildIdocXmlStrategy } from './BuildIdocXmlStrategy';
 
 /**
  * Factory for creating IDoc operation strategies.

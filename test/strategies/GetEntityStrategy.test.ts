@@ -4,6 +4,22 @@ import * as GenericFunctions from '../../nodes/Sap/GenericFunctions';
 
 jest.mock('../../nodes/Sap/GenericFunctions');
 
+// Mock the ODataVersionHelper to avoid credential fetching
+jest.mock('../../nodes/Shared/utils/ODataVersionHelper', () => ({
+	ODataVersionHelper: {
+		getODataVersion: jest.fn().mockResolvedValue('v2'),
+		extractData: jest.fn((response, _version) => {
+			if (response.d?.results) return response.d.results;
+			if (response.d) return response.d;
+			if (response.value) return response.value;
+			return response;
+		}),
+		getNextLink: jest.fn((_response, _version) => undefined),
+		formatEntityKey: jest.fn((key, _version) => key),
+		clearCache: jest.fn(),
+	},
+}));
+
 describe('GetEntityStrategy', () => {
 	let strategy: GetEntityStrategy;
 	let mockContext: Partial<IExecuteFunctions>;
@@ -21,6 +37,12 @@ describe('GetEntityStrategy', () => {
 				position: [0, 0],
 				parameters: {},
 			})),
+			getCredentials: jest.fn().mockResolvedValue({
+				host: 'https://sap.example.com',
+				username: 'user',
+				password: 'pass',
+				version: 'v2',
+			}),
 		};
 		sapOdataApiRequestSpy = jest.spyOn(GenericFunctions, 'sapOdataApiRequest');
 

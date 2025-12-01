@@ -9,8 +9,8 @@
 
 import { IExecuteFunctions, INode, IDataObject, INodeExecutionData } from 'n8n-workflow';
 import { Logger } from '../../utils/Logger';
-import * as StrategyHelpers from '../../utils/StrategyHelpers';
 import { sanitizeErrorMessage } from '../../utils/SecurityUtils';
+import * as StrategyHelpers from '../../utils/StrategyHelpers';
 
 /**
  * Base class for CRUD operation strategies

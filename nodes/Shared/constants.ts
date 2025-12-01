@@ -62,3 +62,19 @@ export const MAX_RETRY_ATTEMPTS = 3;
 export const INITIAL_RETRY_DELAY = 1000; // 1 second
 export const MAX_RETRY_DELAY = 10000; // 10 seconds
 export const RETRY_STATUS_CODES = [429, 503, 504]; // Rate limit, Service unavailable, Gateway timeout
+
+// Security Limits
+export const MAX_JSON_SIZE = 10 * 1024 * 1024; // 10MB max JSON input size
+export const MAX_NESTING_DEPTH = 100; // Maximum JSON nesting depth
+export const MAX_WEBHOOK_BODY_SIZE = 5 * 1024 * 1024; // 5MB max webhook body size
+
+// Connection Test
+export const CONNECTION_TEST_TIMEOUT = 10000; // 10 seconds
+
+// Cache Cleanup
+export const CACHE_CLEANUP_INTERVAL = 10; // Run cleanup every N operations
+
+// Connection Pool
+export const DEFAULT_POOL_SIZE = 10;
+export const DEFAULT_POOL_TIMEOUT = 120000; // 2 minutes request timeout
+export const DEFAULT_KEEP_ALIVE_TIMEOUT = 30000; // 30 seconds idle timeout

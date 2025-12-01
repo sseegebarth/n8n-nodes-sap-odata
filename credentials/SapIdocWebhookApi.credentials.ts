@@ -3,7 +3,7 @@ import { ICredentialType, INodeProperties } from 'n8n-workflow';
 export class SapIdocWebhookApi implements ICredentialType {
 	name = 'sapIdocWebhookApi';
 	displayName = 'SAP IDoc Webhook API';
-	documentationUrl = 'https://github.com/yourusername/n8n-nodes-sap-odata';
+	documentationUrl = 'https://github.com/seeppp/n8n-nodes-sap-odata';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Authentication Type',

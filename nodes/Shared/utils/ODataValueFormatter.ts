@@ -6,7 +6,6 @@
  */
 
 import type { ODataValue, IFormatOptions, NormalizedEdmType, EdmType } from '../types/odata';
-import { TypeDetector } from './TypeDetector';
 import {
 	BooleanFormatter,
 	DateFormatter,
@@ -19,6 +18,7 @@ import {
 	TimeFormatter,
 } from './formatters';
 import type { IValueFormatter } from './formatters';
+import { TypeDetector } from './TypeDetector';
 
 /**
  * Main OData value formatter

@@ -11,6 +11,7 @@
 import { ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
 import { CacheManager } from '../utils/CacheManager';
+import { LoggerAdapter } from '../utils/LoggerAdapter';
 import { MetadataParser, IEntityType, IParsedMetadata } from './MetadataParser';
 
 /**
@@ -123,7 +124,11 @@ export async function getEntityFields(
 		return options;
 	} catch (error) {
 		// Return empty array on error (prevents UI from breaking)
-		console.error('Failed to fetch entity fields:', error);
+		LoggerAdapter.debug('Failed to fetch entity fields', {
+			module: 'FieldDiscovery',
+			operation: 'getEntityFields',
+			error: error instanceof Error ? error.message : String(error),
+		});
 		return [];
 	}
 }
@@ -180,7 +185,11 @@ export async function getNavigationProperties(
 		return options;
 	} catch (error) {
 		// Return empty array on error (prevents UI from breaking)
-		console.error('Failed to fetch navigation properties:', error);
+		LoggerAdapter.debug('Failed to fetch navigation properties', {
+			module: 'FieldDiscovery',
+			operation: 'getNavigationProperties',
+			error: error instanceof Error ? error.message : String(error),
+		});
 		return [];
 	}
 }

@@ -42,7 +42,7 @@ export interface INodeVersionConfig {
  */
 export class NodeVersionManager {
 	private versions: Map<number, INodeVersionConfig> = new Map();
-	private latestVersion: number = 1;
+	private latestVersion = 1;
 
 	/**
 	 * Register a node version

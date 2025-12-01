@@ -1,5 +1,10 @@
 import { Agent as HttpAgent } from 'http';
 import { Agent as HttpsAgent } from 'https';
+import {
+	DEFAULT_POOL_SIZE,
+	DEFAULT_POOL_TIMEOUT,
+	DEFAULT_KEEP_ALIVE_TIMEOUT,
+} from '../constants';
 
 /**
  * Connection Pool Configuration
@@ -41,15 +46,18 @@ export class ConnectionPoolManager {
 	private httpsAgent: HttpsAgent | null = null;
 	private config: Required<IConnectionPoolConfig>;
 	private stats: IConnectionPoolStats;
+	// Store event listener references for cleanup (prevents memory leaks)
+	private httpFreeListener: (() => void) | null = null;
+	private httpsFreeListener: (() => void) | null = null;
 
 	// Default configuration optimized for SAP OData services
 	private static readonly DEFAULT_CONFIG: Required<IConnectionPoolConfig> = {
 		keepAlive: true,
 		keepAliveMsecs: 1000, // 1 second
-		maxSockets: 10, // Max concurrent connections per host
-		maxFreeSockets: 5, // Max idle connections to keep
-		timeout: 120000, // 2 minutes request timeout
-		freeSocketTimeout: 30000, // 30 seconds idle timeout
+		maxSockets: DEFAULT_POOL_SIZE, // Max concurrent connections per host
+		maxFreeSockets: Math.floor(DEFAULT_POOL_SIZE / 2), // Max idle connections to keep
+		timeout: DEFAULT_POOL_TIMEOUT, // Request timeout
+		freeSocketTimeout: DEFAULT_KEEP_ALIVE_TIMEOUT, // Idle timeout
 		scheduling: 'fifo', // First-in-first-out
 	};
 
@@ -73,10 +81,20 @@ export class ConnectionPoolManager {
 
 	/**
 	 * Get singleton instance of ConnectionPoolManager
+	 *
+	 * Note: This uses a singleton pattern for connection pooling efficiency.
+	 * The config parameter is only used when creating the first instance.
+	 * To change configuration after initialization, use updateConfig() method.
+	 *
+	 * @param config - Optional configuration (only applied on first call)
+	 * @returns The singleton ConnectionPoolManager instance
 	 */
 	public static getInstance(config?: Partial<IConnectionPoolConfig>): ConnectionPoolManager {
 		if (!ConnectionPoolManager.instance) {
 			ConnectionPoolManager.instance = new ConnectionPoolManager(config);
+		} else if (config) {
+			// If config is provided and instance exists, update the config
+			ConnectionPoolManager.instance.updateConfig(config);
 		}
 		return ConnectionPoolManager.instance;
 	}
@@ -116,20 +134,28 @@ export class ConnectionPoolManager {
 	/**
 	 * Setup event listeners for connection statistics
 	 */
-	private setupEventListeners(agent: HttpAgent | HttpsAgent, _protocol: string): void {
+	private setupEventListeners(agent: HttpAgent | HttpsAgent, protocol: string): void {
 		// Wrap the original createConnection to track new connections
 		const originalCreateConnection = (agent as any).createConnection;
 		if (originalCreateConnection) {
-			(agent as any).createConnection = (...args: any[]) => {
+			(agent as any).createConnection = (...args: unknown[]) => {
 				this.stats.totalConnectionsCreated++;
 				return originalCreateConnection.apply(agent, args);
 			};
 		}
 
-		// Track when sockets become free (reused)
-		agent.on('free', (_socket) => {
+		// Track when sockets become free (reused) - store reference for cleanup
+		const freeListener = () => {
 			this.stats.totalConnectionsReused++;
-		});
+		};
+		agent.on('free', freeListener);
+
+		// Store listener reference based on protocol for later cleanup
+		if (protocol === 'http') {
+			this.httpFreeListener = freeListener;
+		} else {
+			this.httpsFreeListener = freeListener;
+		}
 	}
 
 	/**
@@ -245,6 +271,17 @@ export class ConnectionPoolManager {
 	 * Destroy all agents and cleanup connections
 	 */
 	public destroy(): void {
+		// Remove event listeners before destroying agents (prevents memory leaks)
+		if (this.httpAgent && this.httpFreeListener) {
+			this.httpAgent.removeListener('free', this.httpFreeListener);
+			this.httpFreeListener = null;
+		}
+
+		if (this.httpsAgent && this.httpsFreeListener) {
+			this.httpsAgent.removeListener('free', this.httpsFreeListener);
+			this.httpsFreeListener = null;
+		}
+
 		if (this.httpAgent) {
 			this.httpAgent.destroy();
 			this.httpAgent = null;

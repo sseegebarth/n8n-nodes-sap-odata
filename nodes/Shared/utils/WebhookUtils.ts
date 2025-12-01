@@ -1,5 +1,5 @@
-import { IDataObject } from 'n8n-workflow';
 import * as crypto from 'crypto';
+import { IDataObject } from 'n8n-workflow';
 
 /**
  * WebhookUtils - Shared utilities for webhook processing
@@ -173,6 +173,21 @@ function isIpv6InCidr(ip: string, cidr: string): boolean {
 }
 
 /**
+ * Normalize IPv6 address to full expanded form for comparison
+ *
+ * @param ipv6 - IPv6 address (compressed or expanded)
+ * @returns Normalized IPv6 address as lowercase string
+ */
+function normalizeIpv6(ipv6: string): string {
+	try {
+		const segments = parseIpv6(ipv6);
+		return segments.map(s => s.toString(16).padStart(4, '0')).join(':').toLowerCase();
+	} catch {
+		return ipv6.toLowerCase();
+	}
+}
+
+/**
  * Check if IP address is allowed based on whitelist
  * Supports CIDR notation for both IPv4 and IPv6
  *
@@ -190,19 +205,28 @@ export function isIpAllowed(clientIp: string, whitelist: string[]): boolean {
 	const ip = clientIp.replace(/^::ffff:/i, '');
 	const isIpv6 = ip.includes(':');
 
+	// Pre-normalize IPv6 for comparison
+	const normalizedIp = isIpv6 ? normalizeIpv6(ip) : ip;
+
 	for (const allowed of whitelist) {
 		try {
-			// Exact match
-			if (ip === allowed) {
+			const allowedIsIpv6 = allowed.includes(':') && !allowed.includes('/');
+
+			// Exact match (with IPv6 normalization)
+			if (isIpv6 && allowedIsIpv6) {
+				if (normalizedIp === normalizeIpv6(allowed)) {
+					return true;
+				}
+			} else if (ip === allowed) {
 				return true;
 			}
 
 			// CIDR notation check
 			if (allowed.includes('/')) {
-				const allowedIsIpv6 = allowed.includes(':');
+				const allowedCidrIsIpv6 = allowed.includes(':');
 
 				// Skip if IP version doesn't match
-				if (isIpv6 !== allowedIsIpv6) {
+				if (isIpv6 !== allowedCidrIsIpv6) {
 					continue;
 				}
 
@@ -216,9 +240,8 @@ export function isIpAllowed(clientIp: string, whitelist: string[]): boolean {
 					}
 				}
 			}
-		} catch (error) {
-			// Invalid IP or CIDR notation, skip
-			console.warn(`Invalid IP or CIDR in whitelist: ${allowed}`);
+		} catch {
+			// Invalid IP or CIDR notation, skip silently
 			continue;
 		}
 	}
@@ -498,7 +521,7 @@ export function buildWebhookResponse(
  */
 export function buildWebhookErrorResponse(
 	message: string,
-	statusCode: number = 400
+	statusCode = 400
 ): IDataObject {
 	return {
 		success: false,

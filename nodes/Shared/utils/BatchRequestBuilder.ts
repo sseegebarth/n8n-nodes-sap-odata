@@ -11,7 +11,7 @@
  */
 
 import { IDataObject } from 'n8n-workflow';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 /**
  * Batch Operation Types
@@ -73,7 +73,7 @@ export class BatchRequestBuilder {
 		contentType: string;
 		boundary: string;
 	} {
-		const batchBoundary = `${this.BATCH_BOUNDARY_PREFIX}${uuidv4()}`;
+		const batchBoundary = `${this.BATCH_BOUNDARY_PREFIX}${randomUUID()}`;
 		const parts: string[] = [];
 
 		if (config.useChangeSet) {
@@ -103,7 +103,7 @@ export class BatchRequestBuilder {
 	 * Build a ChangeSet (transactional operations)
 	 */
 	private static buildChangeSet(operations: IBatchOperation[]): string {
-		const changeSetBoundary = `${this.CHANGESET_BOUNDARY_PREFIX}${uuidv4()}`;
+		const changeSetBoundary = `${this.CHANGESET_BOUNDARY_PREFIX}${randomUUID()}`;
 		const parts: string[] = [];
 
 		// Header
@@ -293,7 +293,7 @@ export class BatchRequestBuilder {
 	 */
 	static splitIntoBatches(
 		operations: IBatchOperation[],
-		batchSize: number = 100
+		batchSize = 100
 	): IBatchOperation[][] {
 		const batches: IBatchOperation[][] = [];
 

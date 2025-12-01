@@ -3,10 +3,10 @@
  * Handles session persistence, CSRF tokens, and cookies for SAP Gateway
  */
 
+import { createHash } from 'crypto';
 import { IExecuteFunctions, IHookFunctions, ILoadOptionsFunctions } from 'n8n-workflow';
 import { SAP_GATEWAY_SESSION_TIMEOUT, SAP_GATEWAY_CSRF_TIMEOUT } from '../constants';
 import { Logger } from './Logger';
-import { createHash } from 'crypto';
 
 /**
  * SAP Gateway Session Data

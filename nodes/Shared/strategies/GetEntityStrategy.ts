@@ -1,8 +1,8 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { sapOdataApiRequest } from '../../Sap/GenericFunctions';
+import { ODataVersionHelper } from '../utils/ODataVersionHelper';
 import { CrudStrategy } from './base/CrudStrategy';
 import { IOperationStrategy } from './IOperationStrategy';
-import { ODataVersionHelper } from '../utils/ODataVersionHelper';
 
 /**
  * Strategy for getting a single entity by key

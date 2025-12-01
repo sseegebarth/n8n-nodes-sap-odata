@@ -1,6 +1,6 @@
 import { IDataObject, IExecuteFunctions, ILoadOptionsFunctions, IHookFunctions } from 'n8n-workflow';
-import { CSRF_TOKEN_CACHE_TTL, METADATA_CACHE_TTL } from '../constants';
-import { ICsrfTokenCacheEntry, IMetadataCacheEntry } from '../types';
+import { CSRF_TOKEN_CACHE_TTL, METADATA_CACHE_TTL, CACHE_CLEANUP_INTERVAL } from '../constants';
+import { ICsrfTokenCacheEntry, IMetadataCacheEntry, IServiceCatalogEntry, IServiceCatalogCacheEntry } from '../types';
 
 type IContextType = IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions;
 
@@ -10,7 +10,7 @@ type IContextType = IExecuteFunctions | ILoadOptionsFunctions | IHookFunctions;
  */
 export class CacheManager {
 	private static accessCounter = 0;
-	private static readonly CLEANUP_INTERVAL = 10; // Run cleanup every 10 cache accesses
+	private static readonly CLEANUP_INTERVAL = CACHE_CLEANUP_INTERVAL;
 	private static cleanupInProgress = false; // Prevent concurrent cleanup operations
 
 	/**
@@ -282,7 +282,7 @@ export class CacheManager {
 		context: IContextType,
 		host: string,
 		itemIndex?: number,
-	): Promise<any[] | null> {
+	): Promise<IServiceCatalogEntry[] | null> {
 		try {
 			// Trigger periodic cleanup
 			this.maybeRunCleanup(context);
@@ -291,7 +291,7 @@ export class CacheManager {
 			const staticData = context.getWorkflowStaticData('node') as IDataObject;
 			const hostKey = host.replace(/[^a-zA-Z0-9]/g, '_');
 			const cacheKey = credentialId ? `services_${credentialId}_${hostKey}` : `services_${hostKey}`;
-			const cached = staticData[cacheKey] as any;
+			const cached = staticData[cacheKey] as IServiceCatalogCacheEntry | undefined;
 
 			if (cached) {
 				// Check if expired

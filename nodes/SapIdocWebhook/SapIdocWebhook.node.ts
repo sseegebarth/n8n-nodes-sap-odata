@@ -6,11 +6,13 @@ import {
 	IWebhookResponseData,
 	NodeOperationError,
 } from 'n8n-workflow';
-import { parseIdocXml, buildSuccessResponse, buildErrorResponse } from './IdocWebhookFunctions';
+import { MAX_WEBHOOK_BODY_SIZE } from '../Shared/constants';
+import { LoggerAdapter } from '../Shared/utils/LoggerAdapter';
 import {
 	verifyHmacSignature,
 	buildWebhookErrorResponse,
 } from '../Shared/utils/WebhookUtils';
+import { parseIdocXml, buildSuccessResponse, buildErrorResponse } from './IdocWebhookFunctions';
 
 export class SapIdocWebhook implements INodeType {
 	description: INodeTypeDescription = {
@@ -281,6 +283,24 @@ export class SapIdocWebhook implements INodeType {
 			bodyString = rawBody.toString('utf-8');
 		} else {
 			bodyString = JSON.stringify(rawBody);
+		}
+
+		// Validate request body size to prevent DoS attacks
+		if (bodyString.length > MAX_WEBHOOK_BODY_SIZE) {
+			LoggerAdapter.warn('IDoc Webhook request body too large', {
+				module: 'SapIdocWebhook',
+				operation: 'webhook',
+				bodySize: bodyString.length,
+				maxSize: MAX_WEBHOOK_BODY_SIZE,
+			});
+			return {
+				workflowData: [[{
+					json: buildWebhookErrorResponse(
+						`Request body too large (max ${MAX_WEBHOOK_BODY_SIZE / 1024 / 1024}MB)`,
+						413,
+					),
+				}]],
+			};
 		}
 
 		// Validate authentication if required

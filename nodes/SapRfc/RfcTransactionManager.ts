@@ -56,7 +56,7 @@ export interface ITransactionResult {
  */
 export class RfcTransactionManager {
 	private client: any;
-	private inTransaction: boolean = false;
+	private inTransaction = false;
 	private operations: string[] = [];
 
 	/**
@@ -366,7 +366,7 @@ export class RfcTransactionManager {
  * @returns {boolean} True if no errors found
  *
  */
-export function checkBapiReturn(returnParam: any, throwOnError: boolean = true): boolean {
+export function checkBapiReturn(returnParam: any, throwOnError = true): boolean {
 	if (!returnParam) {
 		return true; // No return parameter = success
 	}

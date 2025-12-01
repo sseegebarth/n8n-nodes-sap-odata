@@ -82,7 +82,7 @@ export function createBooleanField(
 	name: string,
 	displayName: string,
 	description: string,
-	defaultValue: boolean = false,
+	defaultValue = false,
 	displayOptions?: any
 ): INodeProperties {
 	return {

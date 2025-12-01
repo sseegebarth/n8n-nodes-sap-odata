@@ -1,13 +1,19 @@
 import {
-	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
 } from 'n8n-workflow';
 
+/**
+ * SAP RFC/BAPI API Credentials
+ *
+ * Note: RFC connections use the SAP NetWeaver RFC protocol (not HTTP).
+ * Credential testing is performed when the node executes, not in advance.
+ * Ensure the SAP RFC SDK is properly installed and configured on the n8n server.
+ */
 export class SapRfcApi implements ICredentialType {
 	name = 'sapRfcApi';
 	displayName = 'SAP RFC/BAPI API';
-	documentationUrl = 'https://github.com/yourusername/n8n-nodes-sap-odata';
+	documentationUrl = 'https://github.com/seeppp/n8n-nodes-sap-odata';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Connection Type',
@@ -238,12 +244,7 @@ export class SapRfcApi implements ICredentialType {
 		},
 	];
 
-	// Note: node-rfc test requires actual RFC SDK installation
-	// We'll provide a simple validation instead
-	test: ICredentialTestRequest = {
-		request: {
-			method: 'POST',
-			url: '',
-		},
-	};
+	// RFC credentials cannot be tested via HTTP as RFC uses a proprietary protocol.
+	// Connection testing happens when the node executes.
+	// The test property is intentionally omitted to prevent misleading users.
 }

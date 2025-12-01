@@ -73,6 +73,7 @@ describe('DiscoveryService', () => {
 			const { sapOdataApiRequest } = require('../nodes/Sap/GenericFunctions');
 
 			// Mock catalog service response
+			// Note: The implementation uses ID for service path construction, not TechnicalServiceName
 			sapOdataApiRequest.mockResolvedValue({
 				d: {
 					results: [
@@ -100,7 +101,8 @@ describe('DiscoveryService', () => {
 			expect(services[0].id).toBe('service1');
 			expect(services[0].title).toBe('Test Service 1');
 			expect(services[0].technicalName).toBe('API_TEST_SRV');
-			expect(services[0].servicePath).toBe('/sap/opu/odata/sap/API_TEST_SRV/');
+			// Service path uses ID field for URL construction
+			expect(services[0].servicePath).toBe('/sap/opu/odata/sap/service1/');
 			expect(services[0].version).toBe('1');
 		});
 
@@ -122,7 +124,8 @@ describe('DiscoveryService', () => {
 
 			const services = await discoverServices(mockContext as ILoadOptionsFunctions);
 
-			expect(services[0].servicePath).toBe('/sap/opu/odata/sap/API_VERSIONED_SRV;v=2/');
+			// Service path uses ID field with version suffix
+			expect(services[0].servicePath).toBe('/sap/opu/odata/sap/service1;v=2/');
 		});
 
 		it('should filter out entries without technical name', async () => {

@@ -1,7 +1,7 @@
 import { NodeOperationError } from 'n8n-workflow';
-import { IRfcOperationStrategy } from './IRfcOperationStrategy';
 import { CallFunctionStrategy } from './CallFunctionStrategy';
 import { CallMultipleStrategy } from './CallMultipleStrategy';
+import { IRfcOperationStrategy } from './IRfcOperationStrategy';
 
 /**
  * Factory for creating RFC operation strategies.

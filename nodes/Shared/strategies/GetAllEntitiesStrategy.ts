@@ -1,9 +1,9 @@
 import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
 import { sapOdataApiRequest, sapOdataApiRequestAllItems } from '../../Sap/GenericFunctions';
+import { ODataVersionHelper } from '../utils/ODataVersionHelper';
 import { CrudStrategy } from './base/CrudStrategy';
 import { IOperationStrategy } from './IOperationStrategy';
 import { IOperationOptions, IAdvancedOptions, IPaginationError } from './types';
-import { ODataVersionHelper } from '../utils/ODataVersionHelper';
 
 /**
  * Strategy for getting all entities with optional pagination

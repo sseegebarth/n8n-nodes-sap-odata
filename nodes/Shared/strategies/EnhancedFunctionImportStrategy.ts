@@ -9,7 +9,6 @@
  */
 
 import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
-import { CrudStrategy } from './base/CrudStrategy';
 import { executeRequest } from '../core/ApiClient';
 import {
 	FunctionImportHelper,
@@ -25,6 +24,7 @@ import {
 	extractResult,
 	parseParameterType,
 } from '../utils/StrategyHelpers';
+import { CrudStrategy } from './base/CrudStrategy';
 
 export class EnhancedFunctionImportStrategy extends CrudStrategy {
 	async execute(

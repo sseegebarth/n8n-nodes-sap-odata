@@ -3,7 +3,6 @@
  */
 
 import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
-import { CrudStrategy } from './base/CrudStrategy';
 import { executeRequest } from '../core/ApiClient';
 import {
 	BatchRequestBuilder,
@@ -20,6 +19,7 @@ import {
 	formatSuccessResponse,
 	handleOperationError,
 } from '../utils/StrategyHelpers';
+import { CrudStrategy } from './base/CrudStrategy';
 
 export class BatchUpdateStrategy extends CrudStrategy {
 	async execute(

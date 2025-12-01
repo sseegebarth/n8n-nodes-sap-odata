@@ -1,8 +1,8 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
-import { IRfcOperationStrategy } from './IRfcOperationStrategy';
 import { invokeRfc } from '../../../SapRfc/RfcFunctions';
-import { sanitizeErrorMessage } from '../../utils/SecurityUtils';
 import { LoggerAdapter } from '../../utils/LoggerAdapter';
+import { sanitizeErrorMessage } from '../../utils/SecurityUtils';
+import { IRfcOperationStrategy } from './IRfcOperationStrategy';
 
 /**
  * Strategy for calling a single RFC function module or BAPI.

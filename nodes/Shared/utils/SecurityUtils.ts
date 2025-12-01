@@ -1,4 +1,5 @@
 import { NodeOperationError, INode } from 'n8n-workflow';
+import { MAX_JSON_SIZE, MAX_NESTING_DEPTH } from '../constants';
 
 /**
  * Security utilities for SAP OData node
@@ -125,10 +126,9 @@ export function sanitizeErrorMessage(message: string): string {
  */
 export function validateJsonInput(jsonString: string, fieldName: string, node: INode): object {
 	try {
-		// Check for excessively large input (max 10MB)
-		const maxSize = 10 * 1024 * 1024;
-		if (jsonString.length > maxSize) {
-			throw new Error(`JSON input exceeds maximum size of ${maxSize / 1024 / 1024}MB`);
+		// Check for excessively large input
+		if (jsonString.length > MAX_JSON_SIZE) {
+			throw new Error(`JSON input exceeds maximum size of ${MAX_JSON_SIZE / 1024 / 1024}MB`);
 		}
 
 		const parsed = JSON.parse(jsonString);
@@ -142,8 +142,8 @@ export function validateJsonInput(jsonString: string, fieldName: string, node: I
 		const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
 		const checkKeys = (obj: Record<string, unknown>, depth = 0): void => {
 			// Prevent deeply nested objects (DoS protection)
-			if (depth > 100) {
-				throw new Error('JSON object is too deeply nested (max 100 levels)');
+			if (depth > MAX_NESTING_DEPTH) {
+				throw new Error(`JSON object is too deeply nested (max ${MAX_NESTING_DEPTH} levels)`);
 			}
 
 			for (const key in obj) {

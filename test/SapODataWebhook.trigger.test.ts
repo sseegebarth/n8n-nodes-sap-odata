@@ -40,10 +40,11 @@ describe('SapODataWebhook.trigger', () => {
 
 			expect(authProperty).toBeDefined();
 			expect(authProperty!.type).toBe('options');
-			expect(authProperty!.options).toHaveLength(3);
+			expect(authProperty!.options).toHaveLength(4);
 
 			const authOptions = (authProperty!.options as any[]).map(o => o.value);
 			expect(authOptions).toContain('none');
+			expect(authOptions).toContain('hmacSignature');
 			expect(authOptions).toContain('headerAuth');
 			expect(authOptions).toContain('queryAuth');
 		});

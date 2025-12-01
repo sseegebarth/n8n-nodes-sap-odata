@@ -10,7 +10,7 @@ import { INode, NodeOperationError } from 'n8n-workflow';
  */
 export function sanitizeString(
 	input: string,
-	maxLength: number = 1000,
+	maxLength = 1000,
 	allowedPattern?: RegExp
 ): string {
 	// Check length
@@ -168,7 +168,7 @@ export function sanitizeNumeric(
 	value: unknown,
 	min?: number,
 	max?: number,
-	allowDecimals: boolean = true
+	allowDecimals = true
 ): number {
 	const num = Number(value);
 
@@ -200,7 +200,7 @@ export function sanitizeNumeric(
  */
 export function sanitizeArray<T>(
 	arr: unknown[],
-	maxLength: number = 10000,
+	maxLength = 10000,
 	itemSanitizer?: (item: unknown) => T
 ): T[] {
 	if (!Array.isArray(arr)) {
@@ -269,8 +269,8 @@ export function sanitizeDate(dateStr: string): Date {
  */
 export function deepSanitize(
 	obj: unknown,
-	maxDepth: number = 10,
-	currentDepth: number = 0
+	maxDepth = 10,
+	currentDepth = 0
 ): unknown {
 	if (currentDepth > maxDepth) {
 		throw new Error('Object nesting exceeds maximum depth');

@@ -9,14 +9,14 @@
     "odata"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/yourusername/n8n-nodes-sap-odata",
+  "homepage": "https://github.com/seeppp/n8n-nodes-sap-odata",
   "author": {
-    "name": "Your Name",
-    "email": "your.email@example.com"
+    "name": "seeppp",
+    "email": "seeppp@users.noreply.github.com"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourusername/n8n-nodes-sap-odata.git"
+    "url": "git+https://github.com/seeppp/n8n-nodes-sap-odata.git"
   },
   "scripts": {
     "build": "tsc && npm run copy-icons && npm run fix-icons",

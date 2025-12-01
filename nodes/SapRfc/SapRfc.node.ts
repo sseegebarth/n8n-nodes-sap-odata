@@ -6,6 +6,7 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 import { RfcStrategyFactory } from '../Shared/strategies/rfc/RfcStrategyFactory';
+import { sanitizeErrorMessage } from '../Shared/utils/SecurityUtils';
 
 export class SapRfc implements INodeType {
 	description: INodeTypeDescription = {
@@ -358,16 +359,20 @@ export class SapRfc implements INodeType {
 				returnData.push(...results);
 
 			} catch (error) {
+				// Sanitize error message to prevent credential leakage
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				const sanitizedMessage = sanitizeErrorMessage(errorMessage);
+
 				if (this.continueOnFail()) {
 					returnData.push({
 						json: {
-							error: error instanceof Error ? error.message : String(error),
+							error: sanitizedMessage,
 						},
 						pairedItem: { item: i },
 					});
 					continue;
 				}
-				throw new NodeOperationError(this.getNode(), error as Error, { itemIndex: i });
+				throw new NodeOperationError(this.getNode(), sanitizedMessage, { itemIndex: i });
 			}
 		}
 

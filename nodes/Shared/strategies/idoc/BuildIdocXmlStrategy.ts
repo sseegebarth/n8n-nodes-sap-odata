@@ -1,8 +1,8 @@
 import { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
-import { IIdocOperationStrategy } from './IIdocOperationStrategy';
 import { prepareIdocData, buildIdocXml } from '../../../SapIdoc/IdocFunctions';
-import { sanitizeErrorMessage } from '../../utils/SecurityUtils';
 import { LoggerAdapter } from '../../utils/LoggerAdapter';
+import { sanitizeErrorMessage } from '../../utils/SecurityUtils';
+import { IIdocOperationStrategy } from './IIdocOperationStrategy';
 
 /**
  * Strategy for building IDoc XML without sending.

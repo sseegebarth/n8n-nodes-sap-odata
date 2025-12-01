@@ -6,6 +6,7 @@
  */
 
 import { ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
+import { LoggerAdapter } from '../Shared/utils/LoggerAdapter';
 import {
 	parseMetadataForEntitySets,
 	parseMetadataForFunctionImports,
@@ -277,36 +278,36 @@ export const sapODataLoadOptions = {
 			// Try all three modes to find the service path
 			const servicePathMode = (this.getCurrentNodeParameter('servicePathMode') as string) || '';
 
-			// Debug logging
-			console.log('[getEntitySets] servicePathMode:', servicePathMode);
+			LoggerAdapter.debug('Resolving service path', {
+				module: 'LoadOptions',
+				operation: 'getEntitySets',
+				servicePathMode,
+			});
 
 			if (servicePathMode === 'discover') {
 				servicePath = (this.getCurrentNodeParameter('discoveredService') as string) || '';
-				console.log('[getEntitySets] discoveredService value:', servicePath);
 			} else if (servicePathMode === 'list') {
 				servicePath = (this.getCurrentNodeParameter('servicePathFromList') as string) || '';
-				console.log('[getEntitySets] servicePathFromList value:', servicePath);
 			} else if (servicePathMode === 'custom') {
 				servicePath = (this.getCurrentNodeParameter('servicePath') as string) || '';
-				console.log('[getEntitySets] servicePath value:', servicePath);
 			}
 
 			// Fallback: try all parameters if mode-specific one is empty
 			if (!servicePath || servicePath === '') {
-				console.log('[getEntitySets] Service path empty, trying fallback...');
 				const discovered = (this.getCurrentNodeParameter('discoveredService') as string) || '';
 				const fromList = (this.getCurrentNodeParameter('servicePathFromList') as string) || '';
 				const custom = (this.getCurrentNodeParameter('servicePath') as string) || '';
-				console.log('[getEntitySets] Fallback - discovered:', discovered, '| fromList:', fromList, '| custom:', custom);
-
 				servicePath = discovered || fromList || custom || '';
-			}
 
-			console.log('[getEntitySets] Final resolved servicePath:', servicePath);
+				LoggerAdapter.debug('Used fallback service path resolution', {
+					module: 'LoadOptions',
+					operation: 'getEntitySets',
+					resolvedPath: servicePath,
+				});
+			}
 
 			// Validate that we have a specific service path (not just the base path)
 			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
-				console.log('[getEntitySets] Service path validation failed - returning error');
 				return [
 					{
 						name: '⚠️ No service selected',

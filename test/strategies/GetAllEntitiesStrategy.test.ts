@@ -4,6 +4,35 @@ import * as GenericFunctions from '../../nodes/Sap/GenericFunctions';
 
 jest.mock('../../nodes/Sap/GenericFunctions');
 
+// Mock the ODataVersionHelper to avoid credential fetching
+jest.mock('../../nodes/Shared/utils/ODataVersionHelper', () => ({
+	ODataVersionHelper: {
+		getODataVersion: jest.fn().mockResolvedValue('v2'),
+		extractData: jest.fn((response, _version) => {
+			if (response.d?.results) return response.d.results;
+			if (response.d) return response.d;
+			if (response.value) return response.value;
+			return response;
+		}),
+		getNextLink: jest.fn((_response, _version) => undefined),
+		getVersionSpecificParams: jest.fn((version, params) => {
+			// Simulate V2 behavior
+			const result = { ...params };
+			if ('includeCount' in params) {
+				if (version === 'v4') {
+					result['$count'] = true;
+				} else {
+					result['$inlinecount'] = 'allpages';
+				}
+				delete result.includeCount;
+			}
+			return result;
+		}),
+		formatEntityKey: jest.fn((key, _version) => key),
+		clearCache: jest.fn(),
+	},
+}));
+
 describe('GetAllEntitiesStrategy', () => {
 	let strategy: GetAllEntitiesStrategy;
 	let mockContext: Partial<IExecuteFunctions>;
@@ -23,6 +52,12 @@ describe('GetAllEntitiesStrategy', () => {
 				parameters: {},
 			})),
 			continueOnFail: jest.fn(() => false),
+			getCredentials: jest.fn().mockResolvedValue({
+				host: 'https://sap.example.com',
+				username: 'user',
+				password: 'pass',
+				version: 'v2',
+			}),
 		};
 		sapOdataApiRequestSpy = jest.spyOn(GenericFunctions, 'sapOdataApiRequest');
 		sapOdataApiRequestAllItemsSpy = jest.spyOn(GenericFunctions, 'sapOdataApiRequestAllItems');
@@ -60,7 +95,7 @@ describe('GetAllEntitiesStrategy', () => {
 				'GET',
 				'/ProductSet',
 				{},
-				{},
+				{ $inlinecount: 'allpages' }, // V2 version-specific param for includeCount
 				false,
 				0,
 			);
@@ -158,6 +193,7 @@ describe('GetAllEntitiesStrategy', () => {
 					$filter: "Status eq 'A'",
 					$select: 'ProductID,Name',
 					$orderby: 'Name',
+					$inlinecount: 'allpages', // V2 version-specific param for includeCount
 				},
 				false,
 				0,
@@ -186,7 +222,7 @@ describe('GetAllEntitiesStrategy', () => {
 				'GET',
 				'/ProductSet',
 				{},
-				{ $top: 50 }, // batchSize is applied as $top, not passed separately
+				{ $top: 50, $inlinecount: 'allpages' }, // batchSize + V2 version-specific param
 				false,
 				0,
 			);
@@ -212,7 +248,7 @@ describe('GetAllEntitiesStrategy', () => {
 				'GET',
 				'/MyCustomEntitySet',
 				{},
-				{},
+				{ $inlinecount: 'allpages' }, // V2 version-specific param for includeCount
 				false,
 				0,
 			);

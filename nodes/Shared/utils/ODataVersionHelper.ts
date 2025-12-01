@@ -1,13 +1,25 @@
 import { IExecuteFunctions, IDataObject } from 'n8n-workflow';
+import { METADATA_CACHE_TTL } from '../constants';
 import { LoggerAdapter } from './LoggerAdapter';
+
+/**
+ * Cache entry for OData version with TTL support
+ */
+interface IVersionCacheEntry {
+	version: 'v2' | 'v4';
+	expires: number;
+}
 
 /**
  * Helper class for handling OData V2 and V4 version-specific logic.
  * Provides methods for version detection, query parameter mapping,
  * and response parsing based on OData protocol version.
+ *
+ * Implements caching to avoid repeated metadata calls for version detection.
+ * Cache is keyed by service URL + service path for precise matching.
  */
 export class ODataVersionHelper {
-	private static versionCache = new Map<string, 'v2' | 'v4'>();
+	private static versionCache = new Map<string, IVersionCacheEntry>();
 
 	/**
 	 * Get the OData version from credentials or detect it automatically
@@ -30,26 +42,41 @@ export class ODataVersionHelper {
 
 		// Auto-detect version
 		const serviceUrl = credentials.host as string;
-		const cacheKey = serviceUrl;
+		const servicePath = credentials.servicePath as string || '';
+		// Cache key includes both host and service path for precise matching
+		const cacheKey = `${serviceUrl}|${servicePath}`;
 
-		// Check cache first
-		if (this.versionCache.has(cacheKey)) {
-			const cachedVersion = this.versionCache.get(cacheKey)!;
+		// Check cache first (with TTL validation)
+		const cached = this.versionCache.get(cacheKey);
+		if (cached && cached.expires > Date.now()) {
 			LoggerAdapter.debug('ODataVersionHelper', {
 				action: 'version_cached',
-				version: cachedVersion,
+				version: cached.version,
+				ttlRemaining: Math.round((cached.expires - Date.now()) / 1000),
 			});
-			return cachedVersion;
+			return cached.version;
+		}
+
+		// Clean up expired entry if present
+		if (cached) {
+			this.versionCache.delete(cacheKey);
 		}
 
 		// Detect version from service metadata
 		const detectedVersion = await this.detectVersion(context, serviceUrl);
-		this.versionCache.set(cacheKey, detectedVersion);
+
+		// Cache with TTL
+		this.versionCache.set(cacheKey, {
+			version: detectedVersion,
+			expires: Date.now() + METADATA_CACHE_TTL,
+		});
 
 		LoggerAdapter.info('ODataVersionHelper', {
 			action: 'version_detected',
 			version: detectedVersion,
 			serviceUrl,
+			servicePath,
+			cacheTtl: METADATA_CACHE_TTL,
 		});
 
 		return detectedVersion;
