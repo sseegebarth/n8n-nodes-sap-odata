@@ -83,3 +83,93 @@ export const DEFAULT_KEEP_ALIVE_TIMEOUT = 30000; // 30 seconds idle timeout
 export const DEFAULT_WEBHOOK_RATE_LIMIT = 100; // requests per minute per IP
 export const WEBHOOK_RATE_LIMIT_WINDOW = 60000; // 1 minute sliding window
 export const WEBHOOK_RATE_LIMIT_CLEANUP_INTERVAL = 300000; // 5 minutes cleanup interval
+
+// ============================================
+// ZATW Connector Constants (HTTP-based SAP integration)
+// ============================================
+
+// ZATW Base Path
+export const ZATW_BASE_PATH = '/sap/bc/zatw';
+
+// ZATW API Endpoints
+export const ZATW_ENDPOINTS = {
+	HEALTH: '/health',
+	META: '/meta',
+	RFC: '/rfc',
+	IDOC: '/idoc',
+	IDOC_STATUS: '/idoc/status',
+} as const;
+
+// ZATW Timeouts
+export const ZATW_TIMEOUT = 120000; // 2 minutes default timeout
+export const ZATW_HEALTH_TIMEOUT = 10000; // 10 seconds for health check
+
+// ZATW Cache TTLs
+export const ZATW_FM_CACHE_TTL = 600000; // 10 minutes for FM metadata
+export const ZATW_FM_SEARCH_CACHE_TTL = 300000; // 5 minutes for FM search results
+export const ZATW_IDOC_CACHE_TTL = 600000; // 10 minutes for IDoc type metadata
+
+// ZATW Credential Type
+export const ZATW_CREDENTIAL_TYPE = 'sapConnectorApi';
+
+// ZATW Error Messages
+export const ZATW_ERROR_MESSAGES = {
+	NO_CREDENTIALS: 'No SAP Connector credentials configured. Please add SAP Connector API credentials.',
+	CONNECTION_FAILED: 'Failed to connect to SAP system. Please check the host URL and network connectivity.',
+	AUTH_FAILED: 'Authentication failed. Please check your username and password.',
+	ZATW_NOT_INSTALLED: 'ZATW service not found on SAP system. Please ensure the ZATW ABAP package is installed and ICF service is activated.',
+	FM_NOT_FOUND: 'Function module not found or not RFC-enabled.',
+	FM_METADATA_FAILED: 'Failed to retrieve function module metadata.',
+	RFC_EXECUTION_FAILED: 'RFC execution failed.',
+	IDOC_SEND_FAILED: 'Failed to send IDoc.',
+	IDOC_TYPE_NOT_FOUND: 'IDoc type not found.',
+	INVALID_PARAMETERS: 'Invalid function parameters.',
+} as const;
+
+// ZATW HTTP Headers
+export const ZATW_HEADERS = {
+	CONTENT_TYPE: 'Content-Type',
+	ACCEPT: 'Accept',
+	SAP_CLIENT: 'sap-client',
+	SAP_LANGUAGE: 'sap-language',
+	CSRF_TOKEN: 'X-CSRF-Token',
+} as const;
+
+// Common BAPIs for quick selection
+export const COMMON_BAPIS = [
+	'BAPI_USER_GET_DETAIL',
+	'BAPI_USER_CREATE1',
+	'BAPI_USER_CHANGE',
+	'BAPI_USER_DELETE',
+	'BAPI_USER_GETLIST',
+	'BAPI_CUSTOMER_GETDETAIL',
+	'BAPI_CUSTOMER_GETLIST',
+	'BAPI_MATERIAL_GETDETAIL',
+	'BAPI_MATERIAL_GETLIST',
+	'BAPI_SALESORDER_GETLIST',
+	'BAPI_SALESORDER_CREATEFROMDAT2',
+	'BAPI_SALESORDER_CHANGE',
+	'BAPI_PO_GETDETAIL',
+	'BAPI_PO_CREATE1',
+	'BAPI_PO_CHANGE',
+	'BAPI_ACC_DOCUMENT_POST',
+	'BAPI_GOODSMVT_CREATE',
+	'BAPI_TRANSACTION_COMMIT',
+	'BAPI_TRANSACTION_ROLLBACK',
+	'RFC_READ_TABLE',
+	'RFC_SYSTEM_INFO',
+] as const;
+
+// Common IDoc Types
+export const COMMON_IDOC_TYPES = [
+	'DEBMAS07', // Customer Master
+	'CREMAS05', // Vendor Master
+	'MATMAS05', // Material Master
+	'ORDERS05', // Sales Order
+	'ORDRSP', // Order Response
+	'DESADV', // Delivery Advice
+	'INVOIC02', // Invoice
+	'HRMD_A07', // HR Master Data
+	'WMMBID02', // Goods Movement
+	'INFIMG', // Info Record
+] as const;

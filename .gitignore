@@ -40,3 +40,38 @@ coverage/
 *.tmp
 *.temp
 .cache/
+
+# Development documentation (keep locally, exclude from repo)
+PLAN.md
+*_PLAN.md
+*IMPLEMENTATION*.md
+CODE_HUMANIZATION*.md
+CODE_REVIEW*.md
+CRITICAL_ISSUES*.md
+FIX_INSTRUCTIONS.md
+QUICK_START.md
+TEST_GUIDE.md
+DEPLOYMENT.md
+DEPENDENCIES.md
+RECENT_CHANGES.md
+findings.md
+improvement_list.md
+input_fields.md
+external_dependencies.md
+
+# Keep these essential docs
+!README.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!SECURITY.md
+!LICENSE
+!ARCHITECTURE.md
+
+# Claude/AI workspace files
+.claude/
+*.claude
+claude-*.md
+
+# Backup and archive folders
+docs-backup*/
+docs/archive/

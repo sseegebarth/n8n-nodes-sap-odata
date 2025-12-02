@@ -41,14 +41,18 @@
       "dist/credentials/SapOdataWebhookApi.credentials.js",
       "dist/credentials/SapIdocApi.credentials.js",
       "dist/credentials/SapIdocWebhookApi.credentials.js",
-      "dist/credentials/SapRfcApi.credentials.js"
+      "dist/credentials/SapRfcApi.credentials.js",
+      "dist/credentials/SapConnectorApi.credentials.js"
     ],
     "nodes": [
       "dist/nodes/Sap/SapOData.node.js",
       "dist/nodes/SapIdoc/SapIdoc.node.js",
       "dist/nodes/SapIdocWebhook/SapIdocWebhook.node.js",
       "dist/nodes/SapRfc/SapRfc.node.js",
-      "dist/nodes/SapWebhook/SapODataWebhook.node.js"
+      "dist/nodes/SapWebhook/SapODataWebhook.node.js",
+      "dist/nodes/SapConnector/SapRfc.node.js",
+      "dist/nodes/SapConnector/SapIdocSend.node.js",
+      "dist/nodes/SapConnector/SapIdocTrigger.node.js"
     ]
   },
   "devDependencies": {
