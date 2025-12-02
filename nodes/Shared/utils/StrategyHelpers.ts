@@ -23,8 +23,17 @@ import { sanitizeErrorMessage } from './SecurityUtils';
 import { convertDataTypes } from './TypeConverter';
 
 /**
+ * Entity Set Resource Locator value structure
+ */
+interface IResourceLocatorValue {
+	mode: string;
+	value: string;
+	__rl?: boolean;
+}
+
+/**
  * Get entity set name from node parameters with validation
- * Supports both list mode and custom mode
+ * Supports resourceLocator type (list, name, url modes)
  *
  * @param context - Execution context
  * @param itemIndex - Current item index
@@ -32,13 +41,17 @@ import { convertDataTypes } from './TypeConverter';
  * @throws NodeOperationError if entity set is invalid
  */
 export function getEntitySet(context: IExecuteFunctions, itemIndex: number): string {
-	const mode = context.getNodeParameter('entitySetMode', itemIndex, 'list') as string;
+	// Get the resourceLocator value
+	const entitySetParam = context.getNodeParameter('entitySet', itemIndex) as string | IResourceLocatorValue;
+
 	let entitySet: string;
 
-	if (mode === 'custom') {
-		entitySet = context.getNodeParameter('customEntitySet', itemIndex) as string;
+	// Handle resourceLocator format: { mode: 'list'|'name'|'url', value: 'EntitySetName' }
+	if (typeof entitySetParam === 'object' && entitySetParam !== null) {
+		entitySet = entitySetParam.value || '';
 	} else {
-		entitySet = context.getNodeParameter('entitySet', itemIndex) as string;
+		// Direct string value (for backwards compatibility)
+		entitySet = entitySetParam as string;
 	}
 
 	// Validate entity set name for security

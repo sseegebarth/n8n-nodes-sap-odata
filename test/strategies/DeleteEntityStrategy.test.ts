@@ -32,8 +32,7 @@ describe('DeleteEntityStrategy', () => {
 	describe('execute', () => {
 		it('should delete entity with simple key', async () => {
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('0500000001') // entityKey
 				.mockReturnValueOnce({}); // options
 
@@ -65,8 +64,7 @@ describe('DeleteEntityStrategy', () => {
 			const mockResponse = { d: {} };
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('SalesOrderSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'SalesOrderSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce("SalesOrderID='0500000001',ItemPosition='10'") // entityKey
 				.mockReturnValueOnce({}); // options
 
@@ -88,12 +86,11 @@ describe('DeleteEntityStrategy', () => {
 			);
 		});
 
-		it('should use custom entity set when in custom mode', async () => {
+		it('should use custom entity set when entered by name', async () => {
 			const mockResponse = { d: {} };
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('custom') // entitySetMode
-				.mockReturnValueOnce('CustomEntitySet') // customEntitySet
+				.mockReturnValueOnce({ mode: 'name', value: 'CustomEntitySet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('123') // entityKey
 				.mockReturnValueOnce({}); // options
 

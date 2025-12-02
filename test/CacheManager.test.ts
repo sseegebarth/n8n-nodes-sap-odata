@@ -1,5 +1,6 @@
 import { CacheManager } from '../nodes/Shared/utils/CacheManager';
 import { IExecuteFunctions, IDataObject } from 'n8n-workflow';
+import { createHash } from 'crypto';
 
 describe('CacheManager', () => {
 	let mockContext: Partial<IExecuteFunctions>;
@@ -376,14 +377,11 @@ function getCacheKeyForTest(host: string, servicePath: string, credentialId?: st
 	const keyComponents = [normalizedHost, normalizedPath, credentialId || 'anonymous'];
 	const keyString = keyComponents.join('::');
 
-	let hash = 0;
-	for (let i = 0; i < keyString.length; i++) {
-		const char = keyString.charCodeAt(i);
-		hash = ((hash << 5) - hash) + char;
-		hash = hash & hash;
-	}
+	// Use SHA-256 like the actual implementation
+	const hash = createHash('sha256')
+		.update(keyString)
+		.digest('hex')
+		.substring(0, 16);
 
-	const safeKey = `cache_${Math.abs(hash).toString(36)}`;
-	const suffix = keyString.length.toString(36);
-	return `${safeKey}_${suffix}`;
+	return `cache_${hash}`;
 }

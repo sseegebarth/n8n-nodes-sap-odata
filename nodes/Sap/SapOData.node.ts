@@ -8,7 +8,7 @@ import {
 import { OperationStrategyFactory } from '../Shared/strategies';
 import { IAdvancedOptions } from '../Shared/strategies/types';
 import { sanitizeErrorMessage } from '../Shared/utils/SecurityUtils';
-import { sapODataLoadOptions } from './SapODataLoadOptions';
+import { sapODataLoadOptions, sapODataListSearch } from './SapODataLoadOptions';
 import { sapODataProperties } from './SapODataProperties';
 
 /**
@@ -42,6 +42,7 @@ export class SapOData implements INodeType {
 
 	methods = {
 		loadOptions: sapODataLoadOptions,
+		listSearch: sapODataListSearch,
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {

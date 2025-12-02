@@ -6,11 +6,12 @@ import {
 	IWebhookResponseData,
 	NodeOperationError,
 } from 'n8n-workflow';
-import { MAX_WEBHOOK_BODY_SIZE } from '../Shared/constants';
+import { MAX_WEBHOOK_BODY_SIZE, DEFAULT_WEBHOOK_RATE_LIMIT, WEBHOOK_RATE_LIMIT_WINDOW } from '../Shared/constants';
 import { LoggerAdapter } from '../Shared/utils/LoggerAdapter';
 import {
 	verifyHmacSignature,
 	buildWebhookErrorResponse,
+	checkWebhookRateLimit,
 } from '../Shared/utils/WebhookUtils';
 import { parseIdocXml, buildSuccessResponse, buildErrorResponse } from './IdocWebhookFunctions';
 
@@ -243,6 +244,29 @@ export class SapIdocWebhook implements INodeType {
 						},
 						description: 'Whether to extract all segments as a flat array (easier to process)',
 					},
+					{
+						displayName: 'Enable Rate Limiting',
+						name: 'enableRateLimiting',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to limit requests per IP address to prevent abuse',
+					},
+					{
+						displayName: 'Rate Limit (Requests/Minute)',
+						name: 'rateLimit',
+						type: 'number',
+						default: 100,
+						typeOptions: {
+							minValue: 1,
+							maxValue: 10000,
+						},
+						displayOptions: {
+							show: {
+								enableRateLimiting: [true],
+							},
+						},
+						description: 'Maximum number of requests per minute per IP address',
+					},
 				],
 			},
 		],
@@ -301,6 +325,42 @@ export class SapIdocWebhook implements INodeType {
 					),
 				}]],
 			};
+		}
+
+		// Rate limiting check (before authentication to prevent auth-based DoS)
+		const enableRateLimiting = options.enableRateLimiting !== false;
+		if (enableRateLimiting) {
+			const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+				|| req.socket.remoteAddress
+				|| 'unknown';
+			const rateLimit = (options.rateLimit as number) || DEFAULT_WEBHOOK_RATE_LIMIT;
+			const rateLimitResult = checkWebhookRateLimit(clientIp, rateLimit, WEBHOOK_RATE_LIMIT_WINDOW);
+
+			if (!rateLimitResult.allowed) {
+				LoggerAdapter.warn('IDoc Webhook rate limit exceeded', {
+					module: 'SapIdocWebhook',
+					operation: 'webhook',
+					clientIp,
+					rateLimit,
+				});
+				return {
+					webhookResponse: {
+						statusCode: 429,
+						headers: {
+							'Retry-After': String(rateLimitResult.retryAfter),
+							'X-RateLimit-Limit': String(rateLimit),
+							'X-RateLimit-Remaining': '0',
+							'X-RateLimit-Reset': String(Math.ceil(rateLimitResult.resetTime / 1000)),
+						},
+						body: {
+							error: 'Too Many Requests',
+							message: 'Rate limit exceeded. Please try again later.',
+							retryAfter: rateLimitResult.retryAfter,
+						},
+					},
+					workflowData: [],
+				};
+			}
 		}
 
 		// Validate authentication if required

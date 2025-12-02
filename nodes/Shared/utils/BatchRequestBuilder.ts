@@ -12,6 +12,7 @@
 
 import { IDataObject } from 'n8n-workflow';
 import { randomUUID } from 'crypto';
+import { Logger } from './Logger';
 
 /**
  * Batch Operation Types
@@ -223,7 +224,7 @@ export class BatchRequestBuilder {
 					results.push(result);
 				}
 			} catch (error) {
-				console.error('Failed to parse batch response part:', error);
+				Logger.error('Failed to parse batch response part', error instanceof Error ? error : undefined, { module: 'BatchRequestBuilder' });
 			}
 		});
 

@@ -5,7 +5,12 @@
  * Extracted from the main node file for better maintainability.
  */
 
-import { ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
+import {
+	ILoadOptionsFunctions,
+	INodeListSearchItems,
+	INodeListSearchResult,
+	INodePropertyOptions,
+} from 'n8n-workflow';
 import { LoggerAdapter } from '../Shared/utils/LoggerAdapter';
 import {
 	parseMetadataForEntitySets,
@@ -351,6 +356,214 @@ export const sapODataLoadOptions = {
 					description: 'Switch to "Custom" mode in "Function Name Mode" to enter the name manually',
 				},
 			];
+		}
+	},
+};
+
+/**
+ * List Search Methods for Resource Locator
+ *
+ * These methods support searchable dropdowns with filtering capability.
+ * Used by resourceLocator type fields.
+ */
+export const sapODataListSearch = {
+	/**
+	 * Search SAP OData Services from Gateway Catalog with filtering support
+	 *
+	 * @param filter - Optional search filter string
+	 * @param _paginationToken - Optional pagination token (not used)
+	 * @returns Search results with service name, path, and URL
+	 */
+	async servicePathSearch(
+		this: ILoadOptionsFunctions,
+		filter?: string,
+		_paginationToken?: unknown,
+	): Promise<INodeListSearchResult> {
+		try {
+			const { discoverServices, getCommonServices } = await import('./DiscoveryService');
+			const { CacheManager } = await import('../Shared/utils/CacheManager');
+			const credentials = await this.getCredentials('sapOdataApi');
+			const host = credentials.host as string;
+
+			// Try to get from cache first
+			let services = await CacheManager.getServiceCatalog(this, host);
+
+			if (!services || services.length === 0) {
+				// Try to discover services from SAP Gateway Catalog Service
+				const discoveredServices = await discoverServices(this);
+
+				if (discoveredServices && discoveredServices.length > 0) {
+					// Cache the discovered services
+					await CacheManager.setServiceCatalog(this, host, discoveredServices);
+					services = discoveredServices;
+				} else {
+					// Fallback: Use common SAP services
+					services = getCommonServices();
+				}
+			}
+
+			// Apply filter if provided
+			let filteredServices = services;
+			if (filter) {
+				const lowerFilter = filter.toLowerCase();
+				filteredServices = services.filter(
+					(service) =>
+						service.title.toLowerCase().includes(lowerFilter) ||
+						service.technicalName.toLowerCase().includes(lowerFilter) ||
+						service.servicePath.toLowerCase().includes(lowerFilter),
+				);
+			}
+
+			// Sort: Standard SAP services first, then custom Z-services
+			filteredServices.sort((a, b) => {
+				const aIsStandard = a.technicalName.startsWith('API_') || a.technicalName.startsWith('C_');
+				const bIsStandard = b.technicalName.startsWith('API_') || b.technicalName.startsWith('C_');
+				if (aIsStandard && !bIsStandard) return -1;
+				if (!aIsStandard && bIsStandard) return 1;
+				return a.technicalName.localeCompare(b.technicalName);
+			});
+
+			// Build results
+			const results: INodeListSearchItems[] = filteredServices.map((service) => ({
+				name: `${service.title} (${service.technicalName})`,
+				value: service.servicePath,
+				url: `${host}${service.servicePath}`,
+			}));
+
+			return { results };
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+			// Fallback to common services on error
+			const { getCommonServices } = await import('./DiscoveryService');
+			const commonServices = getCommonServices();
+
+			return {
+				results: [
+					{
+						name: `⚠️ Discovery failed: ${errorMessage.substring(0, 40)}`,
+						value: '',
+					},
+					...commonServices.map((service) => ({
+						name: `${service.title} (${service.technicalName})`,
+						value: service.servicePath,
+					})),
+				],
+			};
+		}
+	},
+
+	/**
+	 * Search Entity Sets from $metadata with filtering support
+	 *
+	 * @param filter - Optional search filter string
+	 * @param paginationToken - Optional pagination token (not used for metadata)
+	 * @returns Search results with name, value, and optional URL
+	 */
+	async entitySetSearch(
+		this: ILoadOptionsFunctions,
+		filter?: string,
+		_paginationToken?: unknown,
+	): Promise<INodeListSearchResult> {
+		try {
+			const credentials = await this.getCredentials('sapOdataApi');
+			const { CacheManager } = await import('../Shared/utils/CacheManager');
+
+			// Get service path from resourceLocator
+			const servicePathParam = this.getCurrentNodeParameter('servicePath') as
+				| string
+				| { mode: string; value: string }
+				| undefined;
+
+			let servicePath = '';
+			if (typeof servicePathParam === 'object' && servicePathParam !== null) {
+				servicePath = servicePathParam.value || '';
+			} else if (typeof servicePathParam === 'string') {
+				servicePath = servicePathParam;
+			}
+
+			// Validate that we have a specific service path
+			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
+				return {
+					results: [{
+						name: '⚠️ No service selected - Please select a service first',
+						value: '',
+					}],
+				};
+			}
+
+			// Get entity sets from cache or API
+			let entitySets: string[] = [];
+
+			// Try to get from cache first
+			const cached = await CacheManager.getMetadata(
+				this,
+				credentials.host as string,
+				servicePath,
+			);
+
+			if (cached && cached.entitySets) {
+				entitySets = cached.entitySets;
+			} else {
+				// Fetch from API if not cached
+				const metadataXml = await sapOdataApiRequest.call(this, 'GET', '/$metadata');
+				entitySets = parseMetadataForEntitySets(
+					typeof metadataXml === 'string' ? metadataXml : JSON.stringify(metadataXml),
+				);
+				const functionImports = parseMetadataForFunctionImports(
+					typeof metadataXml === 'string' ? metadataXml : JSON.stringify(metadataXml),
+				);
+
+				// Cache the metadata
+				await CacheManager.setMetadata(
+					this,
+					credentials.host as string,
+					servicePath,
+					entitySets,
+					functionImports,
+				);
+			}
+
+			// Apply filter if provided
+			let filteredEntitySets = entitySets;
+			if (filter) {
+				const lowerFilter = filter.toLowerCase();
+				filteredEntitySets = entitySets.filter(
+					(entitySet) => entitySet.toLowerCase().includes(lowerFilter),
+				);
+			}
+
+			// Build OData URL for each entity set
+			const host = credentials.host as string;
+			const results: INodeListSearchItems[] = filteredEntitySets.map((entitySet) => ({
+				name: entitySet,
+				value: entitySet,
+				url: `${host}${servicePath}${entitySet}`,
+			}));
+
+			return { results };
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+			// Check if this is a 403 Forbidden error
+			const isForbidden = errorMessage.toLowerCase().includes('forbidden') ||
+				errorMessage.toLowerCase().includes('403');
+
+			if (isForbidden) {
+				return {
+					results: [{
+						name: '⚠️ Access Forbidden - Missing SAP Authorizations',
+						value: '',
+					}],
+				};
+			}
+
+			return {
+				results: [{
+					name: `⚠️ Error: ${errorMessage.substring(0, 50)}`,
+					value: '',
+				}],
+			};
 		}
 	},
 };

@@ -17,7 +17,9 @@ import {
 	parseSapDates,
 	extractEventInfo,
 	extractChangedFields,
+	checkWebhookRateLimit,
 } from '../Shared/utils/WebhookUtils';
+import { DEFAULT_WEBHOOK_RATE_LIMIT, WEBHOOK_RATE_LIMIT_WINDOW } from '../Shared/constants';
 
 /**
  * SAP OData Webhook Trigger Node
@@ -308,6 +310,25 @@ export class SapODataWebhook implements INodeType {
 						placeholder: '{"status": "received"}',
 						description: 'Custom JSON response body to return',
 					},
+					{
+						displayName: 'Enable Rate Limiting',
+						name: 'enableRateLimiting',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to limit requests per IP address to prevent abuse',
+					},
+					{
+						displayName: 'Rate Limit (Requests/Minute)',
+						name: 'rateLimit',
+						type: 'number',
+						default: 100,
+						displayOptions: {
+							show: {
+								enableRateLimiting: [true],
+							},
+						},
+						description: 'Maximum requests per minute per IP address',
+					},
 				],
 			},
 		],
@@ -519,6 +540,46 @@ export class SapODataWebhook implements INodeType {
 				maxSize: `${MAX_WEBHOOK_BODY_SIZE / 1024 / 1024}MB`,
 			});
 			return { noWebhookResponse: true };
+		}
+
+		// ========================================
+		// 0. Rate Limiting Check
+		// ========================================
+		const enableRateLimiting = options.enableRateLimiting !== false; // Default enabled
+		if (enableRateLimiting) {
+			const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+				|| req.socket.remoteAddress
+				|| 'unknown';
+			const rateLimit = (options.rateLimit as number) || DEFAULT_WEBHOOK_RATE_LIMIT;
+
+			const rateLimitResult = checkWebhookRateLimit(clientIp, rateLimit, WEBHOOK_RATE_LIMIT_WINDOW);
+
+			if (!rateLimitResult.allowed) {
+				LoggerAdapter.warn('Webhook rate limit exceeded', {
+					module: 'SapODataWebhook',
+					operation: 'webhook',
+					clientIp,
+					rateLimit,
+					retryAfter: rateLimitResult.retryAfter,
+				});
+
+				resp.status(429)
+					.set('Retry-After', String(rateLimitResult.retryAfter))
+					.set('X-RateLimit-Limit', String(rateLimit))
+					.set('X-RateLimit-Remaining', '0')
+					.set('X-RateLimit-Reset', String(Math.ceil(rateLimitResult.resetTime / 1000)))
+					.json({
+						error: 'Too Many Requests',
+						message: 'Rate limit exceeded. Please slow down.',
+						retryAfter: rateLimitResult.retryAfter,
+					});
+				return { noWebhookResponse: true };
+			}
+
+			// Add rate limit headers to successful responses
+			resp.set('X-RateLimit-Limit', String(rateLimit));
+			resp.set('X-RateLimit-Remaining', String(rateLimitResult.remaining));
+			resp.set('X-RateLimit-Reset', String(Math.ceil(rateLimitResult.resetTime / 1000)));
 		}
 
 		try {

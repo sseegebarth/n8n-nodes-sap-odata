@@ -1,4 +1,5 @@
 import { IDataObject, IExecuteFunctions, ILoadOptionsFunctions, IHookFunctions } from 'n8n-workflow';
+import { createHash } from 'crypto';
 import { CSRF_TOKEN_CACHE_TTL, METADATA_CACHE_TTL, CACHE_CLEANUP_INTERVAL } from '../constants';
 import { ICsrfTokenCacheEntry, IMetadataCacheEntry, IServiceCatalogEntry, IServiceCatalogCacheEntry } from '../types';
 
@@ -35,21 +36,15 @@ export class CacheManager {
 		// This prevents information leakage in cache keys while maintaining uniqueness
 		const keyString = keyComponents.join('::');
 
-		// Simple hash function for cache key generation
-		// Not cryptographically secure but sufficient for cache isolation
-		let hash = 0;
-		for (let i = 0; i < keyString.length; i++) {
-			const char = keyString.charCodeAt(i);
-			hash = ((hash << 5) - hash) + char;
-			hash = hash & hash; // Convert to 32-bit integer
-		}
+		// Use SHA-256 for secure, collision-resistant cache key generation
+		// This prevents cache poisoning and provides better distribution than simple hashing
+		const hash = createHash('sha256')
+			.update(keyString)
+			.digest('hex')
+			.substring(0, 16); // First 16 hex chars = 64 bits (sufficient for cache keys)
 
-		// Return a safe cache key with prefix and hash
-		const safeKey = `cache_${Math.abs(hash).toString(36)}`;
-
-		// Add suffix to differentiate between similar hashes (collision mitigation)
-		const suffix = keyString.length.toString(36);
-		return `${safeKey}_${suffix}`;
+		// Return a safe cache key with prefix
+		return `cache_${hash}`;
 	}
 
 	/**

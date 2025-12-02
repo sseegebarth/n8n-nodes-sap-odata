@@ -65,8 +65,7 @@ describe('GetEntityStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('P123') // entityKey
 				.mockReturnValueOnce({}); // options
 
@@ -97,8 +96,7 @@ describe('GetEntityStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('P123') // entityKey
 				.mockReturnValueOnce({
 					$select: 'ProductID,Name',
@@ -128,8 +126,7 @@ describe('GetEntityStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('P123') // entityKey
 				.mockReturnValueOnce({}); // options
 

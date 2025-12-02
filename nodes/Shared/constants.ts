@@ -78,3 +78,8 @@ export const CACHE_CLEANUP_INTERVAL = 10; // Run cleanup every N operations
 export const DEFAULT_POOL_SIZE = 10;
 export const DEFAULT_POOL_TIMEOUT = 120000; // 2 minutes request timeout
 export const DEFAULT_KEEP_ALIVE_TIMEOUT = 30000; // 30 seconds idle timeout
+
+// Webhook Rate Limiting
+export const DEFAULT_WEBHOOK_RATE_LIMIT = 100; // requests per minute per IP
+export const WEBHOOK_RATE_LIMIT_WINDOW = 60000; // 1 minute sliding window
+export const WEBHOOK_RATE_LIMIT_CLEANUP_INTERVAL = 300000; // 5 minutes cleanup interval

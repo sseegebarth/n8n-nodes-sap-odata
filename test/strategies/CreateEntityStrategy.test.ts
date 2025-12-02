@@ -26,8 +26,7 @@ describe('CreateEntityStrategy', () => {
 			const jsonString = JSON.stringify(mockData);
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(jsonString); // data
 
 			// Note: In real test, we'd need to mock sapOdataApiRequest
@@ -39,8 +38,7 @@ describe('CreateEntityStrategy', () => {
 			const invalidJson = '{ invalid json }';
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(invalidJson); // data
 
 			await expect(
@@ -52,8 +50,7 @@ describe('CreateEntityStrategy', () => {
 			const maliciousJson = '{"__proto__": {"polluted": true}}';
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(maliciousJson); // data
 
 			await expect(

@@ -45,8 +45,7 @@ describe('UpdateEntityStrategy', () => {
 			});
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('P123') // entityKey
 				.mockReturnValueOnce(updateData) // data
 				.mockReturnValueOnce({}); // options
@@ -90,8 +89,7 @@ describe('UpdateEntityStrategy', () => {
 			const updateData = JSON.stringify({ Quantity: 5 });
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('SalesOrderItemSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'SalesOrderItemSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce("SalesOrderID='0500000001',ItemPosition='10'") // entityKey
 				.mockReturnValueOnce(updateData) // data
 				.mockReturnValueOnce({}); // options
@@ -124,8 +122,7 @@ describe('UpdateEntityStrategy', () => {
 			const updateData = JSON.stringify({ Name: 'Updated Product' });
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('P123') // entityKey
 				.mockReturnValueOnce(updateData) // data
 				.mockReturnValueOnce({}); // options
@@ -138,7 +135,7 @@ describe('UpdateEntityStrategy', () => {
 			expect(result[0].json).toEqual(mockResponse);
 		});
 
-		it('should use custom entity set when in custom mode', async () => {
+		it('should use custom entity set when entered by name', async () => {
 			const mockResponse = {
 				d: { success: true },
 			};
@@ -146,8 +143,7 @@ describe('UpdateEntityStrategy', () => {
 			const updateData = JSON.stringify({ Status: 'Active' });
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('custom') // entitySetMode
-				.mockReturnValueOnce('MyCustomEntitySet') // customEntitySet
+				.mockReturnValueOnce({ mode: 'name', value: 'MyCustomEntitySet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('123') // entityKey
 				.mockReturnValueOnce(updateData) // data
 				.mockReturnValueOnce({}); // options
@@ -176,8 +172,7 @@ describe('UpdateEntityStrategy', () => {
 			const updateData = JSON.stringify({ Name: 'Test' });
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce('P123') // entityKey
 				.mockReturnValueOnce(updateData) // data
 				.mockReturnValueOnce({}); // options

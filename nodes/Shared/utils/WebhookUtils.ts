@@ -563,3 +563,225 @@ export function sanitizePayload(
 
 	return sanitized;
 }
+
+/**
+ * Rate limiter configuration
+ */
+export interface IRateLimitConfig {
+	maxRequests: number;    // Maximum requests allowed in window
+	windowMs: number;       // Time window in milliseconds
+}
+
+/**
+ * Rate limit check result
+ */
+export interface IRateLimitResult {
+	allowed: boolean;
+	remaining: number;
+	resetTime: number;      // Unix timestamp when limit resets
+	retryAfter?: number;    // Seconds until retry allowed (if blocked)
+}
+
+/**
+ * Webhook Rate Limiter using sliding window algorithm
+ *
+ * Tracks request counts per IP address to prevent DoS attacks.
+ * Uses a sliding window approach for smooth rate limiting.
+ *
+ * Features:
+ * - Per-IP rate limiting
+ * - Configurable limits and windows
+ * - Automatic cleanup of old entries
+ * - Memory-efficient sliding window
+ */
+export class WebhookRateLimiter {
+	private static instance: WebhookRateLimiter | undefined;
+	private requests: Map<string, number[]>;
+	private config: IRateLimitConfig;
+	private cleanupTimer: NodeJS.Timeout | null = null;
+
+	private constructor(config: IRateLimitConfig) {
+		this.config = config;
+		this.requests = new Map();
+		this.startCleanupTimer();
+	}
+
+	/**
+	 * Get singleton instance with optional config update
+	 */
+	static getInstance(config?: Partial<IRateLimitConfig>): WebhookRateLimiter {
+		// Import defaults here to avoid circular dependency
+		const DEFAULT_MAX_REQUESTS = 100;
+		const DEFAULT_WINDOW_MS = 60000;
+
+		const fullConfig: IRateLimitConfig = {
+			maxRequests: config?.maxRequests ?? DEFAULT_MAX_REQUESTS,
+			windowMs: config?.windowMs ?? DEFAULT_WINDOW_MS,
+		};
+
+		if (!WebhookRateLimiter.instance) {
+			WebhookRateLimiter.instance = new WebhookRateLimiter(fullConfig);
+		} else if (config) {
+			// Update config if provided
+			WebhookRateLimiter.instance.config = fullConfig;
+		}
+
+		return WebhookRateLimiter.instance;
+	}
+
+	/**
+	 * Reset singleton instance (useful for testing)
+	 */
+	static resetInstance(): void {
+		if (WebhookRateLimiter.instance) {
+			WebhookRateLimiter.instance.destroy();
+			WebhookRateLimiter.instance = undefined;
+		}
+	}
+
+	/**
+	 * Check if request from IP is allowed
+	 *
+	 * @param ip - Client IP address
+	 * @returns Rate limit result with remaining count and reset time
+	 */
+	checkLimit(ip: string): IRateLimitResult {
+		const now = Date.now();
+		const windowStart = now - this.config.windowMs;
+
+		// Get or create request history for this IP
+		let timestamps = this.requests.get(ip) || [];
+
+		// Remove timestamps outside the current window
+		timestamps = timestamps.filter(ts => ts > windowStart);
+
+		// Calculate remaining requests
+		const remaining = Math.max(0, this.config.maxRequests - timestamps.length);
+		const resetTime = now + this.config.windowMs;
+
+		if (timestamps.length >= this.config.maxRequests) {
+			// Rate limit exceeded
+			const oldestTimestamp = timestamps[0];
+			const retryAfter = Math.ceil((oldestTimestamp + this.config.windowMs - now) / 1000);
+
+			return {
+				allowed: false,
+				remaining: 0,
+				resetTime,
+				retryAfter: Math.max(1, retryAfter),
+			};
+		}
+
+		// Add current request timestamp
+		timestamps.push(now);
+		this.requests.set(ip, timestamps);
+
+		return {
+			allowed: true,
+			remaining: remaining - 1,
+			resetTime,
+		};
+	}
+
+	/**
+	 * Get current status for an IP
+	 */
+	getStatus(ip: string): { requests: number; remaining: number; windowMs: number } {
+		const now = Date.now();
+		const windowStart = now - this.config.windowMs;
+		const timestamps = this.requests.get(ip) || [];
+		const validTimestamps = timestamps.filter(ts => ts > windowStart);
+
+		return {
+			requests: validTimestamps.length,
+			remaining: Math.max(0, this.config.maxRequests - validTimestamps.length),
+			windowMs: this.config.windowMs,
+		};
+	}
+
+	/**
+	 * Clear rate limit for a specific IP (e.g., after successful auth)
+	 */
+	resetIp(ip: string): void {
+		this.requests.delete(ip);
+	}
+
+	/**
+	 * Start periodic cleanup of expired entries
+	 */
+	private startCleanupTimer(): void {
+		// Cleanup every 5 minutes
+		const CLEANUP_INTERVAL = 5 * 60 * 1000;
+
+		if (this.cleanupTimer) {
+			clearInterval(this.cleanupTimer);
+		}
+
+		this.cleanupTimer = setInterval(() => {
+			this.cleanup();
+		}, CLEANUP_INTERVAL);
+
+		// Don't prevent process exit
+		if (this.cleanupTimer.unref) {
+			this.cleanupTimer.unref();
+		}
+	}
+
+	/**
+	 * Remove expired entries to free memory
+	 */
+	private cleanup(): void {
+		const now = Date.now();
+		const windowStart = now - this.config.windowMs;
+
+		for (const [ip, timestamps] of this.requests.entries()) {
+			const validTimestamps = timestamps.filter(ts => ts > windowStart);
+
+			if (validTimestamps.length === 0) {
+				this.requests.delete(ip);
+			} else if (validTimestamps.length !== timestamps.length) {
+				this.requests.set(ip, validTimestamps);
+			}
+		}
+	}
+
+	/**
+	 * Destroy the rate limiter and cleanup resources
+	 */
+	destroy(): void {
+		if (this.cleanupTimer) {
+			clearInterval(this.cleanupTimer);
+			this.cleanupTimer = null;
+		}
+		this.requests.clear();
+	}
+
+	/**
+	 * Get total number of tracked IPs
+	 */
+	getTrackedIpCount(): number {
+		return this.requests.size;
+	}
+}
+
+/**
+ * Check rate limit for webhook request
+ *
+ * Convenience function that uses the singleton rate limiter.
+ *
+ * @param clientIp - Client IP address
+ * @param maxRequests - Maximum requests per window (default: 100)
+ * @param windowMs - Time window in milliseconds (default: 60000)
+ * @returns Rate limit result
+ */
+export function checkWebhookRateLimit(
+	clientIp: string,
+	maxRequests = 100,
+	windowMs = 60000
+): IRateLimitResult {
+	// Normalize IP (remove IPv6 prefix for IPv4-mapped addresses)
+	const ip = clientIp.replace(/^::ffff:/i, '');
+
+	const rateLimiter = WebhookRateLimiter.getInstance({ maxRequests, windowMs });
+	return rateLimiter.checkLimit(ip);
+}

@@ -41,7 +41,7 @@ export interface IConnectionPoolStats {
  * - Automatic socket cleanup (prevents memory leaks)
  */
 export class ConnectionPoolManager {
-	private static instance: ConnectionPoolManager;
+	private static instance: ConnectionPoolManager | undefined;
 	private httpAgent: HttpAgent | null = null;
 	private httpsAgent: HttpsAgent | null = null;
 	private config: Required<IConnectionPoolConfig>;
@@ -105,7 +105,7 @@ export class ConnectionPoolManager {
 	public static resetInstance(): void {
 		if (ConnectionPoolManager.instance) {
 			ConnectionPoolManager.instance.destroy();
-			ConnectionPoolManager.instance = null as any;
+			ConnectionPoolManager.instance = undefined;
 		}
 	}
 

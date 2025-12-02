@@ -34,14 +34,40 @@ export function buildSecureUrl(host: string, servicePath: string, resource: stri
 
 /**
  * Validate entity key to prevent injection attacks
+ *
+ * Supports:
+ * - Simple keys: '0500000001' or 123
+ * - Composite keys: Key1='value1',Key2='value2'
+ * - SAP escaped quotes: Key1='value''s'
  */
 export function validateEntityKey(key: string, node: INode): string {
-	// Check for SQL injection patterns
-	const blacklist = [';', '--', '/*', '*/', 'DROP', 'DELETE', 'INSERT', 'UPDATE', 'EXEC'];
-	const upperKey = key.toUpperCase();
+	// Normalize unicode to prevent bypass attacks
+	const normalizedKey = key.normalize('NFC');
+
+	// Check for SQL/OData injection patterns
+	const blacklist = [
+		';', '--', '/*', '*/', // SQL comments
+		'DROP', 'DELETE', 'INSERT', 'UPDATE', 'EXEC', 'TRUNCATE', // SQL commands
+		'$filter', '$expand', '$select', '$orderby', '$top', '$skip', // OData query injection
+		'&', '?', // Query string manipulation
+	];
+	const upperKey = normalizedKey.toUpperCase();
 
 	for (const pattern of blacklist) {
-		if (upperKey.includes(pattern)) {
+		// For patterns that are words, check word boundaries
+		const isWord = /^[A-Z$]+$/.test(pattern);
+		if (isWord) {
+			const regex = new RegExp(`\\b${pattern.replace('$', '\\$')}\\b`, 'i');
+			if (regex.test(upperKey)) {
+				throw new NodeOperationError(
+					node,
+					`Invalid entity key: Contains forbidden pattern '${pattern}'`,
+					{
+						description: 'Entity keys cannot contain SQL commands or OData query parameters',
+					},
+				);
+			}
+		} else if (upperKey.includes(pattern.toUpperCase())) {
 			throw new NodeOperationError(
 				node,
 				`Invalid entity key: Contains forbidden pattern '${pattern}'`,
@@ -53,57 +79,230 @@ export function validateEntityKey(key: string, node: INode): string {
 	}
 
 	// Validate format for composite keys
-	// Allow alphanumeric, underscore, hyphen, and dot in key names (SAP standard)
-	if (key.includes('=')) {
-		const parts = key.split(',');
-		for (const part of parts) {
-			if (!part.match(/^[a-zA-Z0-9_\-.]+='[^']*'$/)) {
+	if (normalizedKey.includes('=')) {
+		validateCompositeKey(normalizedKey, node);
+	} else {
+		// Simple key validation - allow quoted strings or numbers
+		if (!normalizedKey.match(/^('[^']*(?:''[^']*)*'|\d+)$/)) {
+			// Allow unquoted alphanumeric for compatibility
+			if (!normalizedKey.match(/^[a-zA-Z0-9_\-.]+$/)) {
 				throw new NodeOperationError(
 					node,
-					`Invalid composite key format: ${part}`,
+					`Invalid simple key format: ${normalizedKey}`,
 					{
-						description: 'Composite keys must follow pattern: Key1=\'value1\',Key2=\'value2\'. Key names can contain letters, numbers, underscores, hyphens, and dots.',
+						description: "Simple keys must be quoted strings ('value'), numbers (123), or alphanumeric identifiers",
 					},
 				);
 			}
 		}
 	}
 
-	return key;
+	return normalizedKey;
+}
+
+/**
+ * Validate composite key format with strict parsing
+ * Format: Key1='value1',Key2='value2'
+ * SAP escapes single quotes by doubling: Key1='value''s'
+ */
+function validateCompositeKey(key: string, node: INode): void {
+	// Parse composite key properly handling escaped quotes
+	const parts: string[] = [];
+	let current = '';
+	let inQuotes = false;
+	let i = 0;
+
+	while (i < key.length) {
+		const char = key[i];
+
+		if (char === "'" && !inQuotes) {
+			inQuotes = true;
+			current += char;
+		} else if (char === "'" && inQuotes) {
+			// Check for escaped quote ('')
+			if (i + 1 < key.length && key[i + 1] === "'") {
+				current += "''";
+				i++; // Skip next quote
+			} else {
+				inQuotes = false;
+				current += char;
+			}
+		} else if (char === ',' && !inQuotes) {
+			parts.push(current.trim());
+			current = '';
+		} else {
+			current += char;
+		}
+		i++;
+	}
+
+	// Don't forget last part
+	if (current.trim()) {
+		parts.push(current.trim());
+	}
+
+	// Validate each part
+	for (const part of parts) {
+		const eqIndex = part.indexOf('=');
+		if (eqIndex === -1) {
+			throw new NodeOperationError(
+				node,
+				`Invalid composite key part: ${part}`,
+				{
+					description: "Each key-value pair must contain '=' separator",
+				},
+			);
+		}
+
+		const keyName = part.substring(0, eqIndex).trim();
+		const value = part.substring(eqIndex + 1).trim();
+
+		// Validate key name (strict alphanumeric with underscore, hyphen, dot)
+		if (!keyName.match(/^[a-zA-Z_][a-zA-Z0-9_\-.]*$/)) {
+			throw new NodeOperationError(
+				node,
+				`Invalid key name in composite key: ${keyName}`,
+				{
+					description: 'Key names must start with a letter or underscore and contain only letters, numbers, underscores, hyphens, and dots',
+				},
+			);
+		}
+
+		// Validate value format
+		// Must be: quoted string 'xxx' (with optional escaped quotes '') or number
+		if (value.startsWith("'")) {
+			// Quoted string - verify proper closure and escaping
+			if (!value.endsWith("'")) {
+				throw new NodeOperationError(
+					node,
+					`Unclosed quote in composite key value: ${value}`,
+					{
+						description: "String values must be enclosed in single quotes",
+					},
+				);
+			}
+
+			// Extract content between quotes and validate escaped quotes
+			const content = value.slice(1, -1);
+			// Count unescaped quotes (single quotes not followed by another quote)
+			const unescapedQuotes = content.split("''").join('').indexOf("'");
+			if (unescapedQuotes !== -1) {
+				throw new NodeOperationError(
+					node,
+					`Unescaped quote in composite key value: ${value}`,
+					{
+						description: "Single quotes within values must be escaped by doubling: ''",
+					},
+				);
+			}
+		} else if (!value.match(/^-?\d+(\.\d+)?$/)) {
+			// Not a quoted string and not a number
+			throw new NodeOperationError(
+				node,
+				`Invalid composite key value format: ${value}`,
+				{
+					description: "Values must be quoted strings ('value') or numbers (123)",
+				},
+			);
+		}
+	}
 }
 
 /**
  * Validate OData filter expression
+ * Prevents XSS and injection attacks through filter parameters
  */
 export function validateODataFilter(filter: string, node: INode): string {
-	// Check for dangerous patterns
+	// Normalize unicode to prevent bypass attacks
+	const normalizedFilter = filter.normalize('NFC');
+
+	// Decode URL-encoded characters for validation
+	let decodedFilter: string;
+	try {
+		decodedFilter = decodeURIComponent(normalizedFilter);
+	} catch {
+		decodedFilter = normalizedFilter;
+	}
+
+	// Check for dangerous patterns (check both encoded and decoded)
 	const dangerousPatterns = [
-		/javascript:/i,
-		/<script/i,
+		/javascript\s*:/i,
+		/<\s*script/i,
+		/<\s*\/\s*script/i,
 		/on\w+\s*=/i, // event handlers like onclick=
-		/eval\(/i,
-		/expression\(/i,
+		/eval\s*\(/i,
+		/expression\s*\(/i,
+		/Function\s*\(/i,
+		/setTimeout\s*\(/i,
+		/setInterval\s*\(/i,
+		/new\s+Function/i,
+		/document\s*\./i,
+		/window\s*\./i,
+		/innerHTML/i,
+		/outerHTML/i,
+		/<\s*img[^>]+onerror/i,
+		/<\s*svg[^>]+onload/i,
+		/data\s*:/i, // data: URLs
+		/vbscript\s*:/i,
 	];
 
 	for (const pattern of dangerousPatterns) {
-		if (pattern.test(filter)) {
+		if (pattern.test(normalizedFilter) || pattern.test(decodedFilter)) {
 			throw new NodeOperationError(node, 'Invalid filter: Contains potentially dangerous content', {
-				description: 'OData filters cannot contain script tags or JavaScript code',
+				description: 'OData filters cannot contain script tags, JavaScript code, or event handlers',
 			});
 		}
 	}
 
-	return filter;
+	// Check for SQL injection patterns in OData context
+	const sqlPatterns = [
+		/;\s*(DROP|DELETE|INSERT|UPDATE|TRUNCATE|ALTER|CREATE)\s/i,
+		/--\s*$/m, // SQL comment at end of line
+		/\/\*.*\*\//s, // SQL block comment
+		/UNION\s+SELECT/i,
+		/EXEC\s*\(/i,
+		/xp_cmdshell/i,
+	];
+
+	for (const pattern of sqlPatterns) {
+		if (pattern.test(decodedFilter)) {
+			throw new NodeOperationError(node, 'Invalid filter: Contains SQL injection pattern', {
+				description: 'OData filters cannot contain SQL commands',
+			});
+		}
+	}
+
+	// Validate balanced parentheses to prevent injection via unbalanced brackets
+	let parenCount = 0;
+	for (const char of decodedFilter) {
+		if (char === '(') parenCount++;
+		if (char === ')') parenCount--;
+		if (parenCount < 0) {
+			throw new NodeOperationError(node, 'Invalid filter: Unbalanced parentheses', {
+				description: 'Filter contains more closing parentheses than opening ones',
+			});
+		}
+	}
+	if (parenCount !== 0) {
+		throw new NodeOperationError(node, 'Invalid filter: Unbalanced parentheses', {
+			description: 'Filter contains unclosed parentheses',
+		});
+	}
+
+	return normalizedFilter;
 }
 
 /**
  * Sanitize error messages to remove sensitive information
+ * Prevents leakage of system structure, credentials, and internal details
  */
 export function sanitizeErrorMessage(message: string): string {
 	// Remove common sensitive patterns
 	let sanitized = message;
 
-	// Mask passwords in URLs
+	// === Credential Masking ===
+
+	// Mask passwords in URLs and parameters
 	sanitized = sanitized.replace(/password=\S+/gi, 'password=***');
 	sanitized = sanitized.replace(/pwd=\S+/gi, 'pwd=***');
 
@@ -117,6 +316,54 @@ export function sanitizeErrorMessage(message: string): string {
 
 	// Mask basic auth credentials in URLs
 	sanitized = sanitized.replace(/:\/\/[^:]+:[^@]+@/g, '://***:***@');
+
+	// Mask secret/key values
+	sanitized = sanitized.replace(/secret=\S+/gi, 'secret=***');
+	sanitized = sanitized.replace(/client_secret=\S+/gi, 'client_secret=***');
+
+	// === System Structure Protection ===
+
+	// Mask absolute file paths (Unix and Windows), but NOT URL paths
+	// Replace /home/user/file.txt with [path] or C:\Users\admin\file.txt with [path]
+	// Negative lookbehind to skip URL paths (after :// or after domain)
+	sanitized = sanitized.replace(/(?<!:\/\/.*)(?<!:\/\/[^\s]*)(\/(?:home|usr|var|tmp|etc|opt|root|Users|mnt|dev)\/[\w.-/]+|[A-Z]:\\(?:[\w.-]+\\)+[\w.-]+)/gi, '[path]');
+
+	// Mask internal IP addresses (private ranges)
+	sanitized = sanitized.replace(/\b(?:10|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d{1,3}\.\d{1,3}\b/g, '[internal-ip]');
+
+	// Mask localhost references
+	sanitized = sanitized.replace(/\blocalhost(?::\d+)?\b/gi, '[localhost]');
+	sanitized = sanitized.replace(/\b127\.0\.0\.1(?::\d+)?\b/g, '[localhost]');
+
+	// === SAP-Specific Masking ===
+
+	// Mask SAP system IDs (3-character alphanumeric, often in context like "system DEV" or "SID=PRD")
+	sanitized = sanitized.replace(/\b(?:SID|system)[=:\s]+[A-Z][A-Z0-9]{2}\b/gi, (match) => {
+		return match.replace(/[A-Z][A-Z0-9]{2}$/, '[SID]');
+	});
+
+	// Mask SAP client numbers (typically 3 digits, often 000, 100, 800, etc.)
+	sanitized = sanitized.replace(/\bclient[=:\s]+\d{3}\b/gi, 'client=[client]');
+
+	// Mask SAP mandant (German term for client)
+	sanitized = sanitized.replace(/\bmandant[=:\s]+\d{3}\b/gi, 'mandant=[client]');
+
+	// Mask SAP user IDs (often in format SAP* or uppercase usernames)
+	sanitized = sanitized.replace(/\buser[=:\s]+SAP\w*/gi, 'user=[user]');
+
+	// === Stack Trace Reduction ===
+
+	// Remove stack traces (lines starting with "at " followed by function/file info)
+	sanitized = sanitized.replace(/\n\s*at\s+.+/g, '');
+
+	// Remove "Error:" prefix duplications from nested errors
+	sanitized = sanitized.replace(/Error:\s*Error:/g, 'Error:');
+
+	// Truncate very long error messages that might contain dumps
+	const maxLength = 500;
+	if (sanitized.length > maxLength) {
+		sanitized = sanitized.substring(0, maxLength) + '... [truncated]';
+	}
 
 	return sanitized;
 }

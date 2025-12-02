@@ -86,123 +86,91 @@ export const sapODataProperties: INodeProperties[] = [
 	// 3. Service Path (Which SAP service?)
 	// ============================================
 	{
-		displayName: 'Service Path Mode',
-		name: 'servicePathMode',
-		type: 'options',
-		noDataExpression: true,
-		options: [
+		displayName: 'Service',
+		name: 'servicePath',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
+		required: true,
+		modes: [
 			{
-				name: 'Auto-Discover',
-				value: 'discover',
-				description: 'Automatically load available services from SAP system',
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'servicePathSearch',
+					searchable: true,
+				},
 			},
 			{
-				name: 'Custom',
-				value: 'custom',
-				description: 'Enter service path manually',
+				displayName: 'By Path',
+				name: 'path',
+				type: 'string',
+				placeholder: '/sap/opu/odata/sap/API_BUSINESS_PARTNER/',
+				validation: [
+					{
+						type: 'regex',
+						properties: {
+							regex: '^/.*/$',
+							errorMessage: 'Service path must start and end with /',
+						},
+					},
+				],
 			},
 		],
-		default: 'discover',
-		description: 'How to specify the OData service path. Auto-Discover tests connection and loads all available SAP OData services automatically.',
-	},
-
-	// Discovered Service (auto-discover mode)
-	{
-		displayName: 'Service',
-		name: 'discoveredService',
-		type: 'options',
-		typeOptions: {
-			loadOptionsMethod: 'getDiscoveredServices',
-		},
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				servicePathMode: ['discover'],
-			},
-		},
-		description: 'Select from automatically discovered SAP OData services. Services are loaded directly from your SAP system using the Gateway Catalog.',
-	},
-
-	// Service Path (custom)
-	{
-		displayName: 'Custom Service Path',
-		name: 'servicePath',
-		type: 'string',
-		default: '/sap/opu/odata/sap/',
-		placeholder: '/sap/opu/odata/sap/API_BUSINESS_PARTNER/',
-		description: 'The OData service path (must end with /)',
-		required: true,
-		displayOptions: {
-			show: {
-				servicePathMode: ['custom'],
-			},
-		},
+		description: 'The SAP OData service to connect to. Select from list or enter the path manually (e.g. /sap/opu/odata/sap/API_BUSINESS_PARTNER/)',
 	},
 
 	// ============================================
 	// 4. Entity Set (Which entity collection?)
 	// ============================================
 	{
-		displayName: 'Entity Set Mode',
-		name: 'entitySetMode',
-		type: 'options',
-		noDataExpression: true,
+		displayName: 'Entity Set',
+		name: 'entitySet',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
+		required: true,
 		displayOptions: {
 			show: {
 				resource: ['entity'],
 			},
 		},
-		options: [
+		modes: [
 			{
-				name: 'From List',
-				value: 'list',
-				description: 'Select from discovered entity sets',
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'entitySetSearch',
+					searchable: true,
+				},
 			},
 			{
-				name: 'Custom',
-				value: 'custom',
-				description: 'Enter entity set name manually',
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder: 'e.g. A_SalesOrder',
+			},
+			{
+				displayName: 'By URL',
+				name: 'url',
+				type: 'string',
+				placeholder: 'https://sap-system.com/sap/opu/odata/sap/SERVICE/EntitySet',
+				extractValue: {
+					type: 'regex',
+					regex: '/([^/]+)/?$',
+				},
+				validation: [
+					{
+						type: 'regex',
+						properties: {
+							regex: 'https?://.+/sap/opu/odata/.+/.+',
+							errorMessage: 'Please provide a valid SAP OData URL',
+						},
+					},
+				],
 			},
 		],
-		default: 'list',
-		description: 'How to specify the entity set',
-	},
-
-	// Entity Set (from list)
-	{
-		displayName: 'Entity Set Name',
-		name: 'entitySet',
-		type: 'options',
-		typeOptions: {
-			loadOptionsMethod: 'getEntitySets',
-		},
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['entity'],
-				entitySetMode: ['list'],
-			},
-		},
-		default: '',
-		description: 'The entity set to query. Auto-populated from SAP $metadata. Switch to Custom mode if empty.',
-	},
-
-	// Entity Set (custom)
-	{
-		displayName: 'Custom Entity Set Name',
-		name: 'customEntitySet',
-		type: 'string',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['entity'],
-				entitySetMode: ['custom'],
-			},
-		},
-		default: '',
-		placeholder: 'A_SalesOrder',
-		description: 'The entity set name. Examples: A_SalesOrder, ProductSet, ZMY_CUSTOM_ENTITY',
+		description: 'The entity set to query. Select from list or enter the name directly (e.g. A_SalesOrder, ProductSet)',
 	},
 
 	// ============================================

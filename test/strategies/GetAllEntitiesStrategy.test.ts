@@ -79,12 +79,10 @@ describe('GetAllEntitiesStrategy', () => {
 			];
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({}) // options (for batchSize check)
-				.mockReturnValueOnce({}); // advancedOptions
+				.mockReturnValueOnce({}); // options (for batchSize check)
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -116,12 +114,10 @@ describe('GetAllEntitiesStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(false) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
 				.mockReturnValueOnce({}) // options (for batchSize check)
-				.mockReturnValueOnce({}) // advancedOptions
 				.mockReturnValueOnce(10); // limit
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
@@ -147,12 +143,10 @@ describe('GetAllEntitiesStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(false) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
 				.mockReturnValueOnce({}) // options (for batchSize check)
-				.mockReturnValueOnce({}) // advancedOptions
 				.mockReturnValueOnce(10); // limit
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
@@ -173,12 +167,10 @@ describe('GetAllEntitiesStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce(queryOptions) // options (for getQueryOptions)
-				.mockReturnValueOnce(queryOptions) // options (for batchSize check)
-				.mockReturnValueOnce({}); // advancedOptions
+				.mockReturnValueOnce(queryOptions); // options (for batchSize check)
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -206,12 +198,10 @@ describe('GetAllEntitiesStrategy', () => {
 			const optionsWithBatch = { batchSize: 50 };
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce(optionsWithBatch) // options (for getQueryOptions)
-				.mockReturnValueOnce(optionsWithBatch) // options (for batchSize check)
-				.mockReturnValueOnce({}); // advancedOptions
+				.mockReturnValueOnce(optionsWithBatch); // options (for batchSize check)
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -228,16 +218,14 @@ describe('GetAllEntitiesStrategy', () => {
 			);
 		});
 
-		it('should use custom entity set when in custom mode', async () => {
+		it('should use custom entity set when entered by name', async () => {
 			const mockData = [{ ID: '1', Value: 'Test' }];
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('custom') // entitySetMode
-				.mockReturnValueOnce('MyCustomEntitySet') // customEntitySet
+				.mockReturnValueOnce({ mode: 'name', value: 'MyCustomEntitySet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({}) // options (for batchSize check)
-				.mockReturnValueOnce({}); // advancedOptions
+				.mockReturnValueOnce({}); // options (for batchSize check)
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(mockData);
 
@@ -260,12 +248,10 @@ describe('GetAllEntitiesStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(false) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
 				.mockReturnValueOnce({}) // options (for batchSize check)
-				.mockReturnValueOnce({}) // advancedOptions
 				.mockReturnValueOnce(10); // limit
 
 			sapOdataApiRequestSpy.mockResolvedValue(mockResponse);
@@ -277,7 +263,7 @@ describe('GetAllEntitiesStrategy', () => {
 			expect(result[0].json).toEqual({ ProductID: 'P1', Name: 'Product 1' });
 		});
 
-		it('should handle pagination errors with continueOnFail enabled', async () => {
+		it('should handle pagination errors', async () => {
 			const partialResult = {
 				data: [
 					{ ProductID: 'P1', Name: 'Product 1' },
@@ -295,12 +281,10 @@ describe('GetAllEntitiesStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({}) // options (for batchSize check)
-				.mockReturnValueOnce({ continueOnFail: true }); // advancedOptions
+				.mockReturnValueOnce({}); // options (for batchSize check)
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(partialResult);
 
@@ -315,7 +299,7 @@ describe('GetAllEntitiesStrategy', () => {
 			expect(result[2].json.totalItemsFetched).toBe(2);
 		});
 
-		it('should handle maxItems limit and return partial results', async () => {
+		it('should handle limitReached response and return partial results', async () => {
 			const limitResult = {
 				data: [
 					{ ProductID: 'P1', Name: 'Product 1' },
@@ -328,12 +312,10 @@ describe('GetAllEntitiesStrategy', () => {
 			};
 
 			(mockContext.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce('list') // entitySetMode
-				.mockReturnValueOnce('ProductSet') // entitySet
+				.mockReturnValueOnce({ mode: 'list', value: 'ProductSet' }) // entitySet (resourceLocator)
 				.mockReturnValueOnce(true) // returnAll
 				.mockReturnValueOnce({}) // options (for getQueryOptions)
-				.mockReturnValueOnce({}) // options (for batchSize check)
-				.mockReturnValueOnce({ maxItems: 3 }); // advancedOptions (with maxItems)
+				.mockReturnValueOnce({}); // options (for batchSize check)
 
 			sapOdataApiRequestAllItemsSpy.mockResolvedValue(limitResult);
 

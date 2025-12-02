@@ -12,6 +12,7 @@
  */
 
 import { IExecuteFunctions, NodeOperationError } from 'n8n-workflow';
+import { Logger } from '../Shared/utils/Logger';
 
 // Try to import node-rfc, but handle gracefully if not installed
 let Client: any;
@@ -97,7 +98,7 @@ export async function closeRfcConnection(client: any): Promise<void> {
 			await client.close();
 		} catch (error) {
 			// Ignore close errors
-			console.warn('Error closing RFC connection:', error);
+			Logger.warn('Error closing RFC connection', { module: 'RfcFunctions', error: error instanceof Error ? error.message : 'Unknown error' });
 		}
 	}
 }

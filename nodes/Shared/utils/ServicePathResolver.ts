@@ -8,8 +8,17 @@ import {
 type IContextType = IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions;
 
 /**
+ * Resource Locator value structure for servicePath
+ */
+interface IResourceLocatorValue {
+	mode: string;
+	value: string;
+	__rl?: boolean;
+}
+
+/**
  * Centralized service path resolver
- * Detects servicePathMode and returns the appropriate path
+ * Supports both resourceLocator format and legacy string format
  *
  * @param context - n8n execution context
  * @param customServicePath - Optional custom service path to use instead of node parameters
@@ -32,35 +41,49 @@ export function resolveServicePath(
 	try {
 		// Handle IExecuteFunctions and IHookFunctions (have getNodeParameter)
 		if ('getNodeParameter' in context) {
-			const servicePathMode = context.getNodeParameter('servicePathMode', itemIndex, 'discover') as string;
+			const servicePathParam = context.getNodeParameter('servicePath', itemIndex, null) as
+				| string
+				| IResourceLocatorValue
+				| null;
 
-			if (servicePathMode === 'discover') {
-				servicePath = context.getNodeParameter('discoveredService', itemIndex, '') as string;
-				// Validate that a service was actually selected in discover mode
-				if (!servicePath || servicePath === '') {
-					throw new NodeOperationError(
-						context.getNode(),
-						'No service selected. Please select a service from the Auto-Discover dropdown.',
-						{
-							description:
-								'The Auto-Discover mode requires selecting a service from the list. If no services appear, check your SAP Gateway Catalog Service access or switch to "Custom" mode to enter the service path manually.',
-							itemIndex,
-						},
-					);
+			if (servicePathParam !== null) {
+				// Handle resourceLocator format: { mode: 'list'|'path'|'url', value: '/sap/...' }
+				if (typeof servicePathParam === 'object' && servicePathParam !== null) {
+					servicePath = servicePathParam.value || '';
+				} else {
+					// Direct string value (for backwards compatibility)
+					servicePath = servicePathParam as string;
 				}
-			} else {
-				servicePath = context.getNodeParameter('servicePath', itemIndex, servicePath) as string;
+			}
+
+			// Validate that a service was actually selected
+			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap/') {
+				throw new NodeOperationError(
+					context.getNode(),
+					'No service selected. Please select a service from the list or enter a path manually.',
+					{
+						description:
+							'Select a service from the dropdown (From List mode) or enter the service path manually (By Path mode). Example: /sap/opu/odata/sap/API_BUSINESS_PARTNER/',
+						itemIndex,
+					},
+				);
 			}
 		}
 		// Handle ILoadOptionsFunctions (have getCurrentNodeParameter)
 		else if ('getCurrentNodeParameter' in context) {
 			const loadContext = context as ILoadOptionsFunctions;
-			const servicePathMode = (loadContext.getCurrentNodeParameter('servicePathMode') as string) || 'discover';
+			const servicePathParam = loadContext.getCurrentNodeParameter('servicePath') as
+				| string
+				| IResourceLocatorValue
+				| undefined;
 
-			if (servicePathMode === 'discover') {
-				servicePath = (loadContext.getCurrentNodeParameter('discoveredService') as string) || '/sap/opu/odata/sap/';
-			} else {
-				servicePath = (loadContext.getCurrentNodeParameter('servicePath') as string) || servicePath;
+			if (servicePathParam) {
+				// Handle resourceLocator format
+				if (typeof servicePathParam === 'object' && servicePathParam !== null) {
+					servicePath = servicePathParam.value || servicePath;
+				} else {
+					servicePath = servicePathParam || servicePath;
+				}
 			}
 		}
 	} catch (error) {
