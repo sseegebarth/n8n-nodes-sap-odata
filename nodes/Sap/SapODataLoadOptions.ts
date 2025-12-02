@@ -82,90 +82,6 @@ export const sapODataLoadOptions = {
 		}
 	},
 
-	// Get available SAP OData Services filtered by category
-	async getServicesByCategory(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-		try {
-			const { discoverServices, getCommonServices, groupServicesByCategory } = await import('./DiscoveryService');
-			const { CacheManager } = await import('../Shared/utils/CacheManager');
-			const credentials = await this.getCredentials('sapOdataApi');
-
-			// Get selected category
-			const category = this.getCurrentNodeParameter('serviceCategory') as string || 'all';
-
-			// Try to get from cache first
-			const cached = await CacheManager.getServiceCatalog(this, credentials.host as string);
-			let services = cached && cached.length > 0 ? cached : null;
-
-			// If not cached, try to discover
-			if (!services) {
-				const discoveredServices = await discoverServices(this);
-
-				if (discoveredServices && discoveredServices.length > 0) {
-					// Cache the discovered services
-					await CacheManager.setServiceCatalog(this, credentials.host as string, discoveredServices);
-					services = discoveredServices;
-				}
-			}
-
-			// Fallback to common services if discovery failed
-			if (!services || services.length === 0) {
-				services = getCommonServices();
-			}
-
-			// Filter by category if not "all"
-			if (category !== 'all') {
-				const grouped = groupServicesByCategory(services);
-
-				const categoryMap: { [key: string]: string } = {
-					'standard': 'SAP Standard APIs',
-					'custom': 'Custom Services (Z*)',
-					'other': 'Other Services',
-				};
-
-				const categoryKey = categoryMap[category];
-				services = grouped[categoryKey] || [];
-			}
-
-			// Convert to dropdown options
-			const options = services.map((service) => ({
-				name: `${service.title} (${service.technicalName})`,
-				value: service.servicePath,
-				description: service.description,
-			}));
-
-			// If empty after filtering, show helpful message
-			if (options.length === 0) {
-				return [
-					{
-						name: '⚠️ No services found in this category',
-						value: '',
-						description: 'Try selecting "All Services" or switch to "Custom" mode',
-					},
-				];
-			}
-
-			return options;
-
-		} catch (error) {
-			// If service discovery fails completely, return common services
-			const { getCommonServices } = await import('./DiscoveryService');
-			const commonServices = getCommonServices();
-
-			return [
-				{
-					name: '⚠️ Service discovery failed - Showing common services',
-					value: '',
-					description: 'Switch to "Custom" mode to enter service path manually',
-				},
-				...commonServices.map((service) => ({
-					name: `${service.title} (${service.technicalName})`,
-					value: service.servicePath,
-					description: service.description,
-				})),
-			];
-		}
-	},
-
 	// Get Discovered Services (auto-discover mode) - directly from SAP Gateway Catalog
 	async getDiscoveredServices(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 		try {
@@ -275,7 +191,7 @@ export const sapODataLoadOptions = {
 			// n8n's getCurrentNodeParameter sometimes returns undefined for dependent dropdowns
 			let servicePath = '';
 
-			// Try all three modes to find the service path
+			// Try both modes to find the service path
 			const servicePathMode = (this.getCurrentNodeParameter('servicePathMode') as string) || '';
 
 			LoggerAdapter.debug('Resolving service path', {
@@ -286,8 +202,6 @@ export const sapODataLoadOptions = {
 
 			if (servicePathMode === 'discover') {
 				servicePath = (this.getCurrentNodeParameter('discoveredService') as string) || '';
-			} else if (servicePathMode === 'list') {
-				servicePath = (this.getCurrentNodeParameter('servicePathFromList') as string) || '';
 			} else if (servicePathMode === 'custom') {
 				servicePath = (this.getCurrentNodeParameter('servicePath') as string) || '';
 			}
@@ -295,9 +209,8 @@ export const sapODataLoadOptions = {
 			// Fallback: try all parameters if mode-specific one is empty
 			if (!servicePath || servicePath === '') {
 				const discovered = (this.getCurrentNodeParameter('discoveredService') as string) || '';
-				const fromList = (this.getCurrentNodeParameter('servicePathFromList') as string) || '';
 				const custom = (this.getCurrentNodeParameter('servicePath') as string) || '';
-				servicePath = discovered || fromList || custom || '';
+				servicePath = discovered || custom || '';
 
 				LoggerAdapter.debug('Used fallback service path resolution', {
 					module: 'LoadOptions',

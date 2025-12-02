@@ -91,8 +91,8 @@ export async function getEntityFields(
 		const servicePathMode = context.getNodeParameter('servicePathMode', 0) as string;
 		let servicePath: string;
 
-		if (servicePathMode === 'list') {
-			servicePath = context.getNodeParameter('servicePathFromList', 0) as string;
+		if (servicePathMode === 'discover') {
+			servicePath = context.getNodeParameter('discoveredService', 0) as string;
 		} else {
 			servicePath = context.getNodeParameter('servicePath', 0) as string;
 		}
@@ -149,8 +149,8 @@ export async function getNavigationProperties(
 		const servicePathMode = context.getNodeParameter('servicePathMode', 0) as string;
 		let servicePath: string;
 
-		if (servicePathMode === 'list') {
-			servicePath = context.getNodeParameter('servicePathFromList', 0) as string;
+		if (servicePathMode === 'discover') {
+			servicePath = context.getNodeParameter('discoveredService', 0) as string;
 		} else {
 			servicePath = context.getNodeParameter('servicePath', 0) as string;
 		}

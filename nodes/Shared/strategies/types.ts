@@ -23,13 +23,9 @@ export interface IOperationOptions {
 }
 
 /**
- * Advanced options for performance, caching, and resilience
+ * Advanced options for connection pooling, caching, and data conversion
  */
 export interface IAdvancedOptions {
-	// Performance
-	maxItems?: number;
-	continueOnFail?: boolean;
-
 	// Data conversion
 	convertDataTypes?: boolean;
 
@@ -48,13 +44,6 @@ export interface IAdvancedOptions {
 
 	// Debug
 	debugLogging?: boolean;
-
-	// Resilience
-	retryEnabled?: boolean;
-	maxRetries?: number;
-	initialRetryDelay?: number;
-	maxRetryDelay?: number;
-	backoffFactor?: number;
 }
 
 /**

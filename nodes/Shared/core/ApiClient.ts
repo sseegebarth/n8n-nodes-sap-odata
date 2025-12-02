@@ -11,7 +11,14 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 import { resolveServicePath } from '../../Sap/GenericFunctions';
-import { CREDENTIAL_TYPE, ERROR_MESSAGES } from '../constants';
+import {
+	CREDENTIAL_TYPE,
+	ERROR_MESSAGES,
+	MAX_RETRY_ATTEMPTS,
+	INITIAL_RETRY_DELAY,
+	MAX_RETRY_DELAY,
+	RETRY_STATUS_CODES,
+} from '../constants';
 import { ISapOdataCredentials } from '../types';
 import { CacheManager } from '../utils/CacheManager';
 import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
@@ -19,7 +26,7 @@ import { ODataErrorHandler } from '../utils/ErrorHandler';
 import { Logger } from '../utils/Logger';
 import { RetryHandler } from '../utils/RetryUtils';
 import { ThrottleManager, ThrottleStrategy } from '../utils/ThrottleManager';
-import { buildRequestOptions, parseStatusCodes, parsePoolConfig } from './RequestBuilder';
+import { buildRequestOptions, parsePoolConfig } from './RequestBuilder';
 
 /**
  * Get or create throttle manager scoped to workflow execution
@@ -274,36 +281,28 @@ export async function executeRequest(
 		}
 	};
 
-	// Apply retry logic if enabled
-	const retryEnabled = advancedOptions.retryEnabled !== false; // Default to true
-	if (retryEnabled) {
-		const retryHandler = new RetryHandler({
-			maxAttempts: (advancedOptions.maxRetries as number) || 3,
-			initialDelay: (advancedOptions.initialRetryDelay as number) || 1000,
-			maxDelay: (advancedOptions.maxRetryDelay as number) || 10000,
-			backoffFactor: (advancedOptions.backoffFactor as number) || 2,
-			retryableStatusCodes: parseStatusCodes(advancedOptions.retryStatusCodes as string),
-			retryNetworkErrors: advancedOptions.retryNetworkErrors !== false,
-			onRetry: (attempt, error, delay) => {
-				if (advancedOptions.logRetries !== false) {
-					Logger.info('Retrying request', {
-						module: 'RetryHandler',
-						attempt,
-						maxAttempts: (advancedOptions.maxRetries as number) || 3,
-						delay: `${delay}ms`,
-						error: error instanceof Error ? error.message : 'Unknown error',
-						method,
-						resource,
-					});
-				}
-			},
-		});
+	// Apply retry logic (always enabled with fixed defaults)
+	const retryHandler = new RetryHandler({
+		maxAttempts: MAX_RETRY_ATTEMPTS,
+		initialDelay: INITIAL_RETRY_DELAY,
+		maxDelay: MAX_RETRY_DELAY,
+		backoffFactor: 2,
+		retryableStatusCodes: RETRY_STATUS_CODES,
+		retryNetworkErrors: true,
+		onRetry: (attempt, error, delay) => {
+			Logger.info('Retrying request', {
+				module: 'RetryHandler',
+				attempt,
+				maxAttempts: MAX_RETRY_ATTEMPTS,
+				delay: `${delay}ms`,
+				error: error instanceof Error ? error.message : 'Unknown error',
+				method,
+				resource,
+			});
+		},
+	});
 
-		return retryHandler.execute(makeRequest);
-	}
-
-	// No retry - execute directly
-	return makeRequest();
+	return retryHandler.execute(makeRequest);
 }
 
 /**

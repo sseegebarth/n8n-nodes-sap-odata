@@ -55,11 +55,11 @@ export function getEntitySet(context: IExecuteFunctions, itemIndex: number): str
  * @returns Service path
  */
 export function getServicePath(context: IExecuteFunctions, itemIndex: number): string {
-	const mode = context.getNodeParameter('servicePathMode', itemIndex, 'custom') as string;
+	const mode = context.getNodeParameter('servicePathMode', itemIndex, 'discover') as string;
 
-	if (mode === 'list') {
-		// Get from dropdown list
-		return context.getNodeParameter('servicePathFromList', itemIndex, '/sap/opu/odata/sap/') as string;
+	if (mode === 'discover') {
+		// Get from auto-discovered services
+		return context.getNodeParameter('discoveredService', itemIndex, '/sap/opu/odata/sap/') as string;
 	} else {
 		// Get custom path
 		return context.getNodeParameter('servicePath', itemIndex, '/sap/opu/odata/sap/') as string;

@@ -3,7 +3,7 @@ import { sapOdataApiRequest, sapOdataApiRequestAllItems } from '../../Sap/Generi
 import { ODataVersionHelper } from '../utils/ODataVersionHelper';
 import { CrudStrategy } from './base/CrudStrategy';
 import { IOperationStrategy } from './IOperationStrategy';
-import { IOperationOptions, IAdvancedOptions, IPaginationError } from './types';
+import { IOperationOptions, IPaginationError } from './types';
 
 /**
  * Strategy for getting all entities with optional pagination
@@ -41,17 +41,14 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 				query.$top = options.batchSize;
 			}
 
-			// Check if continueOnFail is enabled (from advancedOptions)
-			const advancedOptions = context.getNodeParameter('advancedOptions', itemIndex, {}) as IAdvancedOptions;
-			const continueOnFail = advancedOptions.continueOnFail === true;
-			const maxItems = typeof advancedOptions.maxItems === 'number' ? advancedOptions.maxItems : 0;
+			// Use fixed defaults for pagination behavior
+			const continueOnFail = false; // Don't continue on pagination errors
+			const maxItems = 0; // No limit (fetch all)
 
 			// Log operation for debugging
 			this.logOperation('GET_ALL', {
 				entitySet,
 				returnAll,
-				maxItems,
-				continueOnFail,
 				itemIndex,
 			});
 

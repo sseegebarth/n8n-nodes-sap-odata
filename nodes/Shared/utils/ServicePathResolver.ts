@@ -48,8 +48,6 @@ export function resolveServicePath(
 						},
 					);
 				}
-			} else if (servicePathMode === 'list') {
-				servicePath = context.getNodeParameter('servicePathFromList', itemIndex, servicePath) as string;
 			} else {
 				servicePath = context.getNodeParameter('servicePath', itemIndex, servicePath) as string;
 			}
@@ -61,8 +59,6 @@ export function resolveServicePath(
 
 			if (servicePathMode === 'discover') {
 				servicePath = (loadContext.getCurrentNodeParameter('discoveredService') as string) || '/sap/opu/odata/sap/';
-			} else if (servicePathMode === 'list') {
-				servicePath = (loadContext.getCurrentNodeParameter('servicePathFromList') as string) || servicePath;
 			} else {
 				servicePath = (loadContext.getCurrentNodeParameter('servicePath') as string) || servicePath;
 			}

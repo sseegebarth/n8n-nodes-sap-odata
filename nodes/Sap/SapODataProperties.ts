@@ -9,124 +9,9 @@ import { INodeProperties } from 'n8n-workflow';
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from '../Shared/constants';
 
 export const sapODataProperties: INodeProperties[] = [
-	// Service Path Mode
-	{
-		displayName: 'Service Path Mode',
-		name: 'servicePathMode',
-		type: 'options',
-		noDataExpression: true,
-		options: [
-			{
-				name: 'Auto-Discover',
-				value: 'discover',
-				description: 'Automatically load available services from SAP system',
-			},
-			{
-				name: 'From List',
-				value: 'list',
-				description: 'Select from pre-configured service catalog',
-			},
-			{
-				name: 'Custom',
-				value: 'custom',
-				description: 'Enter service path manually',
-			},
-		],
-		default: 'discover',
-		description: 'How to specify the OData service path',
-		hint: 'Auto-Discover tests connection and loads all available SAP OData services automatically',
-	},
-
-	// Discovered Service (auto-discover mode)
-	{
-		displayName: 'Service',
-		name: 'discoveredService',
-		type: 'options',
-		typeOptions: {
-			loadOptionsMethod: 'getDiscoveredServices',
-		},
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				servicePathMode: ['discover'],
-			},
-		},
-		description: 'Select from automatically discovered SAP OData services',
-		hint: 'Services are loaded directly from your SAP system using the Gateway Catalog',
-	},
-
-	// Service Category (filter for list mode)
-	{
-		displayName: 'Service Category',
-		name: 'serviceCategory',
-		type: 'options',
-		options: [
-			{
-				name: 'All Services',
-				value: 'all',
-				description: 'Show all available services',
-			},
-			{
-				name: 'SAP Standard APIs',
-				value: 'standard',
-				description: 'Official SAP-provided APIs (starts with API_)',
-			},
-			{
-				name: 'Custom Services (Z*)',
-				value: 'custom',
-				description: 'Customer-specific implementations (starts with Z)',
-			},
-			{
-				name: 'Other Services',
-				value: 'other',
-				description: 'Miscellaneous services',
-			},
-		],
-		default: 'all',
-		displayOptions: {
-			show: {
-				servicePathMode: ['list'],
-			},
-		},
-		description: 'Filter services by category to narrow down the list',
-	},
-
-	// Service Path (from list)
-	{
-		displayName: 'Service',
-		name: 'servicePathFromList',
-		type: 'options',
-		typeOptions: {
-			loadOptionsMethod: 'getServicesByCategory',
-		},
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				servicePathMode: ['list'],
-			},
-		},
-		description: 'Select an SAP OData service from the filtered list',
-	},
-
-	// Service Path (custom)
-	{
-		displayName: 'Custom Service Path',
-		name: 'servicePath',
-		type: 'string',
-		default: '/sap/opu/odata/sap/',
-		placeholder: '/sap/opu/odata/sap/API_BUSINESS_PARTNER/',
-		description: 'The OData service path (must end with /)',
-		required: true,
-		displayOptions: {
-			show: {
-				servicePathMode: ['custom'],
-			},
-		},
-	},
-
-	// Resource
+	// ============================================
+	// 1. Resource (What type of SAP object?)
+	// ============================================
 	{
 		displayName: 'Resource',
 		name: 'resource',
@@ -148,7 +33,9 @@ export const sapODataProperties: INodeProperties[] = [
 		description: 'The SAP OData resource type',
 	},
 
-	// Operation (for Entity resource)
+	// ============================================
+	// 2. Operation (What do you want to do?)
+	// ============================================
 	{
 		displayName: 'Operation',
 		name: 'operation',
@@ -195,7 +82,67 @@ export const sapODataProperties: INodeProperties[] = [
 		description: 'The operation to perform',
 	},
 
-	// Entity Set Mode
+	// ============================================
+	// 3. Service Path (Which SAP service?)
+	// ============================================
+	{
+		displayName: 'Service Path Mode',
+		name: 'servicePathMode',
+		type: 'options',
+		noDataExpression: true,
+		options: [
+			{
+				name: 'Auto-Discover',
+				value: 'discover',
+				description: 'Automatically load available services from SAP system',
+			},
+			{
+				name: 'Custom',
+				value: 'custom',
+				description: 'Enter service path manually',
+			},
+		],
+		default: 'discover',
+		description: 'How to specify the OData service path. Auto-Discover tests connection and loads all available SAP OData services automatically.',
+	},
+
+	// Discovered Service (auto-discover mode)
+	{
+		displayName: 'Service',
+		name: 'discoveredService',
+		type: 'options',
+		typeOptions: {
+			loadOptionsMethod: 'getDiscoveredServices',
+		},
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				servicePathMode: ['discover'],
+			},
+		},
+		description: 'Select from automatically discovered SAP OData services. Services are loaded directly from your SAP system using the Gateway Catalog.',
+	},
+
+	// Service Path (custom)
+	{
+		displayName: 'Custom Service Path',
+		name: 'servicePath',
+		type: 'string',
+		default: '/sap/opu/odata/sap/',
+		placeholder: '/sap/opu/odata/sap/API_BUSINESS_PARTNER/',
+		description: 'The OData service path (must end with /)',
+		required: true,
+		displayOptions: {
+			show: {
+				servicePathMode: ['custom'],
+			},
+		},
+	},
+
+	// ============================================
+	// 4. Entity Set (Which entity collection?)
+	// ============================================
 	{
 		displayName: 'Entity Set Mode',
 		name: 'entitySetMode',
@@ -238,8 +185,7 @@ export const sapODataProperties: INodeProperties[] = [
 			},
 		},
 		default: '',
-		description: 'The entity set to query (from service metadata)',
-		hint: 'Auto-populated from SAP $metadata. Switch to Custom mode if empty.',
+		description: 'The entity set to query. Auto-populated from SAP $metadata. Switch to Custom mode if empty.',
 	},
 
 	// Entity Set (custom)
@@ -256,9 +202,12 @@ export const sapODataProperties: INodeProperties[] = [
 		},
 		default: '',
 		placeholder: 'A_SalesOrder',
-		description: 'The entity set name',
-		hint: 'Examples: A_SalesOrder, ProductSet, ZMY_CUSTOM_ENTITY',
+		description: 'The entity set name. Examples: A_SalesOrder, ProductSet, ZMY_CUSTOM_ENTITY',
 	},
+
+	// ============================================
+	// 5. Entity-specific fields
+	// ============================================
 
 	// Entity Key (for get, update, delete) - Resource Locator
 	{
@@ -288,7 +237,6 @@ export const sapODataProperties: INodeProperties[] = [
 						},
 					},
 				],
-				hint: 'String keys: \'ABC\' | Numeric keys: 123 | Composite: ProductID=123,Year=2024',
 			},
 			{
 				displayName: 'By URL',
@@ -310,7 +258,7 @@ export const sapODataProperties: INodeProperties[] = [
 				],
 			},
 		],
-		description: 'The entity to operate on',
+		description: 'The entity to operate on. String keys: \'ABC\' | Numeric keys: 123 | Composite: ProductID=123,Year=2024',
 	},
 
 	// Return All (for getAll)
@@ -325,8 +273,7 @@ export const sapODataProperties: INodeProperties[] = [
 			},
 		},
 		default: false,
-		description: 'Whether to return all results or use pagination',
-		hint: 'Enable for small datasets - recommended for less than 1000 items',
+		description: 'Whether to return all results or use pagination. Enable for small datasets (recommended for less than 1000 items).',
 	},
 
 	// Limit (for getAll when returnAll is false)
@@ -366,13 +313,14 @@ export const sapODataProperties: INodeProperties[] = [
 		placeholder: '{"Name": "John Doe", "City": "Berlin"}',
 	},
 
-	// Options (Query Parameters for getAll/get)
+	// Query Parameters (for getAll/get)
 	{
-		displayName: 'Options',
+		displayName: 'Query Parameters',
 		name: 'options',
 		type: 'collection',
 		placeholder: 'Add Option',
 		default: {},
+		description: 'OData query options to filter, sort, expand, and shape the response data. Use $filter to search, $select to limit fields, $expand for related entities.',
 		displayOptions: {
 			show: {
 				resource: ['entity'],
@@ -431,8 +379,7 @@ export const sapODataProperties: INodeProperties[] = [
 				name: '$search',
 				type: 'string',
 				default: '',
-				description: 'Search for text across all properties',
-				hint: 'OData V4 only - may not work with all SAP systems',
+				description: 'Search for text across all properties (OData V4 only - may not work with all SAP systems)',
 				placeholder: 'Berlin',
 			},
 			{
@@ -440,8 +387,7 @@ export const sapODataProperties: INodeProperties[] = [
 				name: '$apply',
 				type: 'string',
 				default: '',
-				description: 'Apply data aggregation',
-				hint: 'OData V4 only - may not work with all SAP systems',
+				description: 'Apply data aggregation (OData V4 only - may not work with all SAP systems)',
 				placeholder: 'groupby((City),aggregate($count as Total))',
 			},
 			{
@@ -460,9 +406,8 @@ export const sapODataProperties: INodeProperties[] = [
 				name: 'etag',
 				type: 'string',
 				default: '',
-				description: 'ETag for optimistic locking (UPDATE/DELETE operations)',
+				description: 'ETag for optimistic locking. Prevents concurrent modification errors. Use "*" to bypass locking.',
 				placeholder: 'W/"datetime\'2024-01-15T10:30:00\'"',
-				hint: 'Prevents concurrent modification errors. Use "*" to bypass locking.',
 				displayOptions: {
 					show: {
 						'/operation': ['update', 'delete'],
@@ -472,223 +417,9 @@ export const sapODataProperties: INodeProperties[] = [
 		],
 	},
 
-	// Advanced Options (Connection Pooling)
-	{
-		displayName: 'Advanced Options',
-		name: 'advancedOptions',
-		type: 'collection',
-		placeholder: 'Add Option',
-		default: {},
-		options: [
-			// Performance Options
-			{
-				displayName: 'Performance: Max Items to Fetch',
-				name: 'maxItems',
-				type: 'number',
-				default: 0,
-				description: 'Maximum number of items to fetch (0 = no limit)',
-				hint: 'Safety limit to prevent out-of-memory errors with very large datasets. Recommended: 50000-100000 for large datasets.',
-				typeOptions: {
-					minValue: 0,
-					maxValue: 1000000,
-				},
-			},
-			{
-				displayName: 'Performance: Continue on Pagination Errors',
-				name: 'continueOnFail',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to continue fetching data when pagination errors occur',
-				hint: 'When enabled, partial results will be returned even if later pages fail. Error information will be included in the output.',
-			},
-
-			// Data Type Conversion
-			{
-				displayName: 'Data: Convert SAP Data Types',
-				name: 'convertDataTypes',
-				type: 'boolean',
-				default: true,
-				description: 'Whether to convert SAP-specific data types to JavaScript native types',
-				hint: 'Converts numeric strings ("175.50" → 175.50), SAP dates ("/Date(...)/" → "2025-11-02"), and SAP times ("PT14H30M00S" → "14:30:00"). Recommended for easier data processing.',
-			},
-			{
-				displayName: 'Data: Remove Metadata',
-				name: 'removeMetadata',
-				type: 'boolean',
-				default: true,
-				description: 'Whether to remove __metadata field from results',
-				hint: 'Removes the __metadata object (id, uri, type) from SAP OData responses for cleaner output.',
-			},
-
-			// Connection Pool Options
-			{
-				displayName: 'Connection: Pool - Keep Alive',
-				name: 'keepAlive',
-				type: 'boolean',
-				default: true,
-				description: 'Whether to keep connections alive for reuse',
-				hint: 'Recommended for better performance',
-			},
-			{
-				displayName: 'Connection: Pool - Max Sockets',
-				name: 'maxSockets',
-				type: 'number',
-				default: 10,
-				description: 'Maximum concurrent connections per host',
-				hint: 'Controls how many parallel requests can be made',
-				typeOptions: {
-					minValue: 1,
-					maxValue: 50,
-				},
-			},
-			{
-				displayName: 'Connection: Pool - Max Free Sockets',
-				name: 'maxFreeSockets',
-				type: 'number',
-				default: 5,
-				description: 'Maximum idle connections to keep in pool',
-				hint: 'Keeping idle connections reduces connection overhead',
-				typeOptions: {
-					minValue: 0,
-					maxValue: 25,
-				},
-			},
-			{
-				displayName: 'Connection: Pool - Socket Timeout',
-				name: 'timeout',
-				type: 'number',
-				default: 120000,
-				description: 'Socket timeout in milliseconds',
-				hint: 'Time to wait before closing an active connection',
-				typeOptions: {
-					minValue: 10000,
-					maxValue: 300000,
-				},
-			},
-			{
-				displayName: 'Connection: Pool - Free Socket Timeout',
-				name: 'freeSocketTimeout',
-				type: 'number',
-				default: 30000,
-				description: 'Free socket timeout in milliseconds',
-				hint: 'Time to wait before closing an idle connection',
-				typeOptions: {
-					minValue: 5000,
-					maxValue: 120000,
-				},
-			},
-
-			// Cache Options
-			{
-				displayName: 'Cache: Clear Before Execution',
-				name: 'clearCache',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to clear cached CSRF tokens and metadata before execution',
-				hint: 'Use this when SAP service metadata has changed (new fields, entity sets). Cache is automatically cleared on 404 errors.',
-			},
-
-			// Monitoring Options
-		{
-			displayName: 'Output: Include Metrics',
-			name: 'includeMetrics',
-			type: 'boolean',
-			default: false,
-			description: 'Whether to include execution metrics in the output',
-			hint: 'Adds a _metrics object to the last item with performance data (execution time, cache hits, API calls). Useful for monitoring workflows.',
-		},
-
-		// Debug Options
-			{
-				displayName: 'Debug: Enable Logging',
-				name: 'debugLogging',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to log detailed request/response information',
-				hint: 'Logs URLs, headers (sanitized), status codes, timing, and connection pool stats - useful for troubleshooting',
-			},
-
-			// Resilience: Retry Configuration
-			{
-				displayName: 'Resilience: Enable Retry',
-				name: 'retryEnabled',
-				type: 'boolean',
-				default: true,
-				description: 'Automatically retry failed requests',
-				hint: 'Retries on network errors and specific status codes (429, 503, 504)',
-			},
-			{
-				displayName: 'Resilience: Max Retry Attempts',
-				name: 'maxRetries',
-				type: 'number',
-				default: 3,
-				displayOptions: {
-					show: {
-						retryEnabled: [true],
-					},
-				},
-				typeOptions: {
-					minValue: 1,
-					maxValue: 10,
-				},
-				description: 'Maximum number of retry attempts',
-				hint: 'Each retry uses exponential backoff (1s, 2s, 4s, ...)',
-			},
-			{
-				displayName: 'Resilience: Initial Retry Delay (ms)',
-				name: 'initialRetryDelay',
-				type: 'number',
-				default: 1000,
-				displayOptions: {
-					show: {
-						retryEnabled: [true],
-					},
-				},
-				typeOptions: {
-					minValue: 100,
-					maxValue: 10000,
-				},
-				description: 'Initial delay before first retry',
-				hint: 'Subsequent retries increase this delay exponentially',
-			},
-			{
-				displayName: 'Resilience: Max Retry Delay (ms)',
-				name: 'maxRetryDelay',
-				type: 'number',
-				default: 10000,
-				displayOptions: {
-					show: {
-						retryEnabled: [true],
-					},
-				},
-				typeOptions: {
-					minValue: 1000,
-					maxValue: 60000,
-				},
-				description: 'Maximum delay between retries',
-				hint: 'Caps exponential backoff to prevent excessive wait times',
-			},
-			{
-				displayName: 'Resilience: Backoff Factor',
-				name: 'backoffFactor',
-				type: 'number',
-				default: 2,
-				displayOptions: {
-					show: {
-						retryEnabled: [true],
-					},
-				},
-				typeOptions: {
-					minValue: 1.1,
-					maxValue: 5,
-				},
-				description: 'Exponential backoff multiplier',
-				hint: 'Each retry delay = previous delay × backoff factor (2 = double each time)',
-			},
-		],
-	},
-
-	// Function Import Name Mode
+	// ============================================
+	// 6. Function Import fields
+	// ============================================
 	{
 		displayName: 'Function Name Mode',
 		name: 'functionNameMode',
@@ -801,8 +532,7 @@ export const sapODataProperties: INodeProperties[] = [
 			},
 		],
 		default: 'canonical',
-		description: 'URL format for function parameters (GET only)',
-		hint: 'POST requests always use JSON body regardless of this setting',
+		description: 'URL format for function parameters (GET only). POST requests always use JSON body.',
 	},
 
 	// Function Parameters
@@ -819,5 +549,114 @@ export const sapODataProperties: INodeProperties[] = [
 		default: '{}',
 		description: 'Function parameters as JSON',
 		placeholder: '{"SalesOrderID": "0500000001"}',
+	},
+
+	// ============================================
+	// 7. Options (all resources)
+	// ============================================
+	{
+		displayName: 'Options',
+		name: 'advancedOptions',
+		type: 'collection',
+		placeholder: 'Add Option',
+		default: {},
+		description: 'Configure connection pooling, data conversion, caching, and debug logging for SAP OData requests.',
+		options: [
+			// Data Type Conversion
+			{
+				displayName: 'Data: Convert SAP Data Types',
+				name: 'convertDataTypes',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to convert SAP-specific data types to JavaScript native types. Converts numeric strings, SAP dates (/Date(.../), and SAP times (PT14H30M00S).',
+			},
+			{
+				displayName: 'Data: Remove Metadata',
+				name: 'removeMetadata',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to remove __metadata field from results. Removes the __metadata object (id, uri, type) from SAP OData responses for cleaner output.',
+			},
+
+			// Connection Pool Options
+			{
+				displayName: 'Connection: Pool - Keep Alive',
+				name: 'keepAlive',
+				type: 'boolean',
+				default: true,
+				description: 'Whether to keep connections alive for reuse. Recommended for better performance.',
+			},
+			{
+				displayName: 'Connection: Pool - Max Sockets',
+				name: 'maxSockets',
+				type: 'number',
+				default: 10,
+				description: 'Maximum concurrent connections per host. Controls how many parallel requests can be made.',
+				typeOptions: {
+					minValue: 1,
+					maxValue: 50,
+				},
+			},
+			{
+				displayName: 'Connection: Pool - Max Free Sockets',
+				name: 'maxFreeSockets',
+				type: 'number',
+				default: 5,
+				description: 'Maximum idle connections to keep in pool. Keeping idle connections reduces connection overhead.',
+				typeOptions: {
+					minValue: 0,
+					maxValue: 25,
+				},
+			},
+			{
+				displayName: 'Connection: Pool - Socket Timeout',
+				name: 'timeout',
+				type: 'number',
+				default: 120000,
+				description: 'Socket timeout in milliseconds. Time to wait before closing an active connection.',
+				typeOptions: {
+					minValue: 10000,
+					maxValue: 300000,
+				},
+			},
+			{
+				displayName: 'Connection: Pool - Free Socket Timeout',
+				name: 'freeSocketTimeout',
+				type: 'number',
+				default: 30000,
+				description: 'Free socket timeout in milliseconds. Time to wait before closing an idle connection.',
+				typeOptions: {
+					minValue: 5000,
+					maxValue: 120000,
+				},
+			},
+
+			// Cache Options
+			{
+				displayName: 'Cache: Clear Before Execution',
+				name: 'clearCache',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to clear cached CSRF tokens and metadata before execution. Use when SAP service metadata has changed. Cache is automatically cleared on 404 errors.',
+			},
+
+			// Monitoring Options
+			{
+				displayName: 'Output: Include Metrics',
+				name: 'includeMetrics',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to include execution metrics in the output. Adds a _metrics object to the last item with performance data.',
+			},
+
+			// Debug Options
+			{
+				displayName: 'Debug: Enable Logging',
+				name: 'debugLogging',
+				type: 'boolean',
+				default: false,
+				description: 'Whether to log detailed request/response information. Logs URLs, headers (sanitized), status codes, timing, and connection pool stats.',
+			},
+		],
 	},
 ];
