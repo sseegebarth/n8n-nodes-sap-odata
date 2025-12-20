@@ -266,6 +266,10 @@ function validateJsonInput(jsonString, fieldName, node) {
         });
     }
 }
+function isPrivateIpAccessAllowed() {
+    const envValue = process.env.ALLOW_PRIVATE_IPS;
+    return envValue === 'true' || envValue === '1';
+}
 function validateUrl(url, node) {
     try {
         const parsedUrl = new URL(url);
@@ -274,6 +278,7 @@ function validateUrl(url, node) {
                 description: 'Only HTTP and HTTPS protocols are allowed',
             });
         }
+        const allowPrivateIps = isPrivateIpAccessAllowed();
         const hostname = parsedUrl.hostname.toLowerCase();
         const isNumericIp = /^[\d.x]+$/.test(hostname);
         let normalizedHostname = hostname;
@@ -305,36 +310,40 @@ function validateUrl(url, node) {
                 description: 'Cannot connect to local resources for security reasons',
             });
         }
-        const privateIpPatterns = [
-            /^10\./,
-            /^172\.(1[6-9]|2\d|3[01])\./,
-            /^192\.168\./,
-            /^169\.254\./,
-            /^fc00:/i,
-            /^fd00:/i,
-            /^fe80:/i,
-            /^\[?::ffff:127\./i,
-            /^\[?::ffff:10\./i,
-            /^\[?::ffff:192\.168\./i,
-            /^\[?::ffff:172\.(1[6-9]|2\d|3[01])\./i,
-        ];
-        if (privateIpPatterns.some((pattern) => pattern.test(hostname)) ||
-            privateIpPatterns.some((pattern) => pattern.test(normalizedHostname))) {
-            throw new n8n_workflow_1.NodeOperationError(node, 'Access to private IP addresses is not allowed', {
-                description: 'Cannot connect to private network resources for security reasons',
-            });
+        if (!allowPrivateIps) {
+            const privateIpPatterns = [
+                /^10\./,
+                /^172\.(1[6-9]|2\d|3[01])\./,
+                /^192\.168\./,
+                /^169\.254\./,
+                /^fc00:/i,
+                /^fd00:/i,
+                /^fe80:/i,
+                /^\[?::ffff:127\./i,
+                /^\[?::ffff:10\./i,
+                /^\[?::ffff:192\.168\./i,
+                /^\[?::ffff:172\.(1[6-9]|2\d|3[01])\./i,
+            ];
+            if (privateIpPatterns.some((pattern) => pattern.test(hostname)) ||
+                privateIpPatterns.some((pattern) => pattern.test(normalizedHostname))) {
+                throw new n8n_workflow_1.NodeOperationError(node, 'Access to private IP addresses is not allowed', {
+                    description: 'Cannot connect to private network resources for security reasons. Set environment variable ALLOW_PRIVATE_IPS=true to allow access to internal networks.',
+                });
+            }
         }
-        const suspiciousPatterns = [
-            /^127\.\d+\.\d+\.\d+\./,
-            /^10\.\d+\.\d+\.\d+\./,
-            /^192\.168\.\d+\.\d+\./,
-            /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+\./,
-            /^localhost\./,
-        ];
-        if (suspiciousPatterns.some((pattern) => pattern.test(hostname))) {
-            throw new n8n_workflow_1.NodeOperationError(node, 'Suspicious hostname detected - potential DNS rebinding attack', {
-                description: 'The hostname appears to embed a private IP address',
-            });
+        if (!allowPrivateIps) {
+            const suspiciousPatterns = [
+                /^127\.\d+\.\d+\.\d+\./,
+                /^10\.\d+\.\d+\.\d+\./,
+                /^192\.168\.\d+\.\d+\./,
+                /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+\./,
+                /^localhost\./,
+            ];
+            if (suspiciousPatterns.some((pattern) => pattern.test(hostname))) {
+                throw new n8n_workflow_1.NodeOperationError(node, 'Suspicious hostname detected - potential DNS rebinding attack', {
+                    description: 'The hostname appears to embed a private IP address',
+                });
+            }
         }
         const metadataHosts = [
             '169.254.169.254',

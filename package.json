@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-sap-odata",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "n8n node for SAP OData integration with real-time webhook support",
   "keywords": [
     "n8n-community-node-package",
