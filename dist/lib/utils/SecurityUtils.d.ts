@@ -1,0 +1,10 @@
+import { INode } from 'n8n-workflow';
+export declare function buildSecureUrl(host: string, servicePath: string, resource: string): string;
+export declare function validateEntityKey(key: string, node: INode): string;
+export declare function validateODataFilter(filter: string, node: INode): string;
+export declare function sanitizeErrorMessage(message: string): string;
+export declare function validateJsonInput(jsonString: string, fieldName: string, node: INode): object;
+export declare function validateUrl(url: string, node: INode): void;
+export declare function sanitizeHeaderValue(value: string): string;
+export declare function validateEntitySetName(name: string, node: INode): string;
+export declare function validateFunctionName(name: string, node: INode): string;

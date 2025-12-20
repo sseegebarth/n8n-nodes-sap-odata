@@ -1,0 +1,13 @@
+import { IExecuteFunctions, IHookFunctions, ILoadOptionsFunctions, IDataObject } from 'n8n-workflow';
+import { IPaginationResult } from '../../lib/core/PaginationHandler';
+import { IODataQueryOptions } from '../../lib/types';
+import { resolveServicePath } from '../../lib/utils/ServicePathResolver';
+export { resolveServicePath };
+export declare function sapOdataApiRequest<T = unknown>(this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions, method: string, resource: string, body?: IDataObject, qs?: IDataObject, uri?: string, option?: IDataObject, customServicePath?: string): Promise<T>;
+export declare function getCsrfToken(this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions, host: string, servicePath: string): Promise<string>;
+export declare function sapOdataApiRequestAllItems(this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions, propertyName: string, method: string, resource: string, body?: IDataObject, query?: IDataObject, continueOnFail?: boolean, maxItems?: number): Promise<IDataObject[] | IPaginationResult>;
+export declare function buildODataFilter(filters: IDataObject): string;
+export declare function buildODataQuery(options: IODataQueryOptions): IDataObject;
+export declare function parseMetadataForEntitySets(metadataXml: string): string[];
+export declare function parseMetadataForFunctionImports(metadataXml: string): string[];
+export declare function formatSapODataValue(value: any, typeHint?: string): string;

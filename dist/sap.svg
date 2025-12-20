@@ -1,0 +1,32 @@
+<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="30" cy="30" r="28" fill="#0F62FE" opacity="0.1"/>
+  
+  <!-- Main Icon: Connected Modules representing SAP Integration -->
+  
+  <!-- Center Hub (Main SAP System) -->
+  <rect x="22" y="22" width="16" height="16" rx="2" fill="#0F62FE" stroke="#0F62FE" stroke-width="1.5"/>
+  <rect x="24" y="24" width="12" height="12" rx="1" fill="white" opacity="0.3"/>
+  
+  <!-- Top Module -->
+  <rect x="26" y="6" width="8" height="8" rx="1.5" fill="#0F62FE" opacity="0.8"/>
+  <line x1="30" y1="14" x2="30" y2="22" stroke="#0F62FE" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Right Module -->
+  <rect x="46" y="26" width="8" height="8" rx="1.5" fill="#0F62FE" opacity="0.8"/>
+  <line x1="38" y1="30" x2="46" y2="30" stroke="#0F62FE" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Bottom Module -->
+  <rect x="26" y="46" width="8" height="8" rx="1.5" fill="#0F62FE" opacity="0.8"/>
+  <line x1="30" y1="38" x2="30" y2="46" stroke="#0F62FE" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Left Module -->
+  <rect x="6" y="26" width="8" height="8" rx="1.5" fill="#0F62FE" opacity="0.8"/>
+  <line x1="14" y1="30" x2="22" y2="30" stroke="#0F62FE" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Connection nodes (dots) -->
+  <circle cx="30" cy="22" r="2" fill="#0F62FE"/>
+  <circle cx="38" cy="30" r="2" fill="#0F62FE"/>
+  <circle cx="30" cy="38" r="2" fill="#0F62FE"/>
+  <circle cx="22" cy="30" r="2" fill="#0F62FE"/>
+</svg>

@@ -2,7 +2,7 @@
 node_modules/
 
 # Build output
-dist/
+# dist/ - NICHT ignorieren, damit npm install von GitHub funktioniert
 
 # Internal docs and development notes (not for public)
 internal/
