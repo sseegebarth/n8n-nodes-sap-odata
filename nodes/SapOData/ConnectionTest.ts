@@ -41,11 +41,67 @@ export async function testSapODataConnection(
 	credential: ICredentialDataDecryptedObject,
 ): Promise<INodeCredentialTestResult> {
 	const startTime = Date.now();
-	const host = credential.host as string;
+	const host = (credential.host as string)?.replace(/\/$/, '') || '';
 	const authentication = credential.authentication as string;
 	const allowUnauthorizedCerts = credential.allowUnauthorizedCerts as boolean;
 	const sapClient = credential.sapClient as string;
 	const sapLanguage = credential.sapLanguage as string;
+
+	// ========================================
+	// URL Validation (consistent with node behavior)
+	// ========================================
+	try {
+		const parsedUrl = new URL(host);
+
+		// Only allow HTTP and HTTPS
+		if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+			return {
+				status: 'Error',
+				message: `Invalid protocol: ${parsedUrl.protocol}\n\nOnly HTTP and HTTPS are allowed.`,
+			};
+		}
+
+		// Check for private IP addresses (unless ALLOW_PRIVATE_IPS=true)
+		const allowPrivateIps = process.env.ALLOW_PRIVATE_IPS === 'true' || process.env.ALLOW_PRIVATE_IPS === '1';
+		const hostname = parsedUrl.hostname.toLowerCase();
+
+		if (!allowPrivateIps) {
+			// Check for localhost
+			const localhostPatterns = ['localhost', '127.', '0.0.0.0', '::1'];
+			if (localhostPatterns.some(pattern => hostname.includes(pattern))) {
+				return {
+					status: 'Error',
+					message: 'Access to localhost is not allowed\n\n' +
+						'For internal/on-premise SAP systems, set environment variable:\n' +
+						'ALLOW_PRIVATE_IPS=true',
+				};
+			}
+
+			// Check for private IP ranges
+			const privateIpPatterns = [
+				/^10\./,
+				/^172\.(1[6-9]|2\d|3[01])\./,
+				/^192\.168\./,
+			];
+
+			if (privateIpPatterns.some(pattern => pattern.test(hostname))) {
+				return {
+					status: 'Error',
+					message: 'Access to private IP addresses is not allowed\n\n' +
+						'For internal/on-premise SAP systems, set environment variable:\n' +
+						'ALLOW_PRIVATE_IPS=true\n\n' +
+						'In Docker, add to your docker-compose.yml:\n' +
+						'environment:\n' +
+						'  - ALLOW_PRIVATE_IPS=true',
+				};
+			}
+		}
+	} catch (error) {
+		return {
+			status: 'Error',
+			message: `Invalid host URL: ${error instanceof Error ? error.message : String(error)}`,
+		};
+	}
 
 	// Build auth config
 	const auth = authentication === 'basicAuth'

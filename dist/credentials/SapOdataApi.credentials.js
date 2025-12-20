@@ -129,18 +129,7 @@ class SapOdataApi {
                 },
             },
         };
-        this.test = {
-            request: {
-                baseURL: '={{$credentials.host}}',
-                url: '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/',
-                method: 'GET',
-                skipSslCertificateValidation: '={{$credentials.allowUnauthorizedCerts}}',
-                headers: {
-                    'sap-client': '={{$credentials.sapClient}}',
-                    'sap-language': '={{$credentials.sapLanguage}}',
-                },
-            },
-        };
+        this.testedBy = 'sapODataCredentialTest';
     }
 }
 exports.SapOdataApi = SapOdataApi;

@@ -39,6 +39,7 @@ const strategies_1 = require("../../lib/strategies");
 const SecurityUtils_1 = require("../../lib/utils/SecurityUtils");
 const SapODataLoadOptions_1 = require("./SapODataLoadOptions");
 const SapODataProperties_1 = require("./SapODataProperties");
+const ConnectionTest_1 = require("./ConnectionTest");
 class SapOData {
     constructor() {
         this.description = {
@@ -65,6 +66,11 @@ class SapOData {
         this.methods = {
             loadOptions: SapODataLoadOptions_1.sapODataLoadOptions,
             listSearch: SapODataLoadOptions_1.sapODataListSearch,
+            credentialTest: {
+                async sapODataCredentialTest(credential) {
+                    return ConnectionTest_1.testSapODataConnection.call(this, credential.data);
+                },
+            },
         };
     }
     async execute() {

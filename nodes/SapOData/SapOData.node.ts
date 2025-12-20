@@ -1,5 +1,9 @@
 import {
+	ICredentialDataDecryptedObject,
+	ICredentialsDecrypted,
+	ICredentialTestFunctions,
 	IExecuteFunctions,
+	INodeCredentialTestResult,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
@@ -10,6 +14,7 @@ import { IAdvancedOptions } from '../../lib/strategies/types';
 import { sanitizeErrorMessage } from '../../lib/utils/SecurityUtils';
 import { sapODataLoadOptions, sapODataListSearch } from './SapODataLoadOptions';
 import { sapODataProperties } from './SapODataProperties';
+import { testSapODataConnection } from './ConnectionTest';
 
 /**
  * SAP OData Node (Refactored)
@@ -43,6 +48,14 @@ export class SapOData implements INodeType {
 	methods = {
 		loadOptions: sapODataLoadOptions,
 		listSearch: sapODataListSearch,
+		credentialTest: {
+			async sapODataCredentialTest(
+				this: ICredentialTestFunctions,
+				credential: ICredentialsDecrypted<ICredentialDataDecryptedObject>,
+			): Promise<INodeCredentialTestResult> {
+				return testSapODataConnection.call(this, credential.data as ICredentialDataDecryptedObject);
+			},
+		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {

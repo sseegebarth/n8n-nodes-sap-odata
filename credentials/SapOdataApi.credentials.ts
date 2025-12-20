@@ -1,6 +1,5 @@
 import {
 	IAuthenticateGeneric,
-	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
 } from 'n8n-workflow';
@@ -136,19 +135,8 @@ export class SapOdataApi implements ICredentialType {
 	};
 
 	/**
-	 * Test connection by checking SAP Gateway Catalog Service
-	 * The catalog service lists all available OData services
+	 * Test connection - delegated to node for consistent URL validation
+	 * The node's credentialTest method includes SSRF protection checks
 	 */
-	test: ICredentialTestRequest = {
-		request: {
-			baseURL: '={{$credentials.host}}',
-			url: '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/',
-			method: 'GET',
-			skipSslCertificateValidation: '={{$credentials.allowUnauthorizedCerts}}',
-			headers: {
-				'sap-client': '={{$credentials.sapClient}}',
-				'sap-language': '={{$credentials.sapLanguage}}',
-			},
-		},
-	};
+	testedBy = 'sapODataCredentialTest';
 }
