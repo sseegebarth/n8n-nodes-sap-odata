@@ -27,11 +27,24 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 			// Get query options
 			let query = this.getQueryOptions(context, itemIndex);
 
+			// Check if user requested $count in options
+			const hasCountOption = query.$count === true;
+
 			// Apply version-specific parameter mapping
+			// For returnAll: always include count for pagination
+			// For limit mode: only apply version mapping if user explicitly requested $count
 			if (returnAll) {
 				query = ODataVersionHelper.getVersionSpecificParams(odataVersion, {
 					...query,
 					includeCount: true,
+				});
+			} else if (hasCountOption) {
+				// User explicitly requested $count - apply version-specific mapping
+				// OData V2 needs $inlinecount=allpages instead of $count=true
+				delete query.$count;
+				query = ODataVersionHelper.getVersionSpecificParams(odataVersion, {
+					...query,
+					count: true,
 				});
 			}
 

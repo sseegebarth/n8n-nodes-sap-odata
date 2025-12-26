@@ -12,10 +12,18 @@ class GetAllEntitiesStrategy extends CrudStrategy_1.CrudStrategy {
             const returnAll = context.getNodeParameter('returnAll', itemIndex);
             const odataVersion = await ODataVersionHelper_1.ODataVersionHelper.getODataVersion(context);
             let query = this.getQueryOptions(context, itemIndex);
+            const hasCountOption = query.$count === true;
             if (returnAll) {
                 query = ODataVersionHelper_1.ODataVersionHelper.getVersionSpecificParams(odataVersion, {
                     ...query,
                     includeCount: true,
+                });
+            }
+            else if (hasCountOption) {
+                delete query.$count;
+                query = ODataVersionHelper_1.ODataVersionHelper.getVersionSpecificParams(odataVersion, {
+                    ...query,
+                    count: true,
                 });
             }
             const options = context.getNodeParameter('options', itemIndex, {});
