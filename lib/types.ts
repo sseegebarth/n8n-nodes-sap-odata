@@ -103,9 +103,16 @@ export interface IRequestOptions {
  */
 export interface ISapOdataCredentials {
 	host: string;
-	authentication: 'none' | 'basicAuth';
+	authentication: 'none' | 'basicAuth' | 'oauth2ClientCredentials';
+	// Basic Auth fields
 	username?: string;
 	password?: string;
+	// OAuth 2.0 Client Credentials fields
+	oauthTokenUrl?: string;
+	oauthClientId?: string;
+	oauthClientSecret?: string;
+	oauthScope?: string;
+	// Common fields
 	allowUnauthorizedCerts?: boolean;
 	sapClient?: string;
 	sapLanguage?: string;

@@ -11,6 +11,7 @@ const ErrorHandler_1 = require("../utils/ErrorHandler");
 const Logger_1 = require("../utils/Logger");
 const RetryUtils_1 = require("../utils/RetryUtils");
 const ThrottleManager_1 = require("../utils/ThrottleManager");
+const OAuthTokenManager_1 = require("../utils/OAuthTokenManager");
 const RequestBuilder_1 = require("./RequestBuilder");
 function getThrottleManager(context, config) {
     if ('getWorkflowStaticData' in context) {
@@ -93,6 +94,34 @@ async function executeRequest(config) {
     const poolConfig = (0, RequestBuilder_1.parsePoolConfig)(advancedOptions);
     const makeRequest = async () => {
         var _a, _b;
+        let oauthToken;
+        if (credentials.authentication === 'oauth2ClientCredentials') {
+            if (!credentials.oauthTokenUrl || !credentials.oauthClientId || !credentials.oauthClientSecret) {
+                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'OAuth 2.0 configuration incomplete', {
+                    description: 'Token URL, Client ID, and Client Secret are required for OAuth 2.0 authentication.',
+                });
+            }
+            try {
+                const token = await (0, OAuthTokenManager_1.getOAuthToken)(this, {
+                    tokenUrl: credentials.oauthTokenUrl,
+                    clientId: credentials.oauthClientId,
+                    clientSecret: credentials.oauthClientSecret,
+                    scope: credentials.oauthScope,
+                    allowUnauthorizedCerts: credentials.allowUnauthorizedCerts,
+                });
+                oauthToken = token.accessToken;
+                Logger_1.Logger.debug('OAuth token acquired', {
+                    module: 'ApiClient',
+                    expiresIn: token.expiresIn,
+                    tokenType: token.tokenType,
+                });
+            }
+            catch (error) {
+                throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Failed to acquire OAuth token', {
+                    description: error instanceof Error ? error.message : 'Unknown OAuth error',
+                });
+            }
+        }
         const requestOptions = (0, RequestBuilder_1.buildRequestOptions)({
             method,
             resource,
@@ -104,6 +133,7 @@ async function executeRequest(config) {
             options: option,
             credentials,
             csrfToken,
+            oauthToken,
             poolConfig,
             node: this.getNode(),
         });

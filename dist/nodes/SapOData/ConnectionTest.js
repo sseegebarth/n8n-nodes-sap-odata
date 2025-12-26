@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.testSapODataConnection = testSapODataConnection;
 const constants_1 = require("../../lib/constants");
+const OAuthTokenManager_1 = require("../../lib/utils/OAuthTokenManager");
 const GenericFunctions_1 = require("./GenericFunctions");
 async function testSapODataConnection(credential) {
     var _a;
@@ -94,6 +95,47 @@ async function testSapODataConnection(credential) {
             password: credential.password,
         }
         : undefined;
+    let oauthToken;
+    let oauthHeaders = {};
+    if (authentication === 'oauth2ClientCredentials') {
+        const oauthTokenUrl = credential.oauthTokenUrl;
+        const oauthClientId = credential.oauthClientId;
+        const oauthClientSecret = credential.oauthClientSecret;
+        const oauthScope = credential.oauthScope;
+        if (!oauthTokenUrl || !oauthClientId || !oauthClientSecret) {
+            return {
+                status: 'Error',
+                message: 'OAuth 2.0 configuration incomplete\n\n' +
+                    'Token URL, Client ID, and Client Secret are required.',
+            };
+        }
+        try {
+            const oauthCreds = {
+                tokenUrl: oauthTokenUrl,
+                clientId: oauthClientId,
+                clientSecret: oauthClientSecret,
+                scope: oauthScope,
+                allowUnauthorizedCerts,
+            };
+            const token = await (0, OAuthTokenManager_1.getOAuthToken)(this, oauthCreds);
+            oauthToken = token.accessToken;
+            oauthHeaders = {
+                Authorization: `Bearer ${oauthToken}`,
+            };
+        }
+        catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            return {
+                status: 'Error',
+                message: 'OAuth 2.0 token fetch failed\n\n' +
+                    `Error: ${sanitizeErrorMessage(errorMsg)}\n\n` +
+                    'Please check:\n' +
+                    '• Token URL is correct\n' +
+                    '• Client ID and Secret are valid\n' +
+                    '• Scope is correct (if required)',
+            };
+        }
+    }
     try {
         let catalogServiceAvailable = false;
         let catalogResponseTime = 0;
@@ -105,7 +147,10 @@ async function testSapODataConnection(credential) {
                 auth,
                 skipSslCertificateValidation: allowUnauthorizedCerts,
                 timeout: constants_1.CONNECTION_TEST_TIMEOUT,
-                headers: buildSapHeaders(sapClient, sapLanguage),
+                headers: {
+                    ...buildSapHeaders(sapClient, sapLanguage),
+                    ...oauthHeaders,
+                },
             });
             catalogResponseTime = Date.now() - catalogStartTime;
             catalogServiceAvailable = true;
@@ -127,7 +172,10 @@ async function testSapODataConnection(credential) {
                     auth,
                     skipSslCertificateValidation: allowUnauthorizedCerts,
                     timeout: constants_1.CONNECTION_TEST_TIMEOUT,
-                    headers: buildSapHeaders(sapClient, sapLanguage),
+                    headers: {
+                        ...buildSapHeaders(sapClient, sapLanguage),
+                        ...oauthHeaders,
+                    },
                 });
                 metadataXml = typeof metadataResponse === 'string'
                     ? metadataResponse
@@ -153,6 +201,15 @@ async function testSapODataConnection(credential) {
             const entitySetPreview = entitySets.slice(0, 5);
             const moreCount = entitySets.length - 5;
             let message = 'Connection successful!\n\n';
+            if (authentication === 'oauth2ClientCredentials') {
+                message += 'Auth: OAuth 2.0 Client Credentials\n';
+            }
+            else if (authentication === 'basicAuth') {
+                message += 'Auth: Basic Authentication\n';
+            }
+            else {
+                message += 'Auth: None (Public API)\n';
+            }
             if (catalogServiceAvailable) {
                 message += `Catalog Service: Available (${catalogResponseTime}ms)\n`;
             }

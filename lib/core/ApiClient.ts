@@ -26,6 +26,7 @@ import { ODataErrorHandler } from '../utils/ErrorHandler';
 import { Logger } from '../utils/Logger';
 import { RetryHandler } from '../utils/RetryUtils';
 import { ThrottleManager, ThrottleStrategy } from '../utils/ThrottleManager';
+import { getOAuthToken } from '../utils/OAuthTokenManager';
 import { buildRequestOptions, parsePoolConfig } from './RequestBuilder';
 
 /**
@@ -188,6 +189,45 @@ export async function executeRequest(
 
 	// Create request function that will be executed with or without retry
 	const makeRequest = async () => {
+		// Fetch OAuth token if using OAuth 2.0 authentication
+		let oauthToken: string | undefined;
+		if (credentials.authentication === 'oauth2ClientCredentials') {
+			if (!credentials.oauthTokenUrl || !credentials.oauthClientId || !credentials.oauthClientSecret) {
+				throw new NodeOperationError(
+					this.getNode(),
+					'OAuth 2.0 configuration incomplete',
+					{
+						description: 'Token URL, Client ID, and Client Secret are required for OAuth 2.0 authentication.',
+					},
+				);
+			}
+
+			try {
+				const token = await getOAuthToken(this, {
+					tokenUrl: credentials.oauthTokenUrl,
+					clientId: credentials.oauthClientId,
+					clientSecret: credentials.oauthClientSecret,
+					scope: credentials.oauthScope,
+					allowUnauthorizedCerts: credentials.allowUnauthorizedCerts,
+				});
+				oauthToken = token.accessToken;
+
+				Logger.debug('OAuth token acquired', {
+					module: 'ApiClient',
+					expiresIn: token.expiresIn,
+					tokenType: token.tokenType,
+				});
+			} catch (error) {
+				throw new NodeOperationError(
+					this.getNode(),
+					'Failed to acquire OAuth token',
+					{
+						description: error instanceof Error ? error.message : 'Unknown OAuth error',
+					},
+				);
+			}
+		}
+
 		// Build request options
 		const requestOptions = buildRequestOptions({
 			method,
@@ -200,6 +240,7 @@ export async function executeRequest(
 			options: option,
 			credentials,
 			csrfToken,
+			oauthToken,
 			poolConfig,
 			node: this.getNode(),
 		});

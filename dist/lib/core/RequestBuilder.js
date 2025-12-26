@@ -37,6 +37,12 @@ function buildRequestOptions(config) {
             password: credentials.password,
         };
     }
+    if (credentials.authentication === 'oauth2ClientCredentials' && config.oauthToken) {
+        requestOptions.headers = {
+            ...requestOptions.headers,
+            Authorization: `Bearer ${config.oauthToken}`,
+        };
+    }
     if (method !== 'GET' && csrfToken) {
         requestOptions.headers = {
             ...requestOptions.headers,
@@ -105,7 +111,7 @@ function buildRequestOptions(config) {
     Object.assign(requestOptions, options);
     return requestOptions;
 }
-function buildCsrfTokenRequest(host, servicePath, credentials, node) {
+function buildCsrfTokenRequest(host, servicePath, credentials, node, oauthToken) {
     (0, SecurityUtils_1.validateUrl)(host, node);
     const url = (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, '');
     const poolManager = ConnectionPoolManager_1.ConnectionPoolManager.getInstance();
@@ -127,6 +133,12 @@ function buildCsrfTokenRequest(host, servicePath, credentials, node) {
         options.auth = {
             username: credentials.username,
             password: credentials.password,
+        };
+    }
+    if (credentials.authentication === 'oauth2ClientCredentials' && oauthToken) {
+        options.headers = {
+            ...options.headers,
+            Authorization: `Bearer ${oauthToken}`,
         };
     }
     options.agent = agent;

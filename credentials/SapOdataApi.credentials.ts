@@ -31,11 +31,21 @@ export class SapOdataApi implements ICredentialType {
 				{
 					name: 'Basic Auth',
 					value: 'basicAuth',
+					description: 'Username and password (On-Premise SAP systems)',
+				},
+				{
+					name: 'OAuth 2.0 Client Credentials',
+					value: 'oauth2ClientCredentials',
+					description: 'OAuth 2.0 Client Credentials flow (SAP Cloud, SAP BTP)',
 				},
 			],
 			default: 'none',
 			description: 'Authentication method to use',
 		},
+
+		// ============================================
+		// Basic Auth Fields
+		// ============================================
 		{
 			displayName: 'Username',
 			name: 'username',
@@ -63,6 +73,75 @@ export class SapOdataApi implements ICredentialType {
 			},
 			required: true,
 		},
+
+		// ============================================
+		// OAuth 2.0 Client Credentials Fields
+		// ============================================
+		{
+			displayName: 'Token URL',
+			name: 'oauthTokenUrl',
+			type: 'string',
+			default: '',
+			placeholder: 'https://your-tenant.authentication.eu10.hana.ondemand.com/oauth/token',
+			description: 'The OAuth 2.0 token endpoint URL. For SAP BTP: https://{subdomain}.authentication.{region}.hana.ondemand.com/oauth/token',
+			displayOptions: {
+				show: {
+					authentication: ['oauth2ClientCredentials'],
+				},
+			},
+			required: true,
+			hint: 'Find this in your SAP BTP service key under "url" + "/oauth/token"',
+		},
+		{
+			displayName: 'Client ID',
+			name: 'oauthClientId',
+			type: 'string',
+			default: '',
+			placeholder: 'sb-xxxx-xxxx-xxxx',
+			description: 'The OAuth 2.0 Client ID from your service key',
+			displayOptions: {
+				show: {
+					authentication: ['oauth2ClientCredentials'],
+				},
+			},
+			required: true,
+			hint: 'Find this in your SAP BTP service key under "clientid"',
+		},
+		{
+			displayName: 'Client Secret',
+			name: 'oauthClientSecret',
+			type: 'string',
+			typeOptions: {
+				password: true,
+			},
+			default: '',
+			description: 'The OAuth 2.0 Client Secret from your service key',
+			displayOptions: {
+				show: {
+					authentication: ['oauth2ClientCredentials'],
+				},
+			},
+			required: true,
+			hint: 'Find this in your SAP BTP service key under "clientsecret"',
+		},
+		{
+			displayName: 'Scope',
+			name: 'oauthScope',
+			type: 'string',
+			default: '',
+			placeholder: 'API_BUSINESS_PARTNER_0001',
+			description: 'OAuth 2.0 scope(s) - space-separated if multiple. Leave empty if not required.',
+			displayOptions: {
+				show: {
+					authentication: ['oauth2ClientCredentials'],
+				},
+			},
+			hint: 'Some SAP APIs require specific scopes. Check the API documentation.',
+		},
+
+		// ============================================
+		// Common Fields
+		// ============================================
 		{
 			displayName: 'Ignore SSL Issues',
 			name: 'allowUnauthorizedCerts',
@@ -78,7 +157,12 @@ export class SapOdataApi implements ICredentialType {
 			default: '',
 			placeholder: '100',
 			description: 'SAP Client number (Mandant). Will be sent as sap-client header.',
-			hint: 'Common SAP client numbers: 100 (DEV), 200 (QA), 300 (PROD)',
+			hint: 'Common SAP client numbers: 100 (DEV), 200 (QA), 300 (PROD). Not required for SAP Cloud.',
+			displayOptions: {
+				hide: {
+					authentication: ['oauth2ClientCredentials'],
+				},
+			},
 		},
 		{
 			displayName: 'SAP Language',
@@ -124,6 +208,7 @@ export class SapOdataApi implements ICredentialType {
 	];
 
 	// Conditional authentication based on authentication type
+	// Note: OAuth 2.0 is handled manually in the node (not via n8n's built-in auth)
 	authenticate: IAuthenticateGeneric = {
 		type: 'generic',
 		properties: {

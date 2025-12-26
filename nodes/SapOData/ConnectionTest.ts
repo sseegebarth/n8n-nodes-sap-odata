@@ -4,6 +4,7 @@ import {
 	INodeCredentialTestResult,
 } from 'n8n-workflow';
 import { CONNECTION_TEST_TIMEOUT } from '../../lib/constants';
+import { getOAuthToken, IOAuthCredentials } from '../../lib/utils/OAuthTokenManager';
 import { parseMetadataForEntitySets } from './GenericFunctions';
 
 /**
@@ -103,13 +104,59 @@ export async function testSapODataConnection(
 		};
 	}
 
-	// Build auth config
+	// Build auth config for Basic Auth
 	const auth = authentication === 'basicAuth'
 		? {
 				username: credential.username as string,
 				password: credential.password as string,
 		}
 		: undefined;
+
+	// OAuth 2.0 token for Bearer auth
+	let oauthToken: string | undefined;
+	let oauthHeaders: Record<string, string> = {};
+
+	if (authentication === 'oauth2ClientCredentials') {
+		const oauthTokenUrl = credential.oauthTokenUrl as string;
+		const oauthClientId = credential.oauthClientId as string;
+		const oauthClientSecret = credential.oauthClientSecret as string;
+		const oauthScope = credential.oauthScope as string | undefined;
+
+		if (!oauthTokenUrl || !oauthClientId || !oauthClientSecret) {
+			return {
+				status: 'Error',
+				message: 'OAuth 2.0 configuration incomplete\n\n' +
+					'Token URL, Client ID, and Client Secret are required.',
+			};
+		}
+
+		try {
+			const oauthCreds: IOAuthCredentials = {
+				tokenUrl: oauthTokenUrl,
+				clientId: oauthClientId,
+				clientSecret: oauthClientSecret,
+				scope: oauthScope,
+				allowUnauthorizedCerts,
+			};
+
+			const token = await getOAuthToken(this, oauthCreds);
+			oauthToken = token.accessToken;
+			oauthHeaders = {
+				Authorization: `Bearer ${oauthToken}`,
+			};
+		} catch (error) {
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			return {
+				status: 'Error',
+				message: 'OAuth 2.0 token fetch failed\n\n' +
+					`Error: ${sanitizeErrorMessage(errorMsg)}\n\n` +
+					'Please check:\n' +
+					'• Token URL is correct\n' +
+					'• Client ID and Secret are valid\n' +
+					'• Scope is correct (if required)',
+			};
+		}
+	}
 
 	try {
 		// ========================================
@@ -126,7 +173,10 @@ export async function testSapODataConnection(
 				auth,
 				skipSslCertificateValidation: allowUnauthorizedCerts,
 				timeout: CONNECTION_TEST_TIMEOUT,
-				headers: buildSapHeaders(sapClient, sapLanguage),
+				headers: {
+					...buildSapHeaders(sapClient, sapLanguage),
+					...oauthHeaders,
+				},
 			});
 			catalogResponseTime = Date.now() - catalogStartTime;
 			catalogServiceAvailable = true;
@@ -155,7 +205,10 @@ export async function testSapODataConnection(
 					auth,
 					skipSslCertificateValidation: allowUnauthorizedCerts,
 					timeout: CONNECTION_TEST_TIMEOUT,
-					headers: buildSapHeaders(sapClient, sapLanguage),
+					headers: {
+						...buildSapHeaders(sapClient, sapLanguage),
+						...oauthHeaders,
+					},
 				});
 				metadataXml = typeof metadataResponse === 'string'
 					? metadataResponse
@@ -191,6 +244,15 @@ export async function testSapODataConnection(
 			const moreCount = entitySets.length - 5;
 
 			let message = 'Connection successful!\n\n';
+
+			// Show authentication method used
+			if (authentication === 'oauth2ClientCredentials') {
+				message += 'Auth: OAuth 2.0 Client Credentials\n';
+			} else if (authentication === 'basicAuth') {
+				message += 'Auth: Basic Authentication\n';
+			} else {
+				message += 'Auth: None (Public API)\n';
+			}
 
 			if (catalogServiceAvailable) {
 				message += `Catalog Service: Available (${catalogResponseTime}ms)\n`;

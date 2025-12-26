@@ -24,6 +24,7 @@ export interface IRequestConfig {
 	options?: IDataObject;
 	credentials: ISapOdataCredentials;
 	csrfToken?: string;
+	oauthToken?: string;  // OAuth 2.0 Bearer token (pre-fetched)
 	poolConfig?: IDataObject;
 	node: INode;
 }
@@ -99,6 +100,14 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		(requestOptions as any).auth = {
 			username: credentials.username,
 			password: credentials.password,
+		};
+	}
+
+	// Add OAuth 2.0 Bearer token if provided (pre-fetched by caller)
+	if (credentials.authentication === 'oauth2ClientCredentials' && config.oauthToken) {
+		requestOptions.headers = {
+			...requestOptions.headers,
+			Authorization: `Bearer ${config.oauthToken}`,
 		};
 	}
 
@@ -209,6 +218,7 @@ export function buildCsrfTokenRequest(
 	servicePath: string,
 	credentials: ISapOdataCredentials,
 	node: INode,
+	oauthToken?: string,
 ): IHttpRequestOptions {
 	// Validate host URL
 	validateUrl(host, node);
@@ -239,6 +249,14 @@ export function buildCsrfTokenRequest(
 		(options as any).auth = {
 			username: credentials.username,
 			password: credentials.password,
+		};
+	}
+
+	// Add OAuth 2.0 Bearer token if provided
+	if (credentials.authentication === 'oauth2ClientCredentials' && oauthToken) {
+		options.headers = {
+			...options.headers,
+			Authorization: `Bearer ${oauthToken}`,
 		};
 	}
 
