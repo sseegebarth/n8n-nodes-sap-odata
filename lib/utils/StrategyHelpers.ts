@@ -81,13 +81,29 @@ export function getServicePath(context: IExecuteFunctions, itemIndex: number): s
 
 /**
  * Validate and parse JSON input
+ * Accepts both string (JSON) and already parsed objects (from expressions like {{ $json }})
  */
 export function validateAndParseJson(
-	input: string,
+	input: string | IDataObject | IDataObject[],
 	fieldName: string,
 	node: INode,
 ): IDataObject | IDataObject[] {
-	if (!input || input.trim() === '') {
+	// If input is already an object (from n8n expression), validate and return it
+	if (typeof input === 'object' && input !== null) {
+		// Validate for prototype pollution
+		const { validateJsonInput } = require('./SecurityUtils');
+		// Convert to string and back to validate
+		try {
+			const jsonString = JSON.stringify(input);
+			return validateJsonInput(jsonString, fieldName, node) as IDataObject | IDataObject[];
+		} catch {
+			// If stringify fails, return as-is (edge case)
+			return input as IDataObject | IDataObject[];
+		}
+	}
+
+	// String input - validate it's not empty
+	if (!input || (typeof input === 'string' && input.trim() === '')) {
 		throw new NodeOperationError(
 			node,
 			`${fieldName} cannot be empty`
@@ -138,13 +154,22 @@ export function validateAndFormatKey(
 	const { validateEntityKey } = require('./SecurityUtils');
 	const validated = validateEntityKey(key, node);
 
-	// Add quotes around simple keys if not already formatted, except for numeric and GUID keys
+	// Composite key (contains =), already formatted
 	if (validated.includes('=')) {
-		return validated; // Composite key, already formatted
+		return validated;
 	}
 
-	// FIXME: GUID check MUST come before numeric - learned this the hard way!
-	// SAP loves to use GUIDs starting with digits (005056A0-60A0-1EEF-...)
+	// Already in GUID format: guid'xxx-xxx-xxx'
+	if (/^guid'[0-9a-fA-F-]+'$/i.test(validated)) {
+		return validated;
+	}
+
+	// Already quoted: 'value'
+	if (/^'.*'$/.test(validated)) {
+		return validated;
+	}
+
+	// Raw GUID without guid' prefix - add it
 	if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(validated)) {
 		return `guid'${validated}'`;
 	}

@@ -17,18 +17,19 @@ function buildSecureUrl(host, servicePath, resource) {
         if (!['http:', 'https:'].includes(baseUrl.protocol)) {
             throw new Error(`Invalid protocol: ${baseUrl.protocol}. Only HTTP and HTTPS are allowed.`);
         }
-        const sanitizedServicePath = servicePath.replace(/\.\.[/\\]/g, '').replace(/^\/+/, '/');
-        const sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
-        let fullPath = sanitizedServicePath;
-        if (!fullPath.endsWith('/') && sanitizedResource && !sanitizedResource.startsWith('/')) {
-            fullPath += '/';
+        let sanitizedServicePath = servicePath.replace(/\.\.[/\\]/g, '');
+        let sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
+        if (sanitizedServicePath && !sanitizedServicePath.startsWith('/')) {
+            sanitizedServicePath = '/' + sanitizedServicePath;
         }
-        fullPath += sanitizedResource;
         const origin = baseUrl.origin;
         const basePath = baseUrl.pathname.replace(/\/+$/, '');
-        let combinedPath = basePath + fullPath;
-        combinedPath = combinedPath.replace(/\/+/g, '/');
-        return `${origin}${combinedPath}`;
+        let fullPath = basePath + sanitizedServicePath + sanitizedResource;
+        fullPath = fullPath.replace(/\/+/g, '/');
+        if (!fullPath.startsWith('/')) {
+            fullPath = '/' + fullPath;
+        }
+        return `${origin}${fullPath}`;
     }
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

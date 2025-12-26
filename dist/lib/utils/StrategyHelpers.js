@@ -40,7 +40,17 @@ function getServicePath(context, itemIndex) {
     }
 }
 function validateAndParseJson(input, fieldName, node) {
-    if (!input || input.trim() === '') {
+    if (typeof input === 'object' && input !== null) {
+        const { validateJsonInput } = require('./SecurityUtils');
+        try {
+            const jsonString = JSON.stringify(input);
+            return validateJsonInput(jsonString, fieldName, node);
+        }
+        catch {
+            return input;
+        }
+    }
+    if (!input || (typeof input === 'string' && input.trim() === '')) {
         throw new n8n_workflow_1.NodeOperationError(node, `${fieldName} cannot be empty`);
     }
     const { validateJsonInput } = require('./SecurityUtils');
@@ -65,6 +75,12 @@ function validateAndFormatKey(key, node) {
     const { validateEntityKey } = require('./SecurityUtils');
     const validated = validateEntityKey(key, node);
     if (validated.includes('=')) {
+        return validated;
+    }
+    if (/^guid'[0-9a-fA-F-]+'$/i.test(validated)) {
+        return validated;
+    }
+    if (/^'.*'$/.test(validated)) {
         return validated;
     }
     if (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(validated)) {

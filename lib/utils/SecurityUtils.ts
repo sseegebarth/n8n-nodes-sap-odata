@@ -23,27 +23,31 @@ export function buildSecureUrl(host: string, servicePath: string, resource: stri
 		}
 
 		// Sanitize path components - remove path traversal attempts
-		const sanitizedServicePath = servicePath.replace(/\.\.[/\\]/g, '').replace(/^\/+/, '/');
-		const sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
+		let sanitizedServicePath = servicePath.replace(/\.\.[/\\]/g, '');
+		let sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
 
-		// Combine paths safely
-		// Ensure single slash between parts
-		let fullPath = sanitizedServicePath;
-		if (!fullPath.endsWith('/') && sanitizedResource && !sanitizedResource.startsWith('/')) {
-			fullPath += '/';
+		// Ensure service path starts with /
+		if (sanitizedServicePath && !sanitizedServicePath.startsWith('/')) {
+			sanitizedServicePath = '/' + sanitizedServicePath;
 		}
-		fullPath += sanitizedResource;
 
 		// Build URL manually to preserve OData special characters like ' in entity keys
 		// DO NOT use new URL(fullPath, baseUrl) as it encodes ' to %27
 		const origin = baseUrl.origin;
 		const basePath = baseUrl.pathname.replace(/\/+$/, ''); // Remove trailing slashes from host path
 
-		// Combine base path and full path, avoiding double slashes
-		let combinedPath = basePath + fullPath;
-		combinedPath = combinedPath.replace(/\/+/g, '/'); // Normalize multiple slashes
+		// Combine all path components
+		let fullPath = basePath + sanitizedServicePath + sanitizedResource;
 
-		return `${origin}${combinedPath}`;
+		// Normalize multiple slashes (but not in protocol)
+		fullPath = fullPath.replace(/\/+/g, '/');
+
+		// Ensure path starts with /
+		if (!fullPath.startsWith('/')) {
+			fullPath = '/' + fullPath;
+		}
+
+		return `${origin}${fullPath}`;
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		throw new Error(`Invalid URL components: ${errorMessage}`);
