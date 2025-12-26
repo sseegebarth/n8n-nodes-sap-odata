@@ -19,8 +19,16 @@ function buildSecureUrl(host, servicePath, resource) {
         }
         const sanitizedServicePath = servicePath.replace(/\.\.[/\\]/g, '').replace(/^\/+/, '/');
         const sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
-        const fullPath = `${sanitizedServicePath}${sanitizedResource}`;
-        return new URL(fullPath, baseUrl).toString();
+        let fullPath = sanitizedServicePath;
+        if (!fullPath.endsWith('/') && sanitizedResource && !sanitizedResource.startsWith('/')) {
+            fullPath += '/';
+        }
+        fullPath += sanitizedResource;
+        const origin = baseUrl.origin;
+        const basePath = baseUrl.pathname.replace(/\/+$/, '');
+        let combinedPath = basePath + fullPath;
+        combinedPath = combinedPath.replace(/\/+/g, '/');
+        return `${origin}${combinedPath}`;
     }
     catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);

@@ -7,6 +7,11 @@ import { MAX_JSON_SIZE, MAX_NESTING_DEPTH } from '../constants';
 
 /**
  * Build a secure URL from components with validation
+ *
+ * IMPORTANT: We manually construct the URL instead of using new URL(path, base)
+ * because the URL API encodes special characters like ' to %27, which breaks
+ * OData entity key syntax like /ProductSet('Key').
+ * SAP OData expects unencoded apostrophes in entity keys.
  */
 export function buildSecureUrl(host: string, servicePath: string, resource: string): string {
 	try {
@@ -22,10 +27,23 @@ export function buildSecureUrl(host: string, servicePath: string, resource: stri
 		const sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
 
 		// Combine paths safely
-		const fullPath = `${sanitizedServicePath}${sanitizedResource}`;
+		// Ensure single slash between parts
+		let fullPath = sanitizedServicePath;
+		if (!fullPath.endsWith('/') && sanitizedResource && !sanitizedResource.startsWith('/')) {
+			fullPath += '/';
+		}
+		fullPath += sanitizedResource;
 
-		// Create final URL
-		return new URL(fullPath, baseUrl).toString();
+		// Build URL manually to preserve OData special characters like ' in entity keys
+		// DO NOT use new URL(fullPath, baseUrl) as it encodes ' to %27
+		const origin = baseUrl.origin;
+		const basePath = baseUrl.pathname.replace(/\/+$/, ''); // Remove trailing slashes from host path
+
+		// Combine base path and full path, avoiding double slashes
+		let combinedPath = basePath + fullPath;
+		combinedPath = combinedPath.replace(/\/+/g, '/'); // Normalize multiple slashes
+
+		return `${origin}${combinedPath}`;
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		throw new Error(`Invalid URL components: ${errorMessage}`);
