@@ -111,11 +111,12 @@ export async function fetchAllItems(
 	let nextLink: string | undefined;
 	let pageNumber = 1;
 	let maxItemsReached = false;
+	let hasMoreData = true;  // Flag to control pagination loop
 
 	// Initial query with default page size
 	const initialQuery: IDataObject = { $top: DEFAULT_PAGE_SIZE };
 
-	do {
+	while (hasMoreData) {
 		try {
 			// Use nextLink if available, otherwise use initialQuery
 			const responseData = nextLink
@@ -145,17 +146,25 @@ export async function fetchAllItems(
 			// Get next page link
 			nextLink = extractNextLink(responseData);
 
-			// If no next link but we got a full page, try manual skip increment
-			// (fallback for servers that don't provide next links)
-			if (!nextLink && items.length === initialQuery.$top) {
+			if (nextLink) {
+				// Server provided next link - continue with that
+				pageNumber++;
+			} else if (items.length === DEFAULT_PAGE_SIZE) {
+				// No next link but we got a full page - try manual skip increment
+				// (fallback for servers that don't provide next links)
 				const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
 				initialQuery.$skip = currentSkip + items.length;
-			} else if (!nextLink) {
+				pageNumber++;
+				Logger.debug('No next link but full page - using skip pagination', {
+					module: 'PaginationHandler',
+					pageNumber,
+					skip: initialQuery.$skip,
+					itemsFetched: returnData.length,
+				});
+			} else {
 				// No next link and partial page = end of data
-				break;
+				hasMoreData = false;
 			}
-
-			pageNumber++;
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			const sanitizedMessage = sanitizeErrorMessage(errorMessage);
@@ -175,13 +184,13 @@ export async function fetchAllItems(
 				});
 				errors.push(paginationError);
 				// Stop pagination on error
-				break;
+				hasMoreData = false;
 			} else {
 				// Re-throw error if not continuing on fail
 				throw error;
 			}
 		}
-	} while (nextLink !== undefined);
+	}
 
 	// Return data with metadata if special conditions occurred
 	if ((continueOnFail && errors.length > 0) || maxItemsReached) {
@@ -237,11 +246,12 @@ export async function* streamAllItems(
 	let nextLink: string | undefined;
 	let pageNumber = 1;
 	let itemCount = 0;
+	let hasMoreData = true;  // Flag to control pagination loop
 
 	// Initial query with default page size
 	const initialQuery: IDataObject = { $top: DEFAULT_PAGE_SIZE };
 
-	do {
+	while (hasMoreData) {
 		// Use nextLink if available, otherwise use initialQuery
 		const responseData = nextLink
 			? await requestFunction(undefined, nextLink)
@@ -268,15 +278,17 @@ export async function* streamAllItems(
 		// Get next page link
 		nextLink = extractNextLink(responseData);
 
-		// If no next link but we got a full page, try manual skip increment
-		if (!nextLink && items.length === initialQuery.$top) {
+		if (nextLink) {
+			// Server provided next link - continue with that
+			pageNumber++;
+		} else if (items.length === DEFAULT_PAGE_SIZE) {
+			// No next link but we got a full page - try manual skip increment
 			const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
 			initialQuery.$skip = currentSkip + items.length;
-		} else if (!nextLink) {
+			pageNumber++;
+		} else {
 			// No next link and partial page = end of data
-			break;
+			hasMoreData = false;
 		}
-
-		pageNumber++;
-	} while (nextLink !== undefined);
+	}
 }

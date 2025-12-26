@@ -213,29 +213,66 @@ export class ODataVersionHelper {
 
 	/**
 	 * Extract data from version-specific response structure
+	 * Handles various SAP OData response formats robustly
 	 *
 	 * @param response - OData response
 	 * @param version - OData version
-	 * @returns Extracted data
+	 * @returns Extracted data (array for collections, object for single entities)
 	 */
 	public static extractData(response: any, version: 'v2' | 'v4'): any {
 		if (!response) return null;
 
 		let data;
+
 		if (version === 'v2') {
 			// V2: data is wrapped in 'd' property
-			data = response.d?.results || response.d || response;
+			// Collection: { d: { results: [...], __count: "n" } }
+			// Single entity: { d: { Property1: "...", Property2: "..." } }
+			if (response.d?.results !== undefined) {
+				// Collection response - return the results array
+				data = response.d.results;
+			} else if (response.d) {
+				// Single entity response - return the entity object
+				// But check if 'd' itself looks like a wrapper with results
+				if (response.d.results === undefined && typeof response.d === 'object') {
+					data = response.d;
+				} else {
+					data = response.d;
+				}
+			} else if (Array.isArray(response)) {
+				// Already an array (sometimes happens with pre-processed responses)
+				data = response;
+			} else {
+				// Fallback - return as-is
+				data = response;
+			}
 		} else {
 			// V4: data is in 'value' property or root
-			data = response.value || response;
+			// Collection: { value: [...], @odata.context: "..." }
+			// Single entity: { Property1: "...", @odata.context: "..." }
+			if (response.value !== undefined) {
+				data = response.value;
+			} else if (Array.isArray(response)) {
+				data = response;
+			} else if (response['@odata.context'] !== undefined) {
+				// This is a V4 response but without 'value' - likely a single entity
+				// Remove OData metadata properties and return the entity
+				const { '@odata.context': _, '@odata.etag': __, ...entityData } = response;
+				data = entityData;
+			} else {
+				data = response;
+			}
 		}
 
 		LoggerAdapter.debug('ODataVersionHelper', {
 			action: 'data_extracted',
 			version,
 			hasD: !!response.d,
+			hasDResults: !!response.d?.results,
 			hasValue: !!response.value,
 			hasODataContext: !!response['@odata.context'],
+			isArray: Array.isArray(data),
+			itemCount: Array.isArray(data) ? data.length : 1,
 		});
 
 		return data;

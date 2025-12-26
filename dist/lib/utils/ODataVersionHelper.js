@@ -145,22 +145,53 @@ class ODataVersionHelper {
         return result;
     }
     static extractData(response, version) {
-        var _a;
+        var _a, _b;
         if (!response)
             return null;
         let data;
         if (version === 'v2') {
-            data = ((_a = response.d) === null || _a === void 0 ? void 0 : _a.results) || response.d || response;
+            if (((_a = response.d) === null || _a === void 0 ? void 0 : _a.results) !== undefined) {
+                data = response.d.results;
+            }
+            else if (response.d) {
+                if (response.d.results === undefined && typeof response.d === 'object') {
+                    data = response.d;
+                }
+                else {
+                    data = response.d;
+                }
+            }
+            else if (Array.isArray(response)) {
+                data = response;
+            }
+            else {
+                data = response;
+            }
         }
         else {
-            data = response.value || response;
+            if (response.value !== undefined) {
+                data = response.value;
+            }
+            else if (Array.isArray(response)) {
+                data = response;
+            }
+            else if (response['@odata.context'] !== undefined) {
+                const { '@odata.context': _, '@odata.etag': __, ...entityData } = response;
+                data = entityData;
+            }
+            else {
+                data = response;
+            }
         }
         LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
             action: 'data_extracted',
             version,
             hasD: !!response.d,
+            hasDResults: !!((_b = response.d) === null || _b === void 0 ? void 0 : _b.results),
             hasValue: !!response.value,
             hasODataContext: !!response['@odata.context'],
+            isArray: Array.isArray(data),
+            itemCount: Array.isArray(data) ? data.length : 1,
         });
         return data;
     }

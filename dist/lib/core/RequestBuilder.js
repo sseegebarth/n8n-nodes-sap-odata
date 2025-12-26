@@ -4,6 +4,7 @@ exports.buildRequestOptions = buildRequestOptions;
 exports.buildCsrfTokenRequest = buildCsrfTokenRequest;
 exports.parsePoolConfig = parsePoolConfig;
 exports.parseStatusCodes = parseStatusCodes;
+exports.buildODataQueryString = buildODataQueryString;
 const constants_1 = require("../constants");
 const ConnectionPoolManager_1 = require("../utils/ConnectionPoolManager");
 const Logger_1 = require("../utils/Logger");
@@ -11,7 +12,11 @@ const SecurityUtils_1 = require("../utils/SecurityUtils");
 function buildRequestOptions(config) {
     const { method, resource, host, servicePath, body = {}, qs = {}, uri, options = {}, credentials, csrfToken, poolConfig = {}, node, } = config;
     (0, SecurityUtils_1.validateUrl)(host, node);
-    const url = uri || (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, resource);
+    let url = uri || (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, resource);
+    const queryString = buildODataQueryString(qs);
+    if (queryString) {
+        url = url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
+    }
     const isMetadataRequest = resource.includes('$metadata');
     const requestOptions = {
         method,
@@ -21,7 +26,6 @@ function buildRequestOptions(config) {
             'Content-Type': constants_1.HEADERS.CONTENT_TYPE,
         },
         body,
-        qs,
         json: !isMetadataRequest,
         returnFullResponse: false,
         skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
@@ -146,4 +150,21 @@ function parseStatusCodes(codes) {
         .split(',')
         .map((code) => parseInt(code.trim(), 10))
         .filter((code) => !isNaN(code) && code >= 100 && code < 600);
+}
+function buildODataQueryString(qs) {
+    if (!qs || Object.keys(qs).length === 0) {
+        return '';
+    }
+    const parts = [];
+    for (const [key, value] of Object.entries(qs)) {
+        if (value === null || value === undefined || value === '') {
+            continue;
+        }
+        if (value === false && key !== '$count' && key !== '$inlinecount') {
+            continue;
+        }
+        const encodedValue = encodeURIComponent(String(value));
+        parts.push(`${key}=${encodedValue}`);
+    }
+    return parts.join('&');
 }

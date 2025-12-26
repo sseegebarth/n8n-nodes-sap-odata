@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.OperationStrategyFactory = exports.FunctionImportStrategy = exports.DeleteEntityStrategy = exports.UpdateEntityStrategy = exports.GetAllEntitiesStrategy = exports.GetEntityStrategy = exports.CreateEntityStrategy = exports.BaseEntityStrategy = void 0;
+exports.OperationStrategyFactory = exports.FunctionImportStrategy = exports.DeleteEntityStrategy = exports.UpdateEntityStrategy = exports.GetMetadataStrategy = exports.GetAllEntitiesStrategy = exports.GetEntityStrategy = exports.CreateEntityStrategy = exports.BaseEntityStrategy = void 0;
 var BaseEntityStrategy_1 = require("./BaseEntityStrategy");
 Object.defineProperty(exports, "BaseEntityStrategy", { enumerable: true, get: function () { return BaseEntityStrategy_1.BaseEntityStrategy; } });
 var CreateEntityStrategy_1 = require("./CreateEntityStrategy");
@@ -9,6 +9,8 @@ var GetEntityStrategy_1 = require("./GetEntityStrategy");
 Object.defineProperty(exports, "GetEntityStrategy", { enumerable: true, get: function () { return GetEntityStrategy_1.GetEntityStrategy; } });
 var GetAllEntitiesStrategy_1 = require("./GetAllEntitiesStrategy");
 Object.defineProperty(exports, "GetAllEntitiesStrategy", { enumerable: true, get: function () { return GetAllEntitiesStrategy_1.GetAllEntitiesStrategy; } });
+var GetMetadataStrategy_1 = require("./GetMetadataStrategy");
+Object.defineProperty(exports, "GetMetadataStrategy", { enumerable: true, get: function () { return GetMetadataStrategy_1.GetMetadataStrategy; } });
 var UpdateEntityStrategy_1 = require("./UpdateEntityStrategy");
 Object.defineProperty(exports, "UpdateEntityStrategy", { enumerable: true, get: function () { return UpdateEntityStrategy_1.UpdateEntityStrategy; } });
 var DeleteEntityStrategy_1 = require("./DeleteEntityStrategy");

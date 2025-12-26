@@ -46,8 +46,9 @@ async function fetchAllItems(requestFunction, config = {}) {
     let nextLink;
     let pageNumber = 1;
     let maxItemsReached = false;
+    let hasMoreData = true;
     const initialQuery = { $top: constants_1.DEFAULT_PAGE_SIZE };
-    do {
+    while (hasMoreData) {
         try {
             const responseData = nextLink
                 ? await requestFunction(undefined, nextLink)
@@ -67,14 +68,23 @@ async function fetchAllItems(requestFunction, config = {}) {
             }
             returnData.push(...items);
             nextLink = extractNextLink(responseData);
-            if (!nextLink && items.length === initialQuery.$top) {
+            if (nextLink) {
+                pageNumber++;
+            }
+            else if (items.length === constants_1.DEFAULT_PAGE_SIZE) {
                 const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
                 initialQuery.$skip = currentSkip + items.length;
+                pageNumber++;
+                Logger_1.Logger.debug('No next link but full page - using skip pagination', {
+                    module: 'PaginationHandler',
+                    pageNumber,
+                    skip: initialQuery.$skip,
+                    itemsFetched: returnData.length,
+                });
             }
-            else if (!nextLink) {
-                break;
+            else {
+                hasMoreData = false;
             }
-            pageNumber++;
         }
         catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -92,13 +102,13 @@ async function fetchAllItems(requestFunction, config = {}) {
                     itemsFetchedSoFar: returnData.length,
                 });
                 errors.push(paginationError);
-                break;
+                hasMoreData = false;
             }
             else {
                 throw error;
             }
         }
-    } while (nextLink !== undefined);
+    }
     if ((continueOnFail && errors.length > 0) || maxItemsReached) {
         const result = {
             data: returnData,
@@ -126,8 +136,9 @@ async function* streamAllItems(requestFunction, config = {}) {
     let nextLink;
     let pageNumber = 1;
     let itemCount = 0;
+    let hasMoreData = true;
     const initialQuery = { $top: constants_1.DEFAULT_PAGE_SIZE };
-    do {
+    while (hasMoreData) {
         const responseData = nextLink
             ? await requestFunction(undefined, nextLink)
             : await requestFunction(initialQuery);
@@ -146,13 +157,16 @@ async function* streamAllItems(requestFunction, config = {}) {
             itemCount++;
         }
         nextLink = extractNextLink(responseData);
-        if (!nextLink && items.length === initialQuery.$top) {
+        if (nextLink) {
+            pageNumber++;
+        }
+        else if (items.length === constants_1.DEFAULT_PAGE_SIZE) {
             const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
             initialQuery.$skip = currentSkip + items.length;
+            pageNumber++;
         }
-        else if (!nextLink) {
-            break;
+        else {
+            hasMoreData = false;
         }
-        pageNumber++;
-    } while (nextLink !== undefined);
+    }
 }

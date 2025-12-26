@@ -6,7 +6,7 @@ const ODataVersionHelper_1 = require("../utils/ODataVersionHelper");
 const CrudStrategy_1 = require("./base/CrudStrategy");
 class GetAllEntitiesStrategy extends CrudStrategy_1.CrudStrategy {
     async execute(context, itemIndex) {
-        var _a;
+        var _a, _b, _c;
         try {
             const entitySet = this.getEntitySet(context, itemIndex);
             const returnAll = context.getNodeParameter('returnAll', itemIndex);
@@ -54,8 +54,39 @@ class GetAllEntitiesStrategy extends CrudStrategy_1.CrudStrategy {
                 query.$top = limit;
                 const response = await GenericFunctions_1.sapOdataApiRequest.call(context, 'GET', this.buildResourcePath(entitySet), {}, query);
                 responseData = ODataVersionHelper_1.ODataVersionHelper.extractData(response, odataVersion);
+                this.logOperation('DATA_EXTRACTED', {
+                    isArray: Array.isArray(responseData),
+                    itemCount: Array.isArray(responseData) ? responseData.length : 1,
+                    hasD: !!(response === null || response === void 0 ? void 0 : response.d),
+                    hasDResults: !!((_b = response === null || response === void 0 ? void 0 : response.d) === null || _b === void 0 ? void 0 : _b.results),
+                });
             }
-            const dataArray = Array.isArray(responseData) ? responseData : [responseData];
+            let dataArray;
+            if (Array.isArray(responseData)) {
+                dataArray = responseData;
+            }
+            else if (responseData && typeof responseData === 'object') {
+                if (responseData.results && Array.isArray(responseData.results)) {
+                    dataArray = responseData.results;
+                    this.logOperation('FALLBACK_EXTRACTION', {
+                        message: 'Extracted results from wrapper object',
+                        itemCount: dataArray.length,
+                    });
+                }
+                else if (((_c = responseData.d) === null || _c === void 0 ? void 0 : _c.results) && Array.isArray(responseData.d.results)) {
+                    dataArray = responseData.d.results;
+                    this.logOperation('FALLBACK_EXTRACTION', {
+                        message: 'Extracted results from d.results wrapper',
+                        itemCount: dataArray.length,
+                    });
+                }
+                else {
+                    dataArray = [responseData];
+                }
+            }
+            else {
+                dataArray = responseData ? [responseData] : [];
+            }
             const executionData = dataArray.map((item) => {
                 const converted = this.applyTypeConversion(context, itemIndex, item);
                 const jsonData = (typeof converted === 'object' && converted !== null)

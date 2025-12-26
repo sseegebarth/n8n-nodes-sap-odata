@@ -64,12 +64,21 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 	validateUrl(host, node);
 
 	// Build secure URL
-	const url = uri || buildSecureUrl(host, servicePath, resource);
+	let url = uri || buildSecureUrl(host, servicePath, resource);
+
+	// Build query string manually to avoid encoding $ in OData parameters
+	// n8n's default behavior encodes $ to %24, which SAP doesn't understand
+	const queryString = buildODataQueryString(qs);
+	if (queryString) {
+		url = url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
+	}
 
 	// Special handling for $metadata requests (XML response)
 	const isMetadataRequest = resource.includes('$metadata');
 
 	// Build HTTP request options
+	// Note: We don't pass qs here because we've already built the query string into the URL
+	// This avoids n8n encoding the $ character in OData parameters
 	const requestOptions: IHttpRequestOptions = {
 		method,
 		url,
@@ -78,7 +87,7 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 			'Content-Type': HEADERS.CONTENT_TYPE,
 		},
 		body,
-		qs,
+		// qs is intentionally NOT passed - query params are in the URL to preserve $ characters
 		json: !isMetadataRequest, // $metadata returns XML, not JSON
 		returnFullResponse: false,
 		skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
@@ -282,4 +291,48 @@ export function parseStatusCodes(codes: string): number[] {
 		.split(',')
 		.map((code) => parseInt(code.trim(), 10))
 		.filter((code) => !isNaN(code) && code >= 100 && code < 600);
+}
+
+/**
+ * Build OData query string without encoding the $ prefix
+ *
+ * This is necessary because n8n's default query string encoding converts
+ * $search to %24search, which SAP OData services don't understand.
+ * OData parameters like $filter, $select, $expand, etc. must keep their $ prefix.
+ *
+ * @param qs - Query string parameters object
+ * @returns Properly formatted query string
+ *
+ * @example
+ * buildODataQueryString({ $filter: "Name eq 'John'", $top: 10 })
+ * // Returns: "$filter=Name%20eq%20'John'&$top=10"
+ */
+export function buildODataQueryString(qs: IDataObject): string {
+	if (!qs || Object.keys(qs).length === 0) {
+		return '';
+	}
+
+	const parts: string[] = [];
+
+	for (const [key, value] of Object.entries(qs)) {
+		// Skip null, undefined, or empty values
+		if (value === null || value === undefined || value === '') {
+			continue;
+		}
+
+		// For boolean false, we still want to include it
+		if (value === false && key !== '$count' && key !== '$inlinecount') {
+			continue;
+		}
+
+		// OData parameters start with $, don't encode the $
+		// But DO encode the value to handle special characters
+		const encodedValue = encodeURIComponent(String(value));
+
+		// The key should not be encoded for OData parameters
+		// Keys like $filter, $select, $expand must remain as-is
+		parts.push(`${key}=${encodedValue}`);
+	}
+
+	return parts.join('&');
 }

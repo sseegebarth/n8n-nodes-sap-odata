@@ -6,6 +6,7 @@ const DeleteEntityStrategy_1 = require("./DeleteEntityStrategy");
 const FunctionImportStrategy_1 = require("./FunctionImportStrategy");
 const GetAllEntitiesStrategy_1 = require("./GetAllEntitiesStrategy");
 const GetEntityStrategy_1 = require("./GetEntityStrategy");
+const GetMetadataStrategy_1 = require("./GetMetadataStrategy");
 const UpdateEntityStrategy_1 = require("./UpdateEntityStrategy");
 class OperationStrategyFactory {
     static getEntityStrategy(operation) {
@@ -16,6 +17,8 @@ class OperationStrategyFactory {
                 return new GetEntityStrategy_1.GetEntityStrategy();
             case 'getAll':
                 return new GetAllEntitiesStrategy_1.GetAllEntitiesStrategy();
+            case 'getMetadata':
+                return new GetMetadataStrategy_1.GetMetadataStrategy();
             case 'update':
                 return new UpdateEntityStrategy_1.UpdateEntityStrategy();
             case 'delete':

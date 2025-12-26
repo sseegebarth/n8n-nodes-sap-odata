@@ -29,42 +29,88 @@ function buildSecureUrl(host, servicePath, resource) {
 }
 function validateEntityKey(key, node) {
     const normalizedKey = key.normalize('NFC');
+    const unquotedParts = extractUnquotedParts(normalizedKey);
     const blacklist = [
         ';', '--', '/*', '*/',
-        'DROP', 'DELETE', 'INSERT', 'UPDATE', 'EXEC', 'TRUNCATE',
+        'DROP ', 'DELETE ', 'INSERT ', 'UPDATE ', 'EXEC ', 'TRUNCATE ',
         '$filter', '$expand', '$select', '$orderby', '$top', '$skip',
-        '&', '?',
     ];
-    const upperKey = normalizedKey.toUpperCase();
-    for (const pattern of blacklist) {
-        const isWord = /^[A-Z$]+$/.test(pattern);
-        if (isWord) {
-            const regex = new RegExp(`\\b${pattern.replace('$', '\\$')}\\b`, 'i');
-            if (regex.test(upperKey)) {
-                throw new n8n_workflow_1.NodeOperationError(node, `Invalid entity key: Contains forbidden pattern '${pattern}'`, {
+    for (const unquotedPart of unquotedParts) {
+        const upperPart = unquotedPart.toUpperCase();
+        for (const pattern of blacklist) {
+            if (upperPart.includes(pattern.toUpperCase())) {
+                throw new n8n_workflow_1.NodeOperationError(node, `Invalid entity key: Contains forbidden pattern '${pattern.trim()}'`, {
                     description: 'Entity keys cannot contain SQL commands or OData query parameters',
                 });
             }
         }
-        else if (upperKey.includes(pattern.toUpperCase())) {
-            throw new n8n_workflow_1.NodeOperationError(node, `Invalid entity key: Contains forbidden pattern '${pattern}'`, {
-                description: 'Entity keys cannot contain SQL commands or comment markers',
+        if (unquotedPart.includes('&') || unquotedPart.includes('?')) {
+            throw new n8n_workflow_1.NodeOperationError(node, 'Invalid entity key: Contains forbidden characters (& or ?)', {
+                description: 'Entity keys cannot contain query string characters outside of quoted strings',
             });
         }
     }
-    if (normalizedKey.includes('=')) {
+    if (normalizedKey.includes('=') && !normalizedKey.startsWith("'") && !normalizedKey.startsWith('"') && !normalizedKey.toLowerCase().startsWith('guid')) {
         validateCompositeKey(normalizedKey, node);
     }
     else {
-        if (!normalizedKey.match(/^('[^']*(?:''[^']*)*'|\d+)$/)) {
-            if (!normalizedKey.match(/^[a-zA-Z0-9_\-.]+$/)) {
-                throw new n8n_workflow_1.NodeOperationError(node, `Invalid simple key format: ${normalizedKey}`, {
-                    description: "Simple keys must be quoted strings ('value'), numbers (123), or alphanumeric identifiers",
-                });
-            }
+        const validPatterns = [
+            /^'[^']*(?:''[^']*)*'$/,
+            /^"[^"]*"$/,
+            /^\d+$/,
+            /^\d+L$/,
+            /^guid'[a-fA-F0-9-]+'$/i,
+            /^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/,
+            /^[a-zA-Z0-9_-]+$/,
+        ];
+        const isValid = validPatterns.some(pattern => pattern.test(normalizedKey));
+        if (!isValid) {
+            throw new n8n_workflow_1.NodeOperationError(node, `Invalid simple key format: ${normalizedKey}`, {
+                description: "Simple keys must be: quoted strings ('value'), numbers (123), GUIDs (guid'...'), or alphanumeric identifiers",
+            });
         }
     }
     return normalizedKey;
+}
+function extractUnquotedParts(input) {
+    const parts = [];
+    let current = '';
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+    for (let i = 0; i < input.length; i++) {
+        const char = input[i];
+        if (char === "'" && !inDoubleQuote) {
+            if (inSingleQuote && i + 1 < input.length && input[i + 1] === "'") {
+                i++;
+                continue;
+            }
+            if (inSingleQuote) {
+                inSingleQuote = false;
+            }
+            else {
+                parts.push(current);
+                current = '';
+                inSingleQuote = true;
+            }
+        }
+        else if (char === '"' && !inSingleQuote) {
+            if (inDoubleQuote) {
+                inDoubleQuote = false;
+            }
+            else {
+                parts.push(current);
+                current = '';
+                inDoubleQuote = true;
+            }
+        }
+        else if (!inSingleQuote && !inDoubleQuote) {
+            current += char;
+        }
+    }
+    if (current) {
+        parts.push(current);
+    }
+    return parts.filter(p => p.length > 0);
 }
 function validateCompositeKey(key, node) {
     const parts = [];

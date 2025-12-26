@@ -59,6 +59,12 @@ exports.sapODataProperties = [
                 action: 'Get many entities',
             },
             {
+                name: 'Get Metadata',
+                value: 'getMetadata',
+                description: 'Get service document or metadata',
+                action: 'Get service metadata',
+            },
+            {
                 name: 'Update',
                 value: 'update',
                 description: 'Update an entity',
@@ -67,6 +73,32 @@ exports.sapODataProperties = [
         ],
         default: 'getAll',
         description: 'The operation to perform',
+    },
+    {
+        displayName: 'Metadata Type',
+        name: 'metadataType',
+        type: 'options',
+        noDataExpression: true,
+        displayOptions: {
+            show: {
+                resource: ['entity'],
+                operation: ['getMetadata'],
+            },
+        },
+        options: [
+            {
+                name: 'Service Document',
+                value: 'serviceDocument',
+                description: 'Get the service document listing all entity sets and function imports',
+            },
+            {
+                name: '$metadata',
+                value: 'metadata',
+                description: 'Get the full service metadata (XML schema)',
+            },
+        ],
+        default: 'serviceDocument',
+        description: 'The type of metadata to retrieve',
     },
     {
         displayName: 'Service',
@@ -112,6 +144,9 @@ exports.sapODataProperties = [
             show: {
                 resource: ['entity'],
             },
+            hide: {
+                operation: ['getMetadata'],
+            },
         },
         modes: [
             {
@@ -150,6 +185,7 @@ exports.sapODataProperties = [
             },
         ],
         description: 'The entity set to query. Select from list or enter the name directly (e.g. A_SalesOrder, ProductSet)',
+        hint: 'When changing the Service, you may need to re-select the Entity Set from the updated list.',
     },
     {
         displayName: 'Entity',
@@ -173,8 +209,8 @@ exports.sapODataProperties = [
                     {
                         type: 'regex',
                         properties: {
-                            regex: "^(['\"]?\\w+['\"]?|\\w+=.+)$",
-                            errorMessage: 'Invalid entity key format. Use: \'ABC\' for strings, 123 for numbers, or Key1=\'A\',Key2=123 for composite keys',
+                            regex: "^('.+'|\".+\"|\\d+|guid'[^']+'|[a-zA-Z0-9_-]+|\\w+=.+)$",
+                            errorMessage: 'Invalid entity key format. Use: \'ABC\' for strings, 123 for numbers, guid\'...\' for GUIDs, or Key1=\'A\',Key2=123 for composite keys',
                         },
                     },
                 ],
@@ -292,6 +328,17 @@ exports.sapODataProperties = [
                 default: '',
                 description: 'Order results by specific properties',
                 placeholder: 'Name asc, CreatedAt desc',
+            },
+            {
+                displayName: '$top',
+                name: '$top',
+                type: 'number',
+                default: 0,
+                description: 'Maximum number of results to return (0 = use default limit)',
+                typeOptions: {
+                    minValue: 0,
+                    maxValue: constants_1.MAX_PAGE_SIZE,
+                },
             },
             {
                 displayName: '$skip',

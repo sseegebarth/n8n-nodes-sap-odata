@@ -37,67 +37,127 @@ export function buildSecureUrl(host: string, servicePath: string, resource: stri
  *
  * Supports:
  * - Simple keys: '0500000001' or 123
+ * - Quoted strings with spaces/special chars: 'Desktop Essentials', 'AR-FB-1000'
+ * - GUIDs: guid'0a71e5d7-e655-1eea-a8ad-4250e12b7e5e' or 0a71e5d7-e655-1eea-a8ad-4250e12b7e5e
  * - Composite keys: Key1='value1',Key2='value2'
  * - SAP escaped quotes: Key1='value''s'
+ * - Double-quoted strings: "value"
  */
 export function validateEntityKey(key: string, node: INode): string {
 	// Normalize unicode to prevent bypass attacks
 	const normalizedKey = key.normalize('NFC');
 
-	// Check for SQL/OData injection patterns
+	// Check for SQL/OData injection patterns (but NOT inside quoted strings)
+	// Only check unquoted parts for injection patterns
+	const unquotedParts = extractUnquotedParts(normalizedKey);
+
 	const blacklist = [
 		';', '--', '/*', '*/', // SQL comments
-		'DROP', 'DELETE', 'INSERT', 'UPDATE', 'EXEC', 'TRUNCATE', // SQL commands
+		'DROP ', 'DELETE ', 'INSERT ', 'UPDATE ', 'EXEC ', 'TRUNCATE ', // SQL commands (with space to avoid false positives)
 		'$filter', '$expand', '$select', '$orderby', '$top', '$skip', // OData query injection
-		'&', '?', // Query string manipulation
 	];
-	const upperKey = normalizedKey.toUpperCase();
 
-	for (const pattern of blacklist) {
-		// For patterns that are words, check word boundaries
-		const isWord = /^[A-Z$]+$/.test(pattern);
-		if (isWord) {
-			const regex = new RegExp(`\\b${pattern.replace('$', '\\$')}\\b`, 'i');
-			if (regex.test(upperKey)) {
+	for (const unquotedPart of unquotedParts) {
+		const upperPart = unquotedPart.toUpperCase();
+		for (const pattern of blacklist) {
+			if (upperPart.includes(pattern.toUpperCase())) {
 				throw new NodeOperationError(
 					node,
-					`Invalid entity key: Contains forbidden pattern '${pattern}'`,
+					`Invalid entity key: Contains forbidden pattern '${pattern.trim()}'`,
 					{
 						description: 'Entity keys cannot contain SQL commands or OData query parameters',
 					},
 				);
 			}
-		} else if (upperKey.includes(pattern.toUpperCase())) {
+		}
+
+		// Check for query string manipulation characters in unquoted parts
+		if (unquotedPart.includes('&') || unquotedPart.includes('?')) {
 			throw new NodeOperationError(
 				node,
-				`Invalid entity key: Contains forbidden pattern '${pattern}'`,
+				'Invalid entity key: Contains forbidden characters (& or ?)',
 				{
-					description: 'Entity keys cannot contain SQL commands or comment markers',
+					description: 'Entity keys cannot contain query string characters outside of quoted strings',
 				},
 			);
 		}
 	}
 
 	// Validate format for composite keys
-	if (normalizedKey.includes('=')) {
+	if (normalizedKey.includes('=') && !normalizedKey.startsWith("'") && !normalizedKey.startsWith('"') && !normalizedKey.toLowerCase().startsWith('guid')) {
 		validateCompositeKey(normalizedKey, node);
 	} else {
-		// Simple key validation - allow quoted strings or numbers
-		if (!normalizedKey.match(/^('[^']*(?:''[^']*)*'|\d+)$/)) {
-			// Allow unquoted alphanumeric for compatibility
-			if (!normalizedKey.match(/^[a-zA-Z0-9_\-.]+$/)) {
-				throw new NodeOperationError(
-					node,
-					`Invalid simple key format: ${normalizedKey}`,
-					{
-						description: "Simple keys must be quoted strings ('value'), numbers (123), or alphanumeric identifiers",
-					},
-				);
-			}
+		// Simple key validation patterns
+		const validPatterns = [
+			/^'[^']*(?:''[^']*)*'$/, // Single-quoted string (with escaped quotes)
+			/^"[^"]*"$/, // Double-quoted string
+			/^\d+$/, // Numeric
+			/^\d+L$/, // Long numeric (SAP specific)
+			/^guid'[a-fA-F0-9-]+'$/i, // GUID format
+			/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/, // Raw GUID
+			/^[a-zA-Z0-9_-]+$/, // Simple alphanumeric with dashes/underscores
+		];
+
+		const isValid = validPatterns.some(pattern => pattern.test(normalizedKey));
+
+		if (!isValid) {
+			throw new NodeOperationError(
+				node,
+				`Invalid simple key format: ${normalizedKey}`,
+				{
+					description: "Simple keys must be: quoted strings ('value'), numbers (123), GUIDs (guid'...'), or alphanumeric identifiers",
+				},
+			);
 		}
 	}
 
 	return normalizedKey;
+}
+
+/**
+ * Extract unquoted parts of a string for security validation
+ * This ensures we only check injection patterns outside of quoted strings
+ */
+function extractUnquotedParts(input: string): string[] {
+	const parts: string[] = [];
+	let current = '';
+	let inSingleQuote = false;
+	let inDoubleQuote = false;
+
+	for (let i = 0; i < input.length; i++) {
+		const char = input[i];
+
+		if (char === "'" && !inDoubleQuote) {
+			if (inSingleQuote && i + 1 < input.length && input[i + 1] === "'") {
+				// Escaped quote, skip
+				i++;
+				continue;
+			}
+			if (inSingleQuote) {
+				inSingleQuote = false;
+			} else {
+				parts.push(current);
+				current = '';
+				inSingleQuote = true;
+			}
+		} else if (char === '"' && !inSingleQuote) {
+			if (inDoubleQuote) {
+				inDoubleQuote = false;
+			} else {
+				parts.push(current);
+				current = '';
+				inDoubleQuote = true;
+			}
+		} else if (!inSingleQuote && !inDoubleQuote) {
+			current += char;
+		}
+	}
+
+	if (current) {
+		parts.push(current);
+	}
+
+	return parts.filter(p => p.length > 0);
 }
 
 /**

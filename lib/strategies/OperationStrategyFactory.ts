@@ -3,6 +3,7 @@ import { DeleteEntityStrategy } from './DeleteEntityStrategy';
 import { FunctionImportStrategy } from './FunctionImportStrategy';
 import { GetAllEntitiesStrategy } from './GetAllEntitiesStrategy';
 import { GetEntityStrategy } from './GetEntityStrategy';
+import { GetMetadataStrategy } from './GetMetadataStrategy';
 import { IOperationStrategy } from './IOperationStrategy';
 import { UpdateEntityStrategy } from './UpdateEntityStrategy';
 
@@ -24,6 +25,9 @@ export class OperationStrategyFactory {
 
 			case 'getAll':
 				return new GetAllEntitiesStrategy();
+
+			case 'getMetadata':
+				return new GetMetadataStrategy();
 
 			case 'update':
 				return new UpdateEntityStrategy();

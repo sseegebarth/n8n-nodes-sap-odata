@@ -101,10 +101,44 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 
 				// Extract results from response using version-specific logic
 				responseData = ODataVersionHelper.extractData(response, odataVersion);
+
+				// Log extraction result for debugging
+				this.logOperation('DATA_EXTRACTED', {
+					isArray: Array.isArray(responseData),
+					itemCount: Array.isArray(responseData) ? responseData.length : 1,
+					hasD: !!(response as any)?.d,
+					hasDResults: !!(response as any)?.d?.results,
+				});
 			}
 
 			// Convert to array if not already
-			const dataArray = Array.isArray(responseData) ? responseData : [responseData];
+			// Safety check: if responseData looks like a wrapper object with results, extract them
+			let dataArray: IDataObject[];
+			if (Array.isArray(responseData)) {
+				dataArray = responseData;
+			} else if (responseData && typeof responseData === 'object') {
+				// Check if this is still a wrapper object (extraction didn't work properly)
+				if ((responseData as any).results && Array.isArray((responseData as any).results)) {
+					// This is still wrapped - extract the results
+					dataArray = (responseData as any).results;
+					this.logOperation('FALLBACK_EXTRACTION', {
+						message: 'Extracted results from wrapper object',
+						itemCount: dataArray.length,
+					});
+				} else if ((responseData as any).d?.results && Array.isArray((responseData as any).d.results)) {
+					// Double-wrapped - extract from d.results
+					dataArray = (responseData as any).d.results;
+					this.logOperation('FALLBACK_EXTRACTION', {
+						message: 'Extracted results from d.results wrapper',
+						itemCount: dataArray.length,
+					});
+				} else {
+					// Single entity or unknown structure - wrap in array
+					dataArray = [responseData];
+				}
+			} else {
+				dataArray = responseData ? [responseData] : [];
+			}
 
 			// Map to INodeExecutionData with optional type conversion
 			const executionData: INodeExecutionData[] = dataArray.map((item) => {

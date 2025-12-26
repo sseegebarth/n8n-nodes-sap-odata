@@ -18,3 +18,4 @@ export declare function buildRequestOptions(config: IRequestConfig): IHttpReques
 export declare function buildCsrfTokenRequest(host: string, servicePath: string, credentials: ISapOdataCredentials, node: INode): IHttpRequestOptions;
 export declare function parsePoolConfig(advancedOptions: IDataObject): IDataObject;
 export declare function parseStatusCodes(codes: string): number[];
+export declare function buildODataQueryString(qs: IDataObject): string;
