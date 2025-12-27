@@ -198,8 +198,21 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		(requestOptions as any).agent = agent;
 	}
 
-	// Merge additional options
-	Object.assign(requestOptions, options);
+	// Merge additional options - deep merge headers to preserve CSRF token and other critical headers
+	if (options && typeof options === 'object') {
+		const { headers: optionHeaders, ...restOptions } = options as { headers?: IDataObject; [key: string]: unknown };
+
+		// Merge non-header options first
+		Object.assign(requestOptions, restOptions);
+
+		// Deep merge headers to preserve existing headers (CSRF token, auth, etc.)
+		if (optionHeaders && typeof optionHeaders === 'object') {
+			requestOptions.headers = {
+				...requestOptions.headers,
+				...optionHeaders,
+			};
+		}
+	}
 
 	return requestOptions;
 }

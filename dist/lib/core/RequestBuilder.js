@@ -108,7 +108,16 @@ function buildRequestOptions(config) {
         const agent = poolManager.getAgent(urlObj.protocol);
         requestOptions.agent = agent;
     }
-    Object.assign(requestOptions, options);
+    if (options && typeof options === 'object') {
+        const { headers: optionHeaders, ...restOptions } = options;
+        Object.assign(requestOptions, restOptions);
+        if (optionHeaders && typeof optionHeaders === 'object') {
+            requestOptions.headers = {
+                ...requestOptions.headers,
+                ...optionHeaders,
+            };
+        }
+    }
     return requestOptions;
 }
 function buildCsrfTokenRequest(host, servicePath, credentials, node, oauthToken) {
