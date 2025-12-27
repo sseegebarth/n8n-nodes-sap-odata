@@ -17,6 +17,7 @@ export interface ISapGatewayResponse {
 }
 export declare class SapGatewayCompat {
     static enhanceRequestOptions(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, requestOptions: IHttpRequestOptions, host: string, servicePath: string, gatewayOptions?: ISapGatewayRequestOptions): Promise<IHttpRequestOptions>;
+    private static getHeader;
     static processResponse(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, response: unknown, host: string, servicePath: string, gatewayOptions?: ISapGatewayRequestOptions): Promise<ISapGatewayResponse>;
     static fetchCsrfToken(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, host: string, servicePath: string, requestBuilder: (host: string, servicePath: string) => IHttpRequestOptions): Promise<string>;
     static clearSession(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, host: string, servicePath: string): void;

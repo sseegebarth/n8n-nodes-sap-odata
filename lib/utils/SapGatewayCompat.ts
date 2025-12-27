@@ -142,6 +142,20 @@ export class SapGatewayCompat {
 	}
 
 	/**
+	 * Get header value case-insensitively
+	 * HTTP headers are case-insensitive, but libraries may store them in different cases
+	 */
+	private static getHeader(headers: IDataObject, name: string): unknown {
+		const lowerName = name.toLowerCase();
+		for (const [key, value] of Object.entries(headers)) {
+			if (key.toLowerCase() === lowerName) {
+				return value;
+			}
+		}
+		return undefined;
+	}
+
+	/**
 	 * Process response and extract SAP Gateway-specific information
 	 */
 	static async processResponse(
@@ -171,38 +185,59 @@ export class SapGatewayCompat {
 			body = response;
 		}
 
+		Logger.debug('Processing response', {
+			module: 'SapGatewayCompat',
+			statusCode,
+			hasHeaders: Object.keys(headers).length > 0,
+			headerKeys: Object.keys(headers),
+		});
+
 		const result: ISapGatewayResponse = {
 			body,
 			statusCode,
 			headers,
 		};
 
-		// Update session with cookies if enabled
-		if (enableSession && headers['set-cookie']) {
+		// Update session with cookies if enabled (case-insensitive header lookup)
+		const setCookie = this.getHeader(headers, 'set-cookie');
+		if (enableSession && setCookie) {
 			await SapGatewaySessionManager.updateCookies(
 				context,
 				host,
 				servicePath,
-				headers['set-cookie'] as string | string[],
+				setCookie as string | string[],
 			);
+			Logger.debug('Session cookies extracted', {
+				module: 'SapGatewayCompat',
+				cookieCount: Array.isArray(setCookie) ? setCookie.length : 1,
+			});
 		}
 
-		// Extract and store SAP-ContextId if enabled
-		if (enableContextId && headers['sap-contextid']) {
-			const contextId = String(headers['sap-contextid']);
+		// Extract and store SAP-ContextId if enabled (case-insensitive)
+		const contextIdHeader = this.getHeader(headers, 'sap-contextid');
+		if (enableContextId && contextIdHeader) {
+			const contextId = String(contextIdHeader);
 			result.contextId = contextId;
 			await SapGatewaySessionManager.updateContextId(context, host, servicePath, contextId);
 		}
 
-		// Extract CSRF token if present
-		if (headers['x-csrf-token']) {
-			const csrfToken = String(headers['x-csrf-token']);
+		// Extract CSRF token if present (case-insensitive)
+		const csrfTokenHeader = this.getHeader(headers, 'x-csrf-token');
+		if (csrfTokenHeader) {
+			const csrfToken = String(csrfTokenHeader);
+			Logger.debug('CSRF token header found', {
+				module: 'SapGatewayCompat',
+				tokenValue: csrfToken.substring(0, 10) + '...',
+				isRequired: csrfToken === 'Required',
+				isFetch: csrfToken === 'Fetch',
+			});
 			// Only update if it's not the "Required" message
 			if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'Fetch') {
 				result.csrfToken = csrfToken;
 				await SapGatewaySessionManager.updateCsrfToken(context, host, servicePath, csrfToken);
 				Logger.debug('CSRF token extracted from response', {
 					module: 'SapGatewayCompat',
+					tokenLength: csrfToken.length,
 				});
 			}
 		}
@@ -245,6 +280,8 @@ export class SapGatewayCompat {
 		// Fetch new token
 		Logger.debug('Fetching new CSRF token', {
 			module: 'SapGatewayCompat',
+			host,
+			servicePath,
 		});
 
 		try {
@@ -264,12 +301,34 @@ export class SapGatewayCompat {
 				},
 			);
 
-			// Execute request
-			const response = await context.helpers.httpRequestWithAuthentication.call(
-				context,
-				'sapOdataApi',
-				enhancedOptions,
-			);
+			// Get credentials for authentication
+			const credentials = await context.getCredentials('sapOdataApi');
+
+			// Build auth object for Basic Auth
+			const auth = credentials?.authentication === 'basicAuth' && credentials?.username && credentials?.password
+				? { username: credentials.username as string, password: credentials.password as string }
+				: undefined;
+
+			Logger.debug('CSRF token request details', {
+				module: 'SapGatewayCompat',
+				url: enhancedOptions.url,
+				hasAuth: !!auth,
+				headers: Object.keys(enhancedOptions.headers || {}),
+			});
+
+			// Use helpers.request directly (same as ApiClient) to ensure consistent behavior
+			// httpRequestWithAuthentication may not return headers properly
+			const response = await context.helpers.request({
+				...enhancedOptions,
+				auth,
+				resolveWithFullResponse: true, // Get full response with headers
+			} as any);
+
+			Logger.debug('CSRF token response received', {
+				module: 'SapGatewayCompat',
+				hasHeaders: !!response?.headers,
+				statusCode: response?.statusCode,
+			});
 
 			// Process response to extract token and session data
 			const processedResponse = await this.processResponse(
@@ -285,6 +344,10 @@ export class SapGatewayCompat {
 			);
 
 			if (processedResponse.csrfToken) {
+				Logger.debug('CSRF token extracted successfully', {
+					module: 'SapGatewayCompat',
+					tokenLength: processedResponse.csrfToken.length,
+				});
 				return processedResponse.csrfToken;
 			}
 
@@ -293,12 +356,17 @@ export class SapGatewayCompat {
 				const token = String(processedResponse.headers['x-csrf-token']);
 				if (token && token !== 'Required' && token !== 'Fetch') {
 					await SapGatewaySessionManager.updateCsrfToken(context, host, servicePath, token);
+					Logger.debug('CSRF token extracted from headers fallback', {
+						module: 'SapGatewayCompat',
+						tokenLength: token.length,
+					});
 					return token;
 				}
 			}
 
 			Logger.warn('CSRF token not found in response', {
 				module: 'SapGatewayCompat',
+				responseHeaders: Object.keys(processedResponse.headers),
 			});
 
 			return '';

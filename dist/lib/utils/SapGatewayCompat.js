@@ -57,6 +57,15 @@ class SapGatewayCompat {
         });
         return enhancedOptions;
     }
+    static getHeader(headers, name) {
+        const lowerName = name.toLowerCase();
+        for (const [key, value] of Object.entries(headers)) {
+            if (key.toLowerCase() === lowerName) {
+                return value;
+            }
+        }
+        return undefined;
+    }
     static async processResponse(context, response, host, servicePath, gatewayOptions = {}) {
         const { enableSession = true, enableContextId = true, enableMessageParsing = true } = gatewayOptions;
         let body;
@@ -71,26 +80,46 @@ class SapGatewayCompat {
         else {
             body = response;
         }
+        Logger_1.Logger.debug('Processing response', {
+            module: 'SapGatewayCompat',
+            statusCode,
+            hasHeaders: Object.keys(headers).length > 0,
+            headerKeys: Object.keys(headers),
+        });
         const result = {
             body,
             statusCode,
             headers,
         };
-        if (enableSession && headers['set-cookie']) {
-            await SapGatewaySession_1.SapGatewaySessionManager.updateCookies(context, host, servicePath, headers['set-cookie']);
+        const setCookie = this.getHeader(headers, 'set-cookie');
+        if (enableSession && setCookie) {
+            await SapGatewaySession_1.SapGatewaySessionManager.updateCookies(context, host, servicePath, setCookie);
+            Logger_1.Logger.debug('Session cookies extracted', {
+                module: 'SapGatewayCompat',
+                cookieCount: Array.isArray(setCookie) ? setCookie.length : 1,
+            });
         }
-        if (enableContextId && headers['sap-contextid']) {
-            const contextId = String(headers['sap-contextid']);
+        const contextIdHeader = this.getHeader(headers, 'sap-contextid');
+        if (enableContextId && contextIdHeader) {
+            const contextId = String(contextIdHeader);
             result.contextId = contextId;
             await SapGatewaySession_1.SapGatewaySessionManager.updateContextId(context, host, servicePath, contextId);
         }
-        if (headers['x-csrf-token']) {
-            const csrfToken = String(headers['x-csrf-token']);
+        const csrfTokenHeader = this.getHeader(headers, 'x-csrf-token');
+        if (csrfTokenHeader) {
+            const csrfToken = String(csrfTokenHeader);
+            Logger_1.Logger.debug('CSRF token header found', {
+                module: 'SapGatewayCompat',
+                tokenValue: csrfToken.substring(0, 10) + '...',
+                isRequired: csrfToken === 'Required',
+                isFetch: csrfToken === 'Fetch',
+            });
             if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'Fetch') {
                 result.csrfToken = csrfToken;
                 await SapGatewaySession_1.SapGatewaySessionManager.updateCsrfToken(context, host, servicePath, csrfToken);
                 Logger_1.Logger.debug('CSRF token extracted from response', {
                     module: 'SapGatewayCompat',
+                    tokenLength: csrfToken.length,
                 });
             }
         }
@@ -118,6 +147,8 @@ class SapGatewayCompat {
         }
         Logger_1.Logger.debug('Fetching new CSRF token', {
             module: 'SapGatewayCompat',
+            host,
+            servicePath,
         });
         try {
             const requestOptions = requestBuilder(host, servicePath);
@@ -126,24 +157,52 @@ class SapGatewayCompat {
                 enableContextId: true,
                 enableMessageParsing: false,
             });
-            const response = await context.helpers.httpRequestWithAuthentication.call(context, 'sapOdataApi', enhancedOptions);
+            const credentials = await context.getCredentials('sapOdataApi');
+            const auth = (credentials === null || credentials === void 0 ? void 0 : credentials.authentication) === 'basicAuth' && (credentials === null || credentials === void 0 ? void 0 : credentials.username) && (credentials === null || credentials === void 0 ? void 0 : credentials.password)
+                ? { username: credentials.username, password: credentials.password }
+                : undefined;
+            Logger_1.Logger.debug('CSRF token request details', {
+                module: 'SapGatewayCompat',
+                url: enhancedOptions.url,
+                hasAuth: !!auth,
+                headers: Object.keys(enhancedOptions.headers || {}),
+            });
+            const response = await context.helpers.request({
+                ...enhancedOptions,
+                auth,
+                resolveWithFullResponse: true,
+            });
+            Logger_1.Logger.debug('CSRF token response received', {
+                module: 'SapGatewayCompat',
+                hasHeaders: !!(response === null || response === void 0 ? void 0 : response.headers),
+                statusCode: response === null || response === void 0 ? void 0 : response.statusCode,
+            });
             const processedResponse = await this.processResponse(context, response, host, servicePath, {
                 enableSession: true,
                 enableContextId: true,
                 enableMessageParsing: false,
             });
             if (processedResponse.csrfToken) {
+                Logger_1.Logger.debug('CSRF token extracted successfully', {
+                    module: 'SapGatewayCompat',
+                    tokenLength: processedResponse.csrfToken.length,
+                });
                 return processedResponse.csrfToken;
             }
             if (processedResponse.headers['x-csrf-token']) {
                 const token = String(processedResponse.headers['x-csrf-token']);
                 if (token && token !== 'Required' && token !== 'Fetch') {
                     await SapGatewaySession_1.SapGatewaySessionManager.updateCsrfToken(context, host, servicePath, token);
+                    Logger_1.Logger.debug('CSRF token extracted from headers fallback', {
+                        module: 'SapGatewayCompat',
+                        tokenLength: token.length,
+                    });
                     return token;
                 }
             }
             Logger_1.Logger.warn('CSRF token not found in response', {
                 module: 'SapGatewayCompat',
+                responseHeaders: Object.keys(processedResponse.headers),
             });
             return '';
         }
