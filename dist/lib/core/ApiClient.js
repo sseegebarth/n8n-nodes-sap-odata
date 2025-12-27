@@ -10,6 +10,7 @@ const ConnectionPoolManager_1 = require("../utils/ConnectionPoolManager");
 const ErrorHandler_1 = require("../utils/ErrorHandler");
 const Logger_1 = require("../utils/Logger");
 const RetryUtils_1 = require("../utils/RetryUtils");
+const SapGatewaySession_1 = require("../utils/SapGatewaySession");
 const ThrottleManager_1 = require("../utils/ThrottleManager");
 const OAuthTokenManager_1 = require("../utils/OAuthTokenManager");
 const RequestBuilder_1 = require("./RequestBuilder");
@@ -93,7 +94,7 @@ async function executeRequest(config) {
     }
     const poolConfig = (0, RequestBuilder_1.parsePoolConfig)(advancedOptions);
     const makeRequest = async () => {
-        var _a, _b;
+        var _a, _b, _c, _d;
         let oauthToken;
         if (credentials.authentication === 'oauth2ClientCredentials') {
             if (!credentials.oauthTokenUrl || !credentials.oauthClientId || !credentials.oauthClientSecret) {
@@ -147,13 +148,36 @@ async function executeRequest(config) {
                 headers: {
                     ...requestOptions.headers,
                     Authorization: ((_a = requestOptions.headers) === null || _a === void 0 ? void 0 : _a.Authorization) ? '*****' : undefined,
+                    'X-CSRF-Token': ((_b = requestOptions.headers) === null || _b === void 0 ? void 0 : _b['X-CSRF-Token']) ? '(token present)' : undefined,
+                    Cookie: ((_c = requestOptions.headers) === null || _c === void 0 ? void 0 : _c.Cookie) ? '(cookies present)' : undefined,
                 },
             });
+            if (method !== 'GET') {
+                Logger_1.Logger.debug('CSRF token status', {
+                    module: 'ApiClient',
+                    hasToken: !!csrfToken,
+                    tokenLength: csrfToken ? csrfToken.length : 0,
+                });
+            }
         }
         try {
             const auth = credentials.authentication === 'basicAuth' && credentials.username && credentials.password
                 ? { username: credentials.username, password: credentials.password }
                 : undefined;
+            let cookieHeader = null;
+            if (method !== 'GET') {
+                cookieHeader = await SapGatewaySession_1.SapGatewaySessionManager.getCookieHeader(this, host, servicePath);
+                if (cookieHeader) {
+                    requestOptions.headers = {
+                        ...requestOptions.headers,
+                        Cookie: cookieHeader,
+                    };
+                    Logger_1.Logger.debug('Session cookies added to request', {
+                        module: 'ApiClient',
+                        cookieCount: cookieHeader.split(';').length,
+                    });
+                }
+            }
             const response = await this.helpers.request({
                 ...requestOptions,
                 auth,
@@ -191,7 +215,7 @@ async function executeRequest(config) {
                     resource,
                 });
             }
-            const statusCode = ((_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.statusCode) || (error === null || error === void 0 ? void 0 : error.statusCode);
+            const statusCode = ((_d = error === null || error === void 0 ? void 0 : error.response) === null || _d === void 0 ? void 0 : _d.statusCode) || (error === null || error === void 0 ? void 0 : error.statusCode);
             if (statusCode === 404) {
                 Logger_1.Logger.debug('404 error detected - invalidating metadata cache', {
                     module: 'ApiClient',

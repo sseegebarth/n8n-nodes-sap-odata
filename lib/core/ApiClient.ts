@@ -25,6 +25,7 @@ import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
 import { ODataErrorHandler } from '../utils/ErrorHandler';
 import { Logger } from '../utils/Logger';
 import { RetryHandler } from '../utils/RetryUtils';
+import { SapGatewaySessionManager } from '../utils/SapGatewaySession';
 import { ThrottleManager, ThrottleStrategy } from '../utils/ThrottleManager';
 import { getOAuthToken } from '../utils/OAuthTokenManager';
 import { buildRequestOptions, parsePoolConfig } from './RequestBuilder';
@@ -257,8 +258,18 @@ export async function executeRequest(
 				headers: {
 					...requestOptions.headers,
 					Authorization: requestOptions.headers?.Authorization ? '*****' : undefined,
+					'X-CSRF-Token': requestOptions.headers?.['X-CSRF-Token'] ? '(token present)' : undefined,
+					Cookie: requestOptions.headers?.Cookie ? '(cookies present)' : undefined,
 				},
 			});
+			// Log CSRF token status for write operations
+			if (method !== 'GET') {
+				Logger.debug('CSRF token status', {
+					module: 'ApiClient',
+					hasToken: !!csrfToken,
+					tokenLength: csrfToken ? csrfToken.length : 0,
+				});
+			}
 		}
 
 		try {
@@ -266,6 +277,23 @@ export async function executeRequest(
 			const auth = credentials.authentication === 'basicAuth' && credentials.username && credentials.password
 				? { username: credentials.username, password: credentials.password }
 				: undefined;
+
+			// Get session cookies for write operations
+			// This ensures the CSRF token matches the session
+			let cookieHeader: string | null = null;
+			if (method !== 'GET') {
+				cookieHeader = await SapGatewaySessionManager.getCookieHeader(this, host, servicePath);
+				if (cookieHeader) {
+					requestOptions.headers = {
+						...requestOptions.headers,
+						Cookie: cookieHeader,
+					};
+					Logger.debug('Session cookies added to request', {
+						module: 'ApiClient',
+						cookieCount: cookieHeader.split(';').length,
+					});
+				}
+			}
 
 			// Use helpers.request directly to avoid URL re-encoding
 			// httpRequestWithAuthentication re-encodes URLs, turning $ into %24
