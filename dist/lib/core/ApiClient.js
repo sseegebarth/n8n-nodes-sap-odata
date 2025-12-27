@@ -151,7 +151,13 @@ async function executeRequest(config) {
             });
         }
         try {
-            const response = await this.helpers.httpRequestWithAuthentication.call(this, constants_1.CREDENTIAL_TYPE, requestOptions);
+            const auth = credentials.authentication === 'basicAuth' && credentials.username && credentials.password
+                ? { username: credentials.username, password: credentials.password }
+                : undefined;
+            const response = await this.helpers.request({
+                ...requestOptions,
+                auth,
+            });
             if (debugLogging) {
                 const duration = Date.now() - startTime;
                 Logger_1.Logger.debug('Response received', {

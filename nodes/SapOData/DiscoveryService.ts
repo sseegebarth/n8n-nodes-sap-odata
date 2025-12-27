@@ -80,14 +80,16 @@ export async function discoverServices(
 
 				if (entry.ServiceUrl) {
 					// Use the provided service URL
-					servicePath = entry.ServiceUrl;
+					// SAP may return full URL like "http://host:port/path" - extract only the path
+					servicePath = extractPathFromUrl(entry.ServiceUrl);
 					// Ensure it ends with /
 					if (!servicePath.endsWith('/')) {
 						servicePath += '/';
 					}
 				} else if (entry.BaseUrl) {
 					// Use base URL if available
-					servicePath = entry.BaseUrl;
+					// SAP may return full URL - extract only the path
+					servicePath = extractPathFromUrl(entry.BaseUrl);
 					if (!servicePath.endsWith('/')) {
 						servicePath += '/';
 					}
@@ -125,6 +127,29 @@ export async function discoverServices(
 
 		// Return empty array so UI can fallback to manual input or common services
 		return [];
+	}
+}
+
+/**
+ * Extract path from a URL string
+ * If the input is a full URL (http://host:port/path), returns only the path portion
+ * If the input is already just a path, returns it unchanged
+ *
+ * @param urlOrPath - Full URL or path string
+ * @returns Path portion only (e.g., "/sap/opu/odata/sap/SERVICE/")
+ */
+function extractPathFromUrl(urlOrPath: string): string {
+	try {
+		// Check if it's a full URL (starts with http:// or https://)
+		if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+			const url = new URL(urlOrPath);
+			return url.pathname;
+		}
+		// Already a path - return as-is
+		return urlOrPath;
+	} catch {
+		// If URL parsing fails, return original string
+		return urlOrPath;
 	}
 }
 

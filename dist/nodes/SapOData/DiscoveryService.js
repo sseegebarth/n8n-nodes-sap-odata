@@ -54,13 +54,13 @@ async function discoverServices(context) {
             .map((entry) => {
             let servicePath;
             if (entry.ServiceUrl) {
-                servicePath = entry.ServiceUrl;
+                servicePath = extractPathFromUrl(entry.ServiceUrl);
                 if (!servicePath.endsWith('/')) {
                     servicePath += '/';
                 }
             }
             else if (entry.BaseUrl) {
-                servicePath = entry.BaseUrl;
+                servicePath = extractPathFromUrl(entry.BaseUrl);
                 if (!servicePath.endsWith('/')) {
                     servicePath += '/';
                 }
@@ -87,6 +87,18 @@ async function discoverServices(context) {
             error: error instanceof Error ? error.message : String(error),
         });
         return [];
+    }
+}
+function extractPathFromUrl(urlOrPath) {
+    try {
+        if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) {
+            const url = new URL(urlOrPath);
+            return url.pathname;
+        }
+        return urlOrPath;
+    }
+    catch {
+        return urlOrPath;
     }
 }
 function constructServicePath(serviceName, version, namespace = 'sap') {

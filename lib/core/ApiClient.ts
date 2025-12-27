@@ -262,12 +262,18 @@ export async function executeRequest(
 		}
 
 		try {
-			// Use httpRequestWithAuthentication for automatic credential handling
-			const response = await this.helpers.httpRequestWithAuthentication.call(
-				this,
-				CREDENTIAL_TYPE,
-				requestOptions,
-			);
+			// Build auth object for Basic Auth (helpers.request format)
+			const auth = credentials.authentication === 'basicAuth' && credentials.username && credentials.password
+				? { username: credentials.username, password: credentials.password }
+				: undefined;
+
+			// Use helpers.request directly to avoid URL re-encoding
+			// httpRequestWithAuthentication re-encodes URLs, turning $ into %24
+			// which breaks OData query parameters like $filter, $search, $top
+			const response = await this.helpers.request({
+				...requestOptions,
+				auth,
+			} as any);
 
 			if (debugLogging) {
 				const duration = Date.now() - startTime;
