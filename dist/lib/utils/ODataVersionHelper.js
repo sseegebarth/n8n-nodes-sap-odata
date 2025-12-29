@@ -79,19 +79,8 @@ class ODataVersionHelper {
     static async detectVersion(context, _serviceUrl) {
         try {
             const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../../nodes/SapOData/GenericFunctions')));
-            try {
-                const v4Response = await sapOdataApiRequest.call(context, 'GET', '/$metadata', {}, {});
-                if (this.isV4Response(v4Response)) {
-                    return 'v4';
-                }
-            }
-            catch (v4Error) {
-            }
-            const v2Response = await sapOdataApiRequest.call(context, 'GET', '/$metadata', {}, {});
-            if (this.isV2Response(v2Response)) {
-                return 'v2';
-            }
-            return 'v2';
+            const metadataResponse = await sapOdataApiRequest.call(context, 'GET', '/$metadata', {}, {});
+            return this.analyzeMetadataVersion(metadataResponse);
         }
         catch (error) {
             LoggerAdapter_1.LoggerAdapter.warn('ODataVersionHelper', {
@@ -102,19 +91,69 @@ class ODataVersionHelper {
             return 'v2';
         }
     }
-    static isV4Response(response) {
-        if (typeof response === 'string') {
-            return response.includes('Version="4.0"') ||
-                response.includes('xmlns="http://docs.oasis-open.org/odata/ns/edm"');
+    static analyzeMetadataVersion(response) {
+        if (typeof response !== 'string') {
+            if (response['@odata.context'] !== undefined) {
+                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                    action: 'v4_indicator_found',
+                    indicator: '@odata.context property',
+                });
+                return 'v4';
+            }
+            if (response.d !== undefined) {
+                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                    action: 'v2_indicator_found',
+                    indicator: 'd wrapper property',
+                });
+                return 'v2';
+            }
+            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                action: 'no_indicator_found',
+                defaulting_to: 'v2',
+                reason: 'unknown JSON structure',
+            });
+            return 'v2';
         }
-        return response['@odata.context'] !== undefined;
-    }
-    static isV2Response(response) {
-        if (typeof response === 'string') {
-            return response.includes('Version="1.0"') ||
-                response.includes('xmlns="http://schemas.microsoft.com/ado/2007/08/dataservices"');
+        const xml = response;
+        const v4Indicators = [
+            'Version="4.0"',
+            'Version="4.01"',
+            'xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"',
+            'http://docs.oasis-open.org/odata/ns/edm',
+        ];
+        for (const indicator of v4Indicators) {
+            if (xml.includes(indicator)) {
+                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                    action: 'v4_indicator_found',
+                    indicator,
+                });
+                return 'v4';
+            }
         }
-        return response.d !== undefined;
+        const v2Indicators = [
+            'Version="1.0"',
+            'DataServiceVersion="2.0"',
+            'DataServiceVersion="1.0"',
+            'xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx"',
+            'http://schemas.microsoft.com/ado/2008/09/edm',
+            'http://schemas.microsoft.com/ado/2006/04/edm',
+            'http://schemas.microsoft.com/ado/2007/08/dataservices',
+        ];
+        for (const indicator of v2Indicators) {
+            if (xml.includes(indicator)) {
+                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                    action: 'v2_indicator_found',
+                    indicator,
+                });
+                return 'v2';
+            }
+        }
+        LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+            action: 'no_indicator_found',
+            defaulting_to: 'v2',
+            reason: 'no known version indicators in metadata',
+        });
+        return 'v2';
     }
     static getVersionSpecificParams(version, params) {
         const result = { ...params };

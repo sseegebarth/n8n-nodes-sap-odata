@@ -6,7 +6,7 @@ const constants_1 = require("../constants");
 const SecurityUtils_1 = require("./SecurityUtils");
 class ODataErrorHandler {
     static handleApiError(error, node, context = {}) {
-        var _a, _b, _c, _d, _e;
+        var _a, _b, _c, _d, _e, _f, _g;
         const httpError = error;
         const sanitizedMessage = (0, SecurityUtils_1.sanitizeErrorMessage)(httpError.message || 'Unknown error');
         const statusCode = ((_a = httpError.response) === null || _a === void 0 ? void 0 : _a.status) || ((_b = httpError.response) === null || _b === void 0 ? void 0 : _b.statusCode) || httpError.statusCode || context.statusCode;
@@ -90,8 +90,18 @@ class ODataErrorHandler {
                     itemIndex: context.itemIndex,
                 });
             case 404:
+                const entityKeyMatch = (_f = context.resource) === null || _f === void 0 ? void 0 : _f.match(/\(([^)]+)\)/);
+                const entityKey = entityKeyMatch ? entityKeyMatch[1] : null;
+                const entitySetMatch = (_g = context.resource) === null || _g === void 0 ? void 0 : _g.match(/^([^(]+)/);
+                const entitySetName = entitySetMatch ? entitySetMatch[1] : context.resource;
+                if (entityKey) {
+                    throw new n8n_workflow_1.NodeOperationError(node, 'Entity Not Found', {
+                        description: `${description}\n\nThe entity with key ${entityKey} does not exist in ${entitySetName}.\n\nPossible causes:\n- The entity was deleted\n- The key value is incorrect\n- Key format mismatch (check quotes for string keys)\n\nVerify the entity exists in SAP system.`,
+                        itemIndex: context.itemIndex,
+                    });
+                }
                 throw new n8n_workflow_1.NodeOperationError(node, 'Resource Not Found', {
-                    description: `${description}\n\nThe requested resource does not exist.\n\nFor Entity Sets:\n- Verify entity set name spelling\n- Check service is deployed and active\n- Try Custom mode with exact name from /IWFND/GW_CLIENT\n\nFor Entity Keys:\n- Verify key format (e.g., ProductID='123')\n- Check if entity exists in SAP system`,
+                    description: `${description}\n\nThe requested resource does not exist.\n\nFor Entity Sets:\n- Verify entity set name spelling\n- Check service is deployed and active\n- Try Custom mode with exact name from /IWFND/GW_CLIENT`,
                     itemIndex: context.itemIndex,
                 });
             case 405:

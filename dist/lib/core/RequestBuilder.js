@@ -18,6 +18,7 @@ function buildRequestOptions(config) {
         url = url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
     }
     const isMetadataRequest = resource.includes('$metadata');
+    const isDeleteRequest = method === 'DELETE';
     const requestOptions = {
         method,
         url,
@@ -26,7 +27,7 @@ function buildRequestOptions(config) {
             'Content-Type': constants_1.HEADERS.CONTENT_TYPE,
         },
         body,
-        json: !isMetadataRequest,
+        json: !isMetadataRequest && !isDeleteRequest,
         returnFullResponse: false,
         skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
         timeout: constants_1.DEFAULT_TIMEOUT,

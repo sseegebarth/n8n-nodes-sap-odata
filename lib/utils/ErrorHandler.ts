@@ -184,11 +184,30 @@ export class ODataErrorHandler {
 				);
 
 			case 404:
+				// Parse Entity-Key from Resource-Path (e.g., "ProductSet('123')" → Key: '123')
+				const entityKeyMatch = context.resource?.match(/\(([^)]+)\)/);
+				const entityKey = entityKeyMatch ? entityKeyMatch[1] : null;
+				const entitySetMatch = context.resource?.match(/^([^(]+)/);
+				const entitySetName = entitySetMatch ? entitySetMatch[1] : context.resource;
+
+				if (entityKey) {
+					// Entity with specific key not found
+					throw new NodeOperationError(
+						node,
+						'Entity Not Found',
+						{
+							description: `${description}\n\nThe entity with key ${entityKey} does not exist in ${entitySetName}.\n\nPossible causes:\n- The entity was deleted\n- The key value is incorrect\n- Key format mismatch (check quotes for string keys)\n\nVerify the entity exists in SAP system.`,
+							itemIndex: context.itemIndex,
+						},
+					);
+				}
+
+				// Entity Set or resource not found (no key in path)
 				throw new NodeOperationError(
 					node,
 					'Resource Not Found',
 					{
-						description: `${description}\n\nThe requested resource does not exist.\n\nFor Entity Sets:\n- Verify entity set name spelling\n- Check service is deployed and active\n- Try Custom mode with exact name from /IWFND/GW_CLIENT\n\nFor Entity Keys:\n- Verify key format (e.g., ProductID='123')\n- Check if entity exists in SAP system`,
+						description: `${description}\n\nThe requested resource does not exist.\n\nFor Entity Sets:\n- Verify entity set name spelling\n- Check service is deployed and active\n- Try Custom mode with exact name from /IWFND/GW_CLIENT`,
 						itemIndex: context.itemIndex,
 					},
 				);

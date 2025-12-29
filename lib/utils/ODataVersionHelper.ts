@@ -86,7 +86,7 @@ export class ODataVersionHelper {
 	 * Detect OData version from service metadata
 	 *
 	 * @param context - Execution context
-	 * @param serviceUrl - Service base URL
+	 * @param _serviceUrl - Service base URL (unused, kept for interface compatibility)
 	 * @returns Detected version
 	 */
 	private static async detectVersion(
@@ -94,29 +94,10 @@ export class ODataVersionHelper {
 		_serviceUrl: string,
 	): Promise<'v2' | 'v4'> {
 		try {
-			// Try to fetch metadata to detect version
 			const { sapOdataApiRequest } = await import('../../nodes/SapOData/GenericFunctions');
 
-			// First try V4 metadata endpoint
-			try {
-				const v4Response = await sapOdataApiRequest.call(
-					context,
-					'GET',
-					'/$metadata',
-					{},
-					{},
-				);
-
-				// Check for V4 indicators
-				if (this.isV4Response(v4Response)) {
-					return 'v4';
-				}
-			} catch (v4Error) {
-				// V4 failed, try V2
-			}
-
-			// Try V2 metadata endpoint
-			const v2Response = await sapOdataApiRequest.call(
+			// Single metadata request - both V2 and V4 use the same endpoint
+			const metadataResponse = await sapOdataApiRequest.call(
 				context,
 				'GET',
 				'/$metadata',
@@ -124,48 +105,100 @@ export class ODataVersionHelper {
 				{},
 			);
 
-			// Check for V2 indicators
-			if (this.isV2Response(v2Response)) {
-				return 'v2';
-			}
-
-			// Default to V2 (most common in SAP)
-			return 'v2';
+			// Analyze the response to determine version
+			return this.analyzeMetadataVersion(metadataResponse);
 		} catch (error) {
 			LoggerAdapter.warn('ODataVersionHelper', {
 				action: 'version_detection_failed',
 				error: error instanceof Error ? error.message : String(error),
 				defaulting_to: 'v2',
 			});
-			// Default to V2 if detection fails
+			// Default to V2 if detection fails (most common in SAP)
 			return 'v2';
 		}
 	}
 
 	/**
-	 * Check if response is OData V4
+	 * Analyze metadata response to determine OData version
+	 *
+	 * @param response - Metadata response (XML string or parsed object)
+	 * @returns Detected version ('v2' or 'v4')
 	 */
-	private static isV4Response(response: any): boolean {
-		// V4 specific indicators
-		if (typeof response === 'string') {
-			return response.includes('Version="4.0"') ||
-			       response.includes('xmlns="http://docs.oasis-open.org/odata/ns/edm"');
+	private static analyzeMetadataVersion(response: any): 'v2' | 'v4' {
+		// Handle JSON response (rare for $metadata, but possible)
+		if (typeof response !== 'string') {
+			if (response['@odata.context'] !== undefined) {
+				LoggerAdapter.debug('ODataVersionHelper', {
+					action: 'v4_indicator_found',
+					indicator: '@odata.context property',
+				});
+				return 'v4';
+			}
+			if (response.d !== undefined) {
+				LoggerAdapter.debug('ODataVersionHelper', {
+					action: 'v2_indicator_found',
+					indicator: 'd wrapper property',
+				});
+				return 'v2';
+			}
+			// Unknown structure, default to v2
+			LoggerAdapter.debug('ODataVersionHelper', {
+				action: 'no_indicator_found',
+				defaulting_to: 'v2',
+				reason: 'unknown JSON structure',
+			});
+			return 'v2';
 		}
-		// Check for V4 response structure (no 'd' wrapper)
-		return response['@odata.context'] !== undefined;
-	}
 
-	/**
-	 * Check if response is OData V2
-	 */
-	private static isV2Response(response: any): boolean {
-		// V2 specific indicators
-		if (typeof response === 'string') {
-			return response.includes('Version="1.0"') ||
-			       response.includes('xmlns="http://schemas.microsoft.com/ado/2007/08/dataservices"');
+		// Handle XML/String response (standard for $metadata)
+		const xml = response;
+
+		// V4 indicators - check first as they are more specific
+		const v4Indicators = [
+			'Version="4.0"',
+			'Version="4.01"',
+			'xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"',
+			'http://docs.oasis-open.org/odata/ns/edm',
+		];
+
+		for (const indicator of v4Indicators) {
+			if (xml.includes(indicator)) {
+				LoggerAdapter.debug('ODataVersionHelper', {
+					action: 'v4_indicator_found',
+					indicator,
+				});
+				return 'v4';
+			}
 		}
-		// Check for V2 response structure ('d' wrapper)
-		return response.d !== undefined;
+
+		// V2 indicators - Microsoft namespaces and version strings
+		const v2Indicators = [
+			'Version="1.0"',
+			'DataServiceVersion="2.0"',
+			'DataServiceVersion="1.0"',
+			'xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx"',
+			'http://schemas.microsoft.com/ado/2008/09/edm',
+			'http://schemas.microsoft.com/ado/2006/04/edm',
+			'http://schemas.microsoft.com/ado/2007/08/dataservices',
+		];
+
+		for (const indicator of v2Indicators) {
+			if (xml.includes(indicator)) {
+				LoggerAdapter.debug('ODataVersionHelper', {
+					action: 'v2_indicator_found',
+					indicator,
+				});
+				return 'v2';
+			}
+		}
+
+		// No indicators found - default to v2 (most common in SAP)
+		LoggerAdapter.debug('ODataVersionHelper', {
+			action: 'no_indicator_found',
+			defaulting_to: 'v2',
+			reason: 'no known version indicators in metadata',
+		});
+		return 'v2';
 	}
 
 	/**

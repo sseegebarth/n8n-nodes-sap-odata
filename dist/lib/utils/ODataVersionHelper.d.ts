@@ -3,8 +3,7 @@ export declare class ODataVersionHelper {
     private static versionCache;
     static getODataVersion(context: IExecuteFunctions): Promise<'v2' | 'v4'>;
     private static detectVersion;
-    private static isV4Response;
-    private static isV2Response;
+    private static analyzeMetadataVersion;
     static getVersionSpecificParams(version: 'v2' | 'v4', params: IDataObject): IDataObject;
     static extractData(response: any, version: 'v2' | 'v4'): any;
     static getTotalCount(response: any, version: 'v2' | 'v4'): number | undefined;

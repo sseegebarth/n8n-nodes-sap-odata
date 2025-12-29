@@ -76,6 +76,8 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 
 	// Special handling for $metadata requests (XML response)
 	const isMetadataRequest = resource.includes('$metadata');
+	// DELETE requests return 204 No Content (empty body) - don't parse as JSON
+	const isDeleteRequest = method === 'DELETE';
 
 	// Build HTTP request options
 	// Note: We don't pass qs here because we've already built the query string into the URL
@@ -89,7 +91,8 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		},
 		body,
 		// qs is intentionally NOT passed - query params are in the URL to preserve $ characters
-		json: !isMetadataRequest, // $metadata returns XML, not JSON
+		// $metadata returns XML, DELETE returns 204 No Content - don't parse as JSON
+		json: !isMetadataRequest && !isDeleteRequest,
 		returnFullResponse: false,
 		skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
 		timeout: DEFAULT_TIMEOUT,
