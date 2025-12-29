@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-sap-odata",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "n8n node for SAP OData integration with real-time webhook support",
   "keywords": [
     "n8n-community-node-package",
@@ -24,7 +24,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "prepublishOnly": "npm run build && npm run lint"
+    "prepublishOnly": "npm run build && npm run lint",
+    "release:patch": "npm version patch && git push --follow-tags",
+    "release:minor": "npm version minor && git push --follow-tags",
+    "release:major": "npm version major && git push --follow-tags"
   },
   "files": [
     "dist"
