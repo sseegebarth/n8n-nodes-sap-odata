@@ -27,3 +27,6 @@ coverage/
 # Environment
 .env
 .env.local
+
+# Claude Code settings
+.claude/
