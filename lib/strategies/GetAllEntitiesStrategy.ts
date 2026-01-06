@@ -101,8 +101,11 @@ export class GetAllEntitiesStrategy extends CrudStrategy implements IOperationSt
 				}
 			} else {
 				// Fetch only one page
-				const limit = context.getNodeParameter('limit', itemIndex) as number;
-				query.$top = limit;
+				// Only use limit if $top is not explicitly set in Options
+				if (query.$top === undefined) {
+					const limit = context.getNodeParameter('limit', itemIndex) as number;
+					query.$top = limit;
+				}
 
 				const response: any = await sapOdataApiRequest.call(
 					context,

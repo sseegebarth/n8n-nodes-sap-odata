@@ -40,6 +40,7 @@ const SecurityUtils_1 = require("../../lib/utils/SecurityUtils");
 const SapODataLoadOptions_1 = require("./SapODataLoadOptions");
 const SapODataProperties_1 = require("./SapODataProperties");
 const ConnectionTest_1 = require("./ConnectionTest");
+const package_json_1 = require("../../package.json");
 class SapOData {
     constructor() {
         this.description = {
@@ -49,7 +50,7 @@ class SapOData {
             group: ['transform'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-            description: 'Connect to SAP systems via OData',
+            description: `Connect to SAP systems via OData (v${package_json_1.version})`,
             defaults: {
                 name: 'SAP Connect OData',
             },
@@ -105,16 +106,23 @@ class SapOData {
                     : 'execute';
                 const contextMessage = `Item ${i}: ${resource}/${operation}`;
                 if (this.continueOnFail()) {
+                    const httpStatusCode = error.httpStatusCode || null;
+                    const sapErrorCode = error.sapErrorCode || null;
                     returnData.push({
                         json: {
                             error: errorMessage,
+                            statusCode: httpStatusCode,
+                            sapErrorCode: sapErrorCode,
                             context: contextMessage,
+                            __success: false,
                         },
                         pairedItem: { item: i },
                     });
                     continue;
                 }
-                throw new n8n_workflow_1.NodeOperationError(this.getNode(), `${contextMessage} - ${errorMessage}`, {
+                const httpStatus = error.httpStatusCode;
+                const statusInfo = httpStatus ? ` [HTTP ${httpStatus}]` : '';
+                throw new n8n_workflow_1.NodeOperationError(this.getNode(), `${contextMessage}${statusInfo} - ${errorMessage}`, {
                     itemIndex: i,
                     description: errorMessage,
                 });

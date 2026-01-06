@@ -1,0 +1,64 @@
+{
+    "name": "n8n-nodes-sap-odata",
+    "version": "0.3.0",
+    "description": "n8n node for SAP OData integration with real-time webhook support",
+    "keywords": [
+        "n8n-community-node-package",
+        "n8n",
+        "sap",
+        "odata",
+        "gateway"
+    ],
+    "license": "MIT",
+    "author": {
+        "name": "seeppp",
+        "email": "seeppp@users.noreply.github.com"
+    },
+    "engines": {
+        "node": ">=22.0.0"
+    },
+    "scripts": {
+        "build": "n8n-node build",
+        "dev": "n8n-node dev",
+        "format": "prettier --write \"**/*.{ts,json,md}\"",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "test": "jest --passWithNoTests",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
+        "prepublishOnly": "npm run build && npm run lint",
+        "release:patch": "npm version patch && git push --follow-tags",
+        "release:minor": "npm version minor && git push --follow-tags",
+        "release:major": "npm version major && git push --follow-tags"
+    },
+    "files": [
+        "dist"
+    ],
+    "n8n": {
+        "n8nNodesApiVersion": 1,
+        "credentials": [
+            "dist/credentials/SapOdataApi.credentials.js",
+            "dist/credentials/SapOdataWebhookApi.credentials.js"
+        ],
+        "nodes": [
+            "dist/nodes/SapOData/SapOData.node.js",
+            "dist/nodes/SapODataWebhook/SapODataWebhook.node.js"
+        ]
+    },
+    "devDependencies": {
+        "@n8n/node-cli": "latest",
+        "@types/jest": "^29.5.0",
+        "@types/node": "^22.0.0",
+        "@types/request-promise-native": "^1.0.18",
+        "eslint": "^9.0.0",
+        "jest": "^29.5.0",
+        "n8n-workflow": "^1.0.0",
+        "nock": "^13.3.0",
+        "prettier": "^3.0.0",
+        "ts-jest": "^29.1.0",
+        "typescript": "^5.7.0"
+    },
+    "peerDependencies": {
+        "n8n-workflow": "*"
+    }
+}

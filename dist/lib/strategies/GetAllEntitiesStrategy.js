@@ -58,8 +58,10 @@ class GetAllEntitiesStrategy extends CrudStrategy_1.CrudStrategy {
                 }
             }
             else {
-                const limit = context.getNodeParameter('limit', itemIndex);
-                query.$top = limit;
+                if (query.$top === undefined) {
+                    const limit = context.getNodeParameter('limit', itemIndex);
+                    query.$top = limit;
+                }
                 const response = await GenericFunctions_1.sapOdataApiRequest.call(context, 'GET', this.buildResourcePath(entitySet), {}, query);
                 responseData = ODataVersionHelper_1.ODataVersionHelper.extractData(response, odataVersion);
                 this.logOperation('DATA_EXTRACTED', {

@@ -115,38 +115,60 @@ class ODataVersionHelper {
             return 'v2';
         }
         const xml = response;
-        const v4Indicators = [
-            'Version="4.0"',
-            'Version="4.01"',
-            'xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"',
-            'http://docs.oasis-open.org/odata/ns/edm',
-        ];
-        for (const indicator of v4Indicators) {
-            if (xml.includes(indicator)) {
-                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                    action: 'v4_indicator_found',
-                    indicator,
-                });
-                return 'v4';
-            }
+        if (xml.includes('xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx"') ||
+            xml.includes("xmlns:edmx='http://schemas.microsoft.com/ado/2007/06/edmx'")) {
+            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                action: 'v2_indicator_found',
+                indicator: 'Microsoft EDMX namespace (definitive V2)',
+            });
+            return 'v2';
         }
-        const v2Indicators = [
-            'Version="1.0"',
-            'DataServiceVersion="2.0"',
-            'DataServiceVersion="1.0"',
-            'xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx"',
+        if (xml.includes('xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"') ||
+            xml.includes("xmlns:edmx='http://docs.oasis-open.org/odata/ns/edmx'")) {
+            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                action: 'v4_indicator_found',
+                indicator: 'OASIS EDMX namespace (definitive V4)',
+            });
+            return 'v4';
+        }
+        if (xml.includes('DataServiceVersion="2.0"') ||
+            xml.includes('DataServiceVersion="1.0"') ||
+            xml.includes("DataServiceVersion='2.0'") ||
+            xml.includes("DataServiceVersion='1.0'")) {
+            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                action: 'v2_indicator_found',
+                indicator: 'DataServiceVersion header',
+            });
+            return 'v2';
+        }
+        if (xml.includes('Version="4.0"') || xml.includes('Version="4.01"') ||
+            xml.includes("Version='4.0'") || xml.includes("Version='4.01'")) {
+            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                action: 'v4_indicator_found',
+                indicator: 'Version 4.x',
+            });
+            return 'v4';
+        }
+        const v2EdmNamespaces = [
             'http://schemas.microsoft.com/ado/2008/09/edm',
             'http://schemas.microsoft.com/ado/2006/04/edm',
             'http://schemas.microsoft.com/ado/2007/08/dataservices',
         ];
-        for (const indicator of v2Indicators) {
-            if (xml.includes(indicator)) {
+        for (const ns of v2EdmNamespaces) {
+            if (xml.includes(ns)) {
                 LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
                     action: 'v2_indicator_found',
-                    indicator,
+                    indicator: `Microsoft EDM namespace: ${ns}`,
                 });
                 return 'v2';
             }
+        }
+        if (xml.includes('http://docs.oasis-open.org/odata/ns/edm')) {
+            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
+                action: 'v4_indicator_found',
+                indicator: 'OASIS EDM namespace',
+            });
+            return 'v4';
         }
         LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
             action: 'no_indicator_found',

@@ -15,6 +15,7 @@ import { sanitizeErrorMessage } from '../../lib/utils/SecurityUtils';
 import { sapODataLoadOptions, sapODataListSearch } from './SapODataLoadOptions';
 import { sapODataProperties } from './SapODataProperties';
 import { testSapODataConnection } from './ConnectionTest';
+import { version } from '../../package.json';
 
 /**
  * SAP OData Node (Refactored)
@@ -30,7 +31,7 @@ export class SapOData implements INodeType {
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-		description: 'Connect to SAP systems via OData',
+		description: `Connect to SAP systems via OData (v${version})`,
 		defaults: {
 			name: 'SAP Connect OData',
 		},
@@ -103,17 +104,27 @@ export class SapOData implements INodeType {
 				const contextMessage = `Item ${i}: ${resource}/${operation}`;
 
 				if (this.continueOnFail()) {
+					// Extract HTTP status code and SAP error code from extended error
+					const httpStatusCode = (error as { httpStatusCode?: number }).httpStatusCode || null;
+					const sapErrorCode = (error as { sapErrorCode?: string }).sapErrorCode || null;
+
 					returnData.push({
 						json: {
 							error: errorMessage,
+							statusCode: httpStatusCode,
+							sapErrorCode: sapErrorCode,
 							context: contextMessage,
+							__success: false,
 						},
 						pairedItem: { item: i },
 					});
 					continue;
 				}
 
-				throw new NodeOperationError(this.getNode(), `${contextMessage} - ${errorMessage}`, {
+				// Include HTTP status code in error message if available
+				const httpStatus = (error as { httpStatusCode?: number }).httpStatusCode;
+				const statusInfo = httpStatus ? ` [HTTP ${httpStatus}]` : '';
+				throw new NodeOperationError(this.getNode(), `${contextMessage}${statusInfo} - ${errorMessage}`, {
 					itemIndex: i,
 					description: errorMessage,
 				});
