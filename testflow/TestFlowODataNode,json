@@ -1,0 +1,512 @@
+{
+  "name": "TestFlowODataNode",
+  "nodes": [
+    {
+      "parameters": {
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "returnAll": true,
+        "options": {
+          "$count": false
+        },
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -144
+      ],
+      "id": "4b9f5b29-92d7-4a17-ba43-255bcebd3a22",
+      "name": "Get many entities",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -96
+      ],
+      "id": "83387811-f32f-4551-b4d9-4a16bac635b4",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "entityKey": {
+          "__rl": true,
+          "value": "'ICE002'",
+          "mode": "id"
+        },
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        832,
+        48
+      ],
+      "id": "215514df-e0af-4070-bedd-d50ad2e4ed64",
+      "name": "Delete an entity",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "data": "{\n  \"ProductID\": \"ICE002\",\n  \"TypeCode\": \"PR\",\n  \"Category\": \"Miscellaneous\",\n  \"Name\": \"Crushed Ice Pack\",\n  \"Description\": \"Finely crushed ice for cocktails and quick cooling\",\n  \"SupplierID\": \"0100000010\",\n  \"TaxTarifCode\": 1,\n  \"MeasureUnit\": \"BAG\",\n  \"WeightMeasure\": \"1.500\",\n  \"WeightUnit\": \"KG\",\n  \"CurrencyCode\": \"EUR\",\n  \"Price\": \"2.99\",\n  \"Width\": \"20.000\",\n  \"Depth\": \"12.000\",\n  \"Height\": \"6.000\",\n  \"DimUnit\": \"CM\"\n}",
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        1072,
+        48
+      ],
+      "id": "b34efd84-ac3d-4b6f-9dd3-7ff8f86bacae",
+      "name": "Create an entity",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Trigger Deletion",
+        "formDescription": "Trigger Deletion",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        48
+      ],
+      "id": "24f4a542-a64a-4d1b-b81b-68aa424a6944",
+      "name": "Wait",
+      "webhookId": "92defb19-67d3-4fe4-951d-ddacb0fc2d07"
+    },
+    {
+      "parameters": {
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "options": {
+          "$filter": "ProductID eq 'ICE002'"
+        },
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        432
+      ],
+      "id": "1c20d5c1-d57a-4a85-b030-573a4597dbd5",
+      "name": "GET with Filter",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getMetadata",
+        "metadataType": "metadata",
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -528
+      ],
+      "id": "8be8224e-58a8-4216-9b25-a57bd7c51d68",
+      "name": "Get service metadata",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getMetadata",
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -336
+      ],
+      "id": "91973bdb-2afd-478b-94a9-a276ba5a517c",
+      "name": "Get service document",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "limit": {},
+        "options": {
+          "$orderby": "ProductID desc"
+        },
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        608
+      ],
+      "id": "ff1612d3-4554-417d-bddb-d0c05c57cb13",
+      "name": "GET orderby desc",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "limit": {},
+        "options": {
+          "$top": 10,
+          "$skip": 10
+        },
+        "advancedOptions": {
+          "debugLogging": false
+        }
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        800
+      ],
+      "id": "14481e9d-d02d-4617-beda-f269ed605377",
+      "name": "GET top&skip",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "entityKey": {
+          "__rl": true,
+          "value": "'ICE002'",
+          "mode": "id"
+        },
+        "options": {},
+        "advancedOptions": {}
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        48
+      ],
+      "id": "5f8f61b0-2da6-4bea-9460-2adc444e1a3f",
+      "name": "GET by key",
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "servicePath": {
+          "__rl": true,
+          "value": "/sap/opu/odata/iwbep/GWSAMPLE_BASIC/",
+          "mode": "list",
+          "cachedResultName": "GWSAMPLE_BASIC (ZGWSAMPLE_BASIC)",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/"
+        },
+        "entitySet": {
+          "__rl": true,
+          "value": "ProductSet",
+          "mode": "list",
+          "cachedResultName": "ProductSet",
+          "cachedResultUrl": "http://host:port/sap/opu/odata/iwbep/GWSAMPLE_BASIC/ProductSet"
+        },
+        "entityKey": {
+          "__rl": true,
+          "value": "'ICE003'",
+          "mode": "id"
+        },
+        "options": {},
+        "advancedOptions": {
+          "debugLogging": false
+        }
+      },
+      "type": "CUSTOM.sapOData",
+      "typeVersion": 1,
+      "position": [
+        224,
+        256
+      ],
+      "id": "983f0f16-6b03-4b74-b60f-11a375019634",
+      "name": "GET by key - invalid key",
+      "alwaysOutputData": true,
+      "credentials": {
+        "sapOdataApi": {
+          "id": "EzUlJdjEb9ZNfmwv",
+          "name": "a4h - container SAPDev Trial"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Test-Service:\n\n/sap/opu/odata/IWBEP/GWSAMPLE_BASIC",
+        "width": 448
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -576,
+        -496
+      ],
+      "typeVersion": 1,
+      "id": "bedad45f-5680-45da-8e18-5d3e5bef6a60",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get many entities": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get many entities",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET by key",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET with Filter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get service metadata",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get service document",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET orderby desc",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET top&skip",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "GET by key - invalid key",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete an entity": {
+      "main": [
+        [
+          {
+            "node": "Create an entity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Delete an entity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET top&skip": {
+      "main": [
+        []
+      ]
+    },
+    "GET by key": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "865411f8-d015-4d71-b0e7-dc05b0712f15",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "0de6300d8016b231fa49876bd8420a28237e5ee3af7dd692023efb8af634c27b"
+  },
+  "id": "XXjOAC8iiJ6jzbej",
+  "tags": []
+}
