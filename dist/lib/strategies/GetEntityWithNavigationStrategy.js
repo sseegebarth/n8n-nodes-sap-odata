@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GetEntityWithNavigationStrategy = void 0;
 const ApiClient_1 = require("../core/ApiClient");
-const Logger_1 = require("../utils/Logger");
 const NavigationPropertyHelper_1 = require("../utils/NavigationPropertyHelper");
 const StrategyHelpers_1 = require("../utils/StrategyHelpers");
 const CrudStrategy_1 = require("./base/CrudStrategy");
@@ -13,12 +12,6 @@ class GetEntityWithNavigationStrategy extends CrudStrategy_1.CrudStrategy {
             const entityKey = this.getNodeParameter('entityKey', itemIndex);
             const servicePath = (0, StrategyHelpers_1.getServicePath)(this, itemIndex);
             const useNavigation = this.getNodeParameter('useNavigation', itemIndex, false);
-            Logger_1.Logger.debug('Get Entity with Navigation', {
-                module: 'GetEntityWithNavigationStrategy',
-                entitySet,
-                entityKey,
-                useNavigation,
-            });
             const queryParams = {
                 ...(0, StrategyHelpers_1.getQueryOptions)(this, itemIndex),
             };
@@ -35,11 +28,6 @@ class GetEntityWithNavigationStrategy extends CrudStrategy_1.CrudStrategy {
                             }
                         }
                         queryParams.$expand = NavigationPropertyHelper_1.NavigationPropertyHelper.buildMultiLevelExpand(paths);
-                        Logger_1.Logger.debug('Simple navigation expand', {
-                            module: 'GetEntityWithNavigationStrategy',
-                            paths,
-                            expand: queryParams.$expand,
-                        });
                     }
                 }
                 else if (navigationMode === 'advanced') {
@@ -47,11 +35,6 @@ class GetEntityWithNavigationStrategy extends CrudStrategy_1.CrudStrategy {
                     const navConfigs = (0, StrategyHelpers_1.validateAndParseJson)(navConfigStr, 'navigationConfig', this.getNode());
                     if (Array.isArray(navConfigs) && navConfigs.length > 0) {
                         queryParams.$expand = NavigationPropertyHelper_1.NavigationPropertyHelper.buildExpandParameter(navConfigs);
-                        Logger_1.Logger.debug('Advanced navigation expand', {
-                            module: 'GetEntityWithNavigationStrategy',
-                            configCount: navConfigs.length,
-                            expand: queryParams.$expand,
-                        });
                     }
                 }
             }
@@ -65,11 +48,6 @@ class GetEntityWithNavigationStrategy extends CrudStrategy_1.CrudStrategy {
             });
             const result = (0, StrategyHelpers_1.extractResult)(response);
             const convertedResult = (0, StrategyHelpers_1.applyTypeConversion)(result, this, itemIndex);
-            Logger_1.Logger.info('Entity with navigation retrieved', {
-                module: 'GetEntityWithNavigationStrategy',
-                entitySet,
-                hasNavigationData: useNavigation,
-            });
             return (0, StrategyHelpers_1.formatSuccessResponse)(convertedResult, 'Get Entity with Navigation');
         }
         catch (error) {

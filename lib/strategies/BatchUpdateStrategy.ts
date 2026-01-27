@@ -9,7 +9,6 @@ import {
 	BatchOperationType,
 	IBatchOperation,
 } from '../utils/BatchRequestBuilder';
-import { Logger } from '../utils/Logger';
 import {
 	getEntitySet,
 	getServicePath,
@@ -39,12 +38,6 @@ export class BatchUpdateStrategy extends CrudStrategy {
 			if (!Array.isArray(updates)) {
 				throw new Error('Updates must be an array of {key, data} objects');
 			}
-
-			Logger.info('Batch Update started', {
-				module: 'BatchUpdateStrategy',
-				entitySet,
-				updateCount: updates.length,
-			});
 
 			// Build batch operations
 			const operations: IBatchOperation[] = updates.map((update: any) => {
@@ -109,12 +102,6 @@ export class BatchUpdateStrategy extends CrudStrategy {
 						index: batchIndex * batchSize + idx,
 						key: updates[batchIndex * batchSize + idx]?.key,
 					});
-				});
-
-				Logger.info('Update batch executed', {
-					module: 'BatchUpdateStrategy',
-					batchIndex: batchIndex + 1,
-					successCount: batchResponse.results.filter(r => r.success).length,
 				});
 			}
 

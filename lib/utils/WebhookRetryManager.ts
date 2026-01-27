@@ -13,8 +13,6 @@
  * @module WebhookRetryManager
  */
 
-import { Logger } from './Logger';
-
 /**
  * Webhook delivery status
  *
@@ -263,12 +261,6 @@ export class WebhookRetryManager {
 
 		// Start automatic cleanup of old deliveries
 		this.startCleanup();
-
-		Logger.info('Webhook Retry Manager initialized', {
-			module: 'WebhookRetryManager',
-			strategy: this.config.strategy,
-			maxRetries: this.config.maxRetries,
-		});
 	}
 
 	/**
@@ -285,10 +277,6 @@ export class WebhookRetryManager {
 	static getInstance(config?: Partial<IRetryConfig>): WebhookRetryManager {
 		if (!WebhookRetryManager.instance) {
 			WebhookRetryManager.instance = new WebhookRetryManager(config);
-		} else if (config) {
-			Logger.warn('getInstance called with config, but instance already exists. Config ignored.', {
-				module: 'WebhookRetryManager',
-			});
 		}
 		return WebhookRetryManager.instance;
 	}
@@ -307,10 +295,6 @@ export class WebhookRetryManager {
 		if (WebhookRetryManager.instance) {
 			WebhookRetryManager.instance.destroy();
 			WebhookRetryManager.instance = null as any;
-
-			Logger.debug('Singleton instance reset', {
-				module: 'WebhookRetryManager',
-			});
 		}
 	}
 
@@ -334,10 +318,6 @@ export class WebhookRetryManager {
 		// Clear all data
 		this.deliveries.clear();
 		this.circuits.clear();
-
-		Logger.info('WebhookRetryManager destroyed', {
-			module: 'WebhookRetryManager',
-		});
 	}
 
 	/**
@@ -374,12 +354,6 @@ export class WebhookRetryManager {
 
 		this.deliveries.set(id, delivery);
 
-		Logger.info('Webhook delivery scheduled', {
-			module: 'WebhookRetryManager',
-			deliveryId: id,
-			url: this.sanitizeUrl(webhookUrl),
-		});
-
 		// Attempt immediate delivery
 		await this.attemptDelivery(id, options);
 
@@ -406,11 +380,6 @@ export class WebhookRetryManager {
 		// Check circuit breaker
 		if (!this.canAttemptDelivery(delivery.webhookUrl)) {
 			const error = 'Circuit breaker open - endpoint unavailable';
-			Logger.warn(error, {
-				module: 'WebhookRetryManager',
-				deliveryId,
-				url: this.sanitizeUrl(delivery.webhookUrl),
-			});
 
 			// Schedule retry
 			this.scheduleRetry(delivery, options);
@@ -431,13 +400,6 @@ export class WebhookRetryManager {
 
 		const attemptNumber = delivery.retryCount;
 		const startTime = Date.now();
-
-		Logger.debug('Attempting webhook delivery', {
-			module: 'WebhookRetryManager',
-			deliveryId,
-			attempt: attemptNumber,
-			url: this.sanitizeUrl(delivery.webhookUrl),
-		});
 
 		try {
 			// Simulate HTTP request (in real implementation, use axios or fetch)
@@ -465,14 +427,6 @@ export class WebhookRetryManager {
 
 				this.recordCircuitSuccess(delivery.webhookUrl);
 
-				Logger.info('Webhook delivered successfully', {
-					module: 'WebhookRetryManager',
-					deliveryId,
-					attempt: attemptNumber,
-					durationMs,
-					url: this.sanitizeUrl(delivery.webhookUrl),
-				});
-
 				return {
 					success: true,
 					httpStatus: result.httpStatus,
@@ -489,17 +443,6 @@ export class WebhookRetryManager {
 					delivery.status = DeliveryStatus.Failed;
 					this.scheduleRetry(delivery, options);
 
-					Logger.warn('Webhook delivery failed, retry scheduled', {
-						module: 'WebhookRetryManager',
-						deliveryId,
-						attempt: attemptNumber,
-						httpStatus: result.httpStatus,
-						error: result.error,
-						nextRetry: delivery.nextRetryAt
-							? new Date(delivery.nextRetryAt).toISOString()
-							: 'none',
-					});
-
 					return {
 						success: false,
 						httpStatus: result.httpStatus,
@@ -515,14 +458,6 @@ export class WebhookRetryManager {
 
 					// Clear retry timer for this delivery
 					this.clearRetryTimer(deliveryId);
-
-					Logger.error('Webhook delivery permanently failed', undefined, {
-						module: 'WebhookRetryManager',
-						deliveryId,
-						attempt: attemptNumber,
-						httpStatus: result.httpStatus,
-						error: result.error,
-					});
 
 					return {
 						success: false,
@@ -556,16 +491,6 @@ export class WebhookRetryManager {
 				delivery.status = DeliveryStatus.Failed;
 				this.scheduleRetry(delivery, options);
 
-				Logger.warn('Webhook delivery network error, retry scheduled', {
-					module: 'WebhookRetryManager',
-					deliveryId,
-					attempt: attemptNumber,
-					error: errorMessage,
-					nextRetry: delivery.nextRetryAt
-						? new Date(delivery.nextRetryAt).toISOString()
-						: 'none',
-				});
-
 				return {
 					success: false,
 					httpStatus: 0,
@@ -580,13 +505,6 @@ export class WebhookRetryManager {
 
 				// Clear retry timer for this delivery
 				this.clearRetryTimer(deliveryId);
-
-				Logger.error('Webhook delivery permanently failed (network)', undefined, {
-					module: 'WebhookRetryManager',
-					deliveryId,
-					attempt: attemptNumber,
-					error: errorMessage,
-				});
 
 				return {
 					success: false,
@@ -676,14 +594,6 @@ export class WebhookRetryManager {
 		}, delayMs);
 
 		this.retryTimers.set(delivery.id, timer);
-
-		Logger.debug('Retry scheduled', {
-			module: 'WebhookRetryManager',
-			deliveryId: delivery.id,
-			attempt: delivery.retryCount,
-			delayMs,
-			nextRetryAt: new Date(nextRetryAt).toISOString(),
-		});
 	}
 
 	/**
@@ -730,10 +640,6 @@ export class WebhookRetryManager {
 		}
 
 		if (delivery.status === DeliveryStatus.Delivered) {
-			Logger.warn('Attempted to retry already delivered webhook', {
-				module: 'WebhookRetryManager',
-				deliveryId,
-			});
 			return {
 				success: true,
 				httpStatus: 200,
@@ -768,11 +674,6 @@ export class WebhookRetryManager {
 
 		// Clear retry timer
 		this.clearRetryTimer(deliveryId);
-
-		Logger.info('Delivery marked as delivered', {
-			module: 'WebhookRetryManager',
-			deliveryId,
-		});
 	}
 
 	/**
@@ -846,10 +747,6 @@ export class WebhookRetryManager {
 				if (timeSinceOpen >= WebhookRetryManager.CIRCUIT_CONFIG.openDurationMs) {
 					circuit.state = CircuitState.HalfOpen;
 					circuit.successCount = 0;
-					Logger.info('Circuit breaker half-open', {
-						module: 'WebhookRetryManager',
-						endpoint: this.sanitizeUrl(endpoint),
-					});
 					return true;
 				}
 				return false;
@@ -879,10 +776,6 @@ export class WebhookRetryManager {
 			if (circuit.successCount >= WebhookRetryManager.CIRCUIT_CONFIG.successThreshold) {
 				circuit.state = CircuitState.Closed;
 				circuit.failureCount = 0;
-				Logger.info('Circuit breaker closed', {
-					module: 'WebhookRetryManager',
-					endpoint: this.sanitizeUrl(endpoint),
-				});
 			}
 		} else {
 			circuit.failureCount = 0;
@@ -917,19 +810,10 @@ export class WebhookRetryManager {
 			circuit.state = CircuitState.Open;
 			circuit.openedAt = Date.now();
 			circuit.successCount = 0;
-			Logger.warn('Circuit breaker reopened', {
-				module: 'WebhookRetryManager',
-				endpoint: this.sanitizeUrl(endpoint),
-			});
 		} else if (circuit.failureCount >= WebhookRetryManager.CIRCUIT_CONFIG.failureThreshold) {
 			// Too many failures - open circuit
 			circuit.state = CircuitState.Open;
 			circuit.openedAt = Date.now();
-			Logger.warn('Circuit breaker opened', {
-				module: 'WebhookRetryManager',
-				endpoint: this.sanitizeUrl(endpoint),
-				failures: circuit.failureCount,
-			});
 		}
 	}
 
@@ -953,10 +837,6 @@ export class WebhookRetryManager {
 	 */
 	resetCircuit(endpoint: string): void {
 		this.circuits.delete(endpoint);
-		Logger.info('Circuit breaker reset', {
-			module: 'WebhookRetryManager',
-			endpoint: this.sanitizeUrl(endpoint),
-		});
 	}
 
 	/**
@@ -973,10 +853,6 @@ export class WebhookRetryManager {
 		this.deliveries.clear();
 		this.circuits.clear();
 		this.retryTimers.clear();
-
-		Logger.warn('All deliveries cleared', {
-			module: 'WebhookRetryManager',
-		});
 	}
 
 	/**
@@ -988,25 +864,6 @@ export class WebhookRetryManager {
 	private generateDeliveryId(): string {
 		const crypto = require('crypto');
 		return `whd_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
-	}
-
-	/**
-	 * Sanitize URL for logging (hide credentials)
-	 *
-	 * @private
-	 * @param {string} url - URL to sanitize
-	 * @returns {string} Sanitized URL
-	 */
-	private sanitizeUrl(url: string): string {
-		try {
-			const parsed = new URL(url);
-			if (parsed.username || parsed.password) {
-				return `${parsed.protocol}//${parsed.host}${parsed.pathname}`;
-			}
-			return url;
-		} catch {
-			return url;
-		}
 	}
 
 	/**
@@ -1053,11 +910,6 @@ export class WebhookRetryManager {
 		if (timer) {
 			clearTimeout(timer);
 			this.retryTimers.delete(deliveryId);
-
-			Logger.debug('Retry timer cleared', {
-				module: 'WebhookRetryManager',
-				deliveryId,
-			});
 		}
 	}
 
@@ -1079,11 +931,6 @@ export class WebhookRetryManager {
 		if (this.cleanupTimer.unref) {
 			this.cleanupTimer.unref();
 		}
-
-		Logger.debug('Automatic delivery cleanup started', {
-			module: 'WebhookRetryManager',
-			intervalMs: WebhookRetryManager.STORAGE_CONFIG.cleanupIntervalMs,
-		});
 	}
 
 	/**
@@ -1095,10 +942,6 @@ export class WebhookRetryManager {
 		if (this.cleanupTimer) {
 			clearInterval(this.cleanupTimer);
 			this.cleanupTimer = null;
-
-			Logger.debug('Automatic delivery cleanup stopped', {
-				module: 'WebhookRetryManager',
-			});
 		}
 	}
 
@@ -1150,12 +993,5 @@ export class WebhookRetryManager {
 			}
 		}
 
-		if (removed > 0) {
-			Logger.info('Cleaned up old deliveries', {
-				module: 'WebhookRetryManager',
-				removed,
-				remaining: this.deliveries.size,
-			});
-		}
 	}
 }

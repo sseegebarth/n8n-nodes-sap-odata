@@ -1,413 +1,125 @@
+/**
+ * SAP OData Credential Test
+ *
+ * Custom credential test that handles SAP's specific behavior.
+ * SAP systems often return 404 for root URLs, so we accept any HTTP response
+ * as proof that the system is reachable.
+ */
+
 import {
-	ICredentialDataDecryptedObject,
 	ICredentialTestFunctions,
+	ICredentialsDecrypted,
 	INodeCredentialTestResult,
 } from 'n8n-workflow';
-import { CONNECTION_TEST_TIMEOUT } from '../../lib/constants';
-import { getOAuthToken, IOAuthCredentials } from '../../lib/utils/OAuthTokenManager';
-import { parseMetadataForEntitySets } from './GenericFunctions';
 
 /**
- * Connection Test Result
- */
-export interface IConnectionTestResult {
-	status: 'OK' | 'Error';
-	message: string;
-	details?: {
-		catalogServiceAvailable: boolean;
-		metadataAccessible: boolean;
-		entitySetCount?: number;
-		entitySets?: string[];
-		responseTime: number;
-		sapClient?: string;
-		sapLanguage?: string;
-	};
-}
-
-/**
- * Test SAP OData connection with comprehensive checks
+ * Test SAP OData connection
  *
- * This function performs multiple checks:
- * 1. Catalog Service availability (service discovery)
- * 2. Metadata endpoint accessibility
- * 3. Entity set parsing
- * 4. Overall response time measurement
- *
- * @param this - n8n credential test context
- * @param credential - Decrypted credential data
- * @returns Detailed test result with status and diagnostics
+ * This test checks if the SAP system is reachable. It accepts any HTTP response
+ * (including 404) as success, because SAP systems don't have a standard ping endpoint.
  */
 export async function testSapODataConnection(
 	this: ICredentialTestFunctions,
-	credential: ICredentialDataDecryptedObject,
+	credential: ICredentialsDecrypted,
 ): Promise<INodeCredentialTestResult> {
-	const startTime = Date.now();
-	const host = (credential.host as string)?.replace(/\/$/, '') || '';
-	const authentication = credential.authentication as string;
-	const allowUnauthorizedCerts = credential.allowUnauthorizedCerts as boolean;
-	const sapClient = credential.sapClient as string;
-	const sapLanguage = credential.sapLanguage as string;
+	const credentials = credential.data;
 
-	// ========================================
-	// URL Validation (consistent with node behavior)
-	// ========================================
-	try {
-		const parsedUrl = new URL(host);
-
-		// Only allow HTTP and HTTPS
-		if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-			return {
-				status: 'Error',
-				message: `Invalid protocol: ${parsedUrl.protocol}\n\nOnly HTTP and HTTPS are allowed.`,
-			};
-		}
-
-		// Check for private IP addresses (unless ALLOW_PRIVATE_IPS=true)
-		const allowPrivateIps = process.env.ALLOW_PRIVATE_IPS === 'true' || process.env.ALLOW_PRIVATE_IPS === '1';
-		const hostname = parsedUrl.hostname.toLowerCase();
-
-		if (!allowPrivateIps) {
-			// Check for localhost
-			const localhostPatterns = ['localhost', '127.', '0.0.0.0', '::1'];
-			if (localhostPatterns.some(pattern => hostname.includes(pattern))) {
-				return {
-					status: 'Error',
-					message: 'Access to localhost is not allowed\n\n' +
-						'For internal/on-premise SAP systems, set environment variable:\n' +
-						'ALLOW_PRIVATE_IPS=true',
-				};
-			}
-
-			// Check for private IP ranges
-			const privateIpPatterns = [
-				/^10\./,
-				/^172\.(1[6-9]|2\d|3[01])\./,
-				/^192\.168\./,
-			];
-
-			if (privateIpPatterns.some(pattern => pattern.test(hostname))) {
-				return {
-					status: 'Error',
-					message: 'Access to private IP addresses is not allowed\n\n' +
-						'For internal/on-premise SAP systems, set environment variable:\n' +
-						'ALLOW_PRIVATE_IPS=true\n\n' +
-						'In Docker, add to your docker-compose.yml:\n' +
-						'environment:\n' +
-						'  - ALLOW_PRIVATE_IPS=true',
-				};
-			}
-		}
-	} catch (error) {
+	if (!credentials) {
 		return {
 			status: 'Error',
-			message: `Invalid host URL: ${error instanceof Error ? error.message : String(error)}`,
+			message: 'No credentials provided',
 		};
 	}
 
-	// Build auth config for Basic Auth
-	const auth = authentication === 'basicAuth'
-		? {
-				username: credential.username as string,
-				password: credential.password as string,
-		}
-		: undefined;
-
-	// OAuth 2.0 token for Bearer auth
-	let oauthToken: string | undefined;
-	let oauthHeaders: Record<string, string> = {};
-
-	if (authentication === 'oauth2ClientCredentials') {
-		const oauthTokenUrl = credential.oauthTokenUrl as string;
-		const oauthClientId = credential.oauthClientId as string;
-		const oauthClientSecret = credential.oauthClientSecret as string;
-		const oauthScope = credential.oauthScope as string | undefined;
-
-		if (!oauthTokenUrl || !oauthClientId || !oauthClientSecret) {
-			return {
-				status: 'Error',
-				message: 'OAuth 2.0 configuration incomplete\n\n' +
-					'Token URL, Client ID, and Client Secret are required.',
-			};
-		}
-
-		try {
-			const oauthCreds: IOAuthCredentials = {
-				tokenUrl: oauthTokenUrl,
-				clientId: oauthClientId,
-				clientSecret: oauthClientSecret,
-				scope: oauthScope,
-				allowUnauthorizedCerts,
-			};
-
-			const token = await getOAuthToken(this, oauthCreds);
-			oauthToken = token.accessToken;
-			oauthHeaders = {
-				Authorization: `Bearer ${oauthToken}`,
-			};
-		} catch (error) {
-			const errorMsg = error instanceof Error ? error.message : String(error);
-			return {
-				status: 'Error',
-				message: 'OAuth 2.0 token fetch failed\n\n' +
-					`Error: ${sanitizeErrorMessage(errorMsg)}\n\n` +
-					'Please check:\n' +
-					'• Token URL is correct\n' +
-					'• Client ID and Secret are valid\n' +
-					'• Scope is correct (if required)',
-			};
-		}
+	const host = (credentials.host as string)?.replace(/\/$/, '');
+	if (!host) {
+		return {
+			status: 'Error',
+			message: 'Host URL is required',
+		};
 	}
 
 	try {
-		// ========================================
-		// Test 1: Catalog Service Availability
-		// ========================================
-		let catalogServiceAvailable = false;
-		let catalogResponseTime = 0;
+		// Build request options
+		const requestOptions: Record<string, unknown> = {
+			method: 'GET',
+			url: `${host}/`,
+			skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
+			returnFullResponse: true,
+			ignoreHttpStatusErrors: true, // Accept any status code
+			timeout: 10000,
+		};
 
-		try {
-			const catalogStartTime = Date.now();
-			await this.helpers.request({
-				method: 'GET',
-				url: `${host}/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/`,
-				auth,
-				skipSslCertificateValidation: allowUnauthorizedCerts,
-				timeout: CONNECTION_TEST_TIMEOUT,
-				headers: {
-					...buildSapHeaders(sapClient, sapLanguage),
-					...oauthHeaders,
-				},
-			});
-			catalogResponseTime = Date.now() - catalogStartTime;
-			catalogServiceAvailable = true;
-		} catch (error) {
-			// Catalog service may not be available, continue with metadata test
-			catalogServiceAvailable = false;
+		// Add Basic Auth if configured
+		if (credentials.authentication === 'basicAuth' && credentials.username && credentials.password) {
+			requestOptions.auth = {
+				username: credentials.username as string,
+				password: credentials.password as string,
+			};
 		}
 
-		// ========================================
-		// Test 2: Metadata Endpoint Test
-		// ========================================
-		// Try common metadata endpoints
-		let metadataXml: string | null = null;
-		let metadataAccessible = false;
-
-		const testPaths = [
-			'/sap/opu/odata/sap/API_BUSINESS_PARTNER/$metadata', // Common API
-			'/sap/opu/odata/iwbep/GWSAMPLE_BASIC/$metadata',      // Sample service
-		];
-
-		for (const path of testPaths) {
-			try {
-				const metadataResponse = await this.helpers.request({
-					method: 'GET',
-					url: `${host}${path}`,
-					auth,
-					skipSslCertificateValidation: allowUnauthorizedCerts,
-					timeout: CONNECTION_TEST_TIMEOUT,
-					headers: {
-						...buildSapHeaders(sapClient, sapLanguage),
-						...oauthHeaders,
-					},
-				});
-				metadataXml = typeof metadataResponse === 'string'
-					? metadataResponse
-					: JSON.stringify(metadataResponse);
-				metadataAccessible = true;
-				break; // Success, exit loop
-			} catch (error) {
-				// Try next path
-				continue;
-			}
+		// Add SAP headers
+		const headers: Record<string, string> = {};
+		if (credentials.sapClient) {
+			headers['sap-client'] = credentials.sapClient as string;
+		}
+		if (credentials.sapLanguage) {
+			headers['sap-language'] = credentials.sapLanguage as string;
+		}
+		if (Object.keys(headers).length > 0) {
+			requestOptions.headers = headers;
 		}
 
-		// ========================================
-		// Test 3: Parse Entity Sets
-		// ========================================
-		let entitySets: string[] = [];
-		if (metadataXml && metadataAccessible) {
-			try {
-				entitySets = parseMetadataForEntitySets(metadataXml);
-			} catch (error) {
-				// Parsing failed, but connection works
-				entitySets = [];
-			}
-		}
+		// Make request
+		const response = await this.helpers.request(requestOptions);
 
-		const totalResponseTime = Date.now() - startTime;
-
-		// ========================================
-		// Build Success Result
-		// ========================================
-		if (catalogServiceAvailable || metadataAccessible) {
-			const entitySetPreview = entitySets.slice(0, 5);
-			const moreCount = entitySets.length - 5;
-
-			let message = 'Connection successful!\n\n';
-
-			// Show authentication method used
-			if (authentication === 'oauth2ClientCredentials') {
-				message += 'Auth: OAuth 2.0 Client Credentials\n';
-			} else if (authentication === 'basicAuth') {
-				message += 'Auth: Basic Authentication\n';
-			} else {
-				message += 'Auth: None (Public API)\n';
-			}
-
-			if (catalogServiceAvailable) {
-				message += `Catalog Service: Available (${catalogResponseTime}ms)\n`;
-			}
-
-			if (metadataAccessible) {
-				message += `Metadata Access: OK\n`;
-				message += `Entity Sets Found: ${entitySets.length}\n`;
-
-				if (entitySetPreview.length > 0) {
-					message += `\nSample Entity Sets:\n`;
-					entitySetPreview.forEach((es, idx) => {
-						message += `   ${idx + 1}. ${es}\n`;
-					});
-
-					if (moreCount > 0) {
-						message += `   ... and ${moreCount} more\n`;
-					}
-				}
-			}
-
-			message += `\nResponse Time: ${totalResponseTime}ms`;
-
-			if (sapClient) {
-				message += `\nSAP Client: ${sapClient}`;
-			}
-
+		// Check if we got any response (even 404 is fine - it means SAP is reachable)
+		if (response !== undefined) {
 			return {
 				status: 'OK',
-				message,
+				message: 'Connection successful',
 			};
 		}
 
-		// If we reach here, both tests failed
 		return {
 			status: 'Error',
-			message: '❌ Connection failed\n\n' +
-				'Unable to access SAP OData services.\n' +
-				'Please check:\n' +
-				'• Host URL is correct\n' +
-				'• Authentication credentials\n' +
-				'• Network connectivity / VPN\n' +
-				'• SAP Gateway is running',
+			message: 'No response from SAP system',
 		};
-
 	} catch (error) {
-		// ========================================
-		// Detailed Error Handling
-		// ========================================
-		const totalResponseTime = Date.now() - startTime;
+		const errorMessage = error instanceof Error ? error.message : String(error);
 
-		// Import type guards for robust error checking
-		const { getHttpStatusCode, isNetworkError, isTimeoutError, isCertificateError, getErrorMessage } =
-			await import('../../lib/utils/TypeGuards');
-
-		const statusCode = getHttpStatusCode(error);
-		const errorMessage = getErrorMessage(error);
-
-		// Authentication Error
-		if (statusCode === 401) {
+		// Check for specific error types
+		if (errorMessage.includes('ECONNREFUSED')) {
 			return {
 				status: 'Error',
-				message: 'Authentication failed\n\n' +
-					'Invalid username or password.\n' +
-					'Please check your credentials.\n\n' +
-					`Response Time: ${totalResponseTime}ms`,
+				message: `Connection refused. Is the SAP system running at ${host}?`,
 			};
 		}
 
-		// Forbidden
-		if (statusCode === 403) {
+		if (errorMessage.includes('ENOTFOUND') || errorMessage.includes('getaddrinfo')) {
 			return {
 				status: 'Error',
-				message: 'Access forbidden\n\n' +
-					'User does not have permission to access OData services.\n' +
-					'Please check SAP authorizations.\n\n' +
-					`Response Time: ${totalResponseTime}ms`,
+				message: `Host not found: ${host}. Please check the URL.`,
 			};
 		}
 
-		// Timeout
-		if (isTimeoutError(error)) {
+		if (errorMessage.includes('ETIMEDOUT') || errorMessage.includes('timeout')) {
 			return {
 				status: 'Error',
-				message: 'Connection timeout\n\n' +
-					'SAP system not reachable.\n' +
-					'Please check:\n' +
-					'• Is VPN connected?\n' +
-					'• Is the SAP system running?\n' +
-					'• Firewall settings\n\n' +
-					`Timeout after: ${totalResponseTime}ms`,
+				message: `Connection timed out. The SAP system at ${host} is not responding.`,
 			};
 		}
 
-		// Network/DNS Error
-		if (isNetworkError(error) && !isCertificateError(error)) {
+		if (errorMessage.includes('certificate') || errorMessage.includes('SSL')) {
 			return {
 				status: 'Error',
-				message: 'Host not found\n\n' +
-					'Cannot resolve hostname or connection refused.\n' +
-					'Please check:\n' +
-					'• Host URL spelling\n' +
-					'• DNS resolution\n' +
-					'• Network connectivity\n\n' +
-					`Host: ${host}`,
+				message: 'SSL certificate error. Enable "Ignore SSL Issues" if using self-signed certificates.',
 			};
 		}
 
-		// SSL Certificate Error
-		if (isCertificateError(error)) {
-			return {
-				status: 'Error',
-				message: 'SSL Certificate error\n\n' +
-					'Cannot verify SSL certificate.\n\n' +
-					'Options:\n' +
-					'• Enable "Ignore SSL Issues" (not recommended for production)\n' +
-					'• Install proper SSL certificate on SAP system\n' +
-					'• Use corporate CA certificate',
-			};
-		}
-
-		// Generic Error
 		return {
 			status: 'Error',
-			message: 'Connection test failed\n\n' +
-				`Error: ${sanitizeErrorMessage(errorMessage)}\n\n` +
-				`Response Time: ${totalResponseTime}ms`,
+			message: `Connection failed: ${errorMessage}`,
 		};
 	}
-}
-
-/**
- * Build SAP-specific HTTP headers
- */
-function buildSapHeaders(sapClient?: string, sapLanguage?: string): Record<string, string> {
-	const headers: Record<string, string> = {};
-
-	if (sapClient) {
-		headers['sap-client'] = sapClient;
-	}
-
-	if (sapLanguage) {
-		headers['sap-language'] = sapLanguage;
-	}
-
-	return headers;
-}
-
-/**
- * Sanitize error message to prevent sensitive data exposure
- */
-function sanitizeErrorMessage(message: string): string {
-	// Remove potential sensitive data from error messages
-	return message
-		.replace(/password[=:]\s*['"]?[^'"\s]+['"]?/gi, 'password=***')
-		.replace(/token[=:]\s*['"]?[^'"\s]+['"]?/gi, 'token=***')
-		.substring(0, 200); // Limit length
 }

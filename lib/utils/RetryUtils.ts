@@ -5,8 +5,6 @@ import {
 	MAX_RETRY_DELAY,
 	RETRY_STATUS_CODES,
 } from '../constants';
-import { Logger } from './Logger';
-
 /**
  * Retry configuration options
  */
@@ -81,11 +79,6 @@ export class RetryHandler {
 				}
 
 				if (attempt >= this.options.maxAttempts - 1) {
-					Logger.warn('Max retry attempts exhausted', {
-						module: 'RetryHandler',
-						maxAttempts: this.options.maxAttempts,
-						error: error instanceof Error ? error.message : 'Unknown error',
-					});
 					throw error;
 				}
 

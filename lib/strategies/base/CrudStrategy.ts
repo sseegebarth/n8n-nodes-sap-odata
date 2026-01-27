@@ -8,7 +8,6 @@
  */
 
 import { IExecuteFunctions, INode, IDataObject, INodeExecutionData } from 'n8n-workflow';
-import { Logger } from '../../utils/Logger';
 import { sanitizeErrorMessage } from '../../utils/SecurityUtils';
 import * as StrategyHelpers from '../../utils/StrategyHelpers';
 
@@ -137,12 +136,6 @@ export abstract class CrudStrategy {
 		const errorMessage = error.message || 'Unknown error occurred';
 		const sanitizedMessage = sanitizeErrorMessage(errorMessage);
 
-		Logger.error(`${operation} failed`, error, {
-			module: 'CrudStrategy',
-			operation,
-			itemIndex,
-		});
-
 		if (continueOnFail) {
 			return [
 				{
@@ -177,12 +170,8 @@ export abstract class CrudStrategy {
 	 * @param operation - Operation name
 	 * @param details - Additional details to log
 	 */
-	protected logOperation(operation: string, details: IDataObject): void {
-		Logger.debug(`CRUD Operation: ${operation}`, {
-			module: 'CrudStrategy',
-			operation,
-			...details,
-		});
+	protected logOperation(_operation: string, _details: IDataObject): void {
+		// Logging removed - method kept for backward compatibility
 	}
 
 	/**

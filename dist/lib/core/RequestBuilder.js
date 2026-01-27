@@ -2,15 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildRequestOptions = buildRequestOptions;
 exports.buildCsrfTokenRequest = buildCsrfTokenRequest;
-exports.parsePoolConfig = parsePoolConfig;
 exports.parseStatusCodes = parseStatusCodes;
 exports.buildODataQueryString = buildODataQueryString;
 const constants_1 = require("../constants");
-const ConnectionPoolManager_1 = require("../utils/ConnectionPoolManager");
-const Logger_1 = require("../utils/Logger");
 const SecurityUtils_1 = require("../utils/SecurityUtils");
 function buildRequestOptions(config) {
-    const { method, resource, host, servicePath, body = {}, qs = {}, uri, options = {}, credentials, csrfToken, poolConfig = {}, node, } = config;
+    const { method, resource, host, servicePath, body = {}, qs = {}, uri, options = {}, credentials, csrfToken, node, } = config;
     (0, SecurityUtils_1.validateUrl)(host, node);
     let url = uri || (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, resource);
     const queryString = buildODataQueryString(qs);
@@ -36,12 +33,6 @@ function buildRequestOptions(config) {
         requestOptions.auth = {
             username: credentials.username,
             password: credentials.password,
-        };
-    }
-    if (credentials.authentication === 'oauth2ClientCredentials' && config.oauthToken) {
-        requestOptions.headers = {
-            ...requestOptions.headers,
-            Authorization: `Bearer ${config.oauthToken}`,
         };
     }
     if (method !== 'GET' && csrfToken) {
@@ -73,17 +64,9 @@ function buildRequestOptions(config) {
                     continue;
                 const headerName = String(key).toLowerCase().trim();
                 if (!/^[a-z0-9-]+$/i.test(headerName)) {
-                    Logger_1.Logger.warn('Invalid custom header name skipped', {
-                        module: 'RequestBuilder',
-                        headerName: key,
-                    });
                     continue;
                 }
                 if (forbiddenHeaders.includes(headerName)) {
-                    Logger_1.Logger.warn('Forbidden custom header skipped', {
-                        module: 'RequestBuilder',
-                        headerName: key,
-                    });
                     continue;
                 }
                 requestOptions.headers = {
@@ -92,22 +75,8 @@ function buildRequestOptions(config) {
                 };
             }
         }
-        catch (error) {
-            Logger_1.Logger.warn('Failed to parse custom headers', {
-                module: 'RequestBuilder',
-                error: error instanceof Error ? error.message : String(error),
-            });
+        catch {
         }
-    }
-    if (Object.keys(poolConfig).length > 0) {
-        const poolManager = ConnectionPoolManager_1.ConnectionPoolManager.getInstance();
-        const filteredConfig = Object.fromEntries(Object.entries(poolConfig).filter(([_, v]) => v !== undefined));
-        if (Object.keys(filteredConfig).length > 0) {
-            poolManager.updateConfig(filteredConfig);
-        }
-        const urlObj = new URL(url);
-        const agent = poolManager.getAgent(urlObj.protocol);
-        requestOptions.agent = agent;
     }
     if (options && typeof options === 'object') {
         const { headers: optionHeaders, ...restOptions } = options;
@@ -121,12 +90,9 @@ function buildRequestOptions(config) {
     }
     return requestOptions;
 }
-function buildCsrfTokenRequest(host, servicePath, credentials, node, oauthToken) {
+function buildCsrfTokenRequest(host, servicePath, credentials, node) {
     (0, SecurityUtils_1.validateUrl)(host, node);
     const url = (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, '');
-    const poolManager = ConnectionPoolManager_1.ConnectionPoolManager.getInstance();
-    const urlObj = new URL(url);
-    const agent = poolManager.getAgent(urlObj.protocol);
     const options = {
         method: 'GET',
         url,
@@ -145,24 +111,7 @@ function buildCsrfTokenRequest(host, servicePath, credentials, node, oauthToken)
             password: credentials.password,
         };
     }
-    if (credentials.authentication === 'oauth2ClientCredentials' && oauthToken) {
-        options.headers = {
-            ...options.headers,
-            Authorization: `Bearer ${oauthToken}`,
-        };
-    }
-    options.agent = agent;
     return options;
-}
-function parsePoolConfig(advancedOptions) {
-    const poolConfig = {
-        keepAlive: advancedOptions.keepAlive !== undefined ? advancedOptions.keepAlive : undefined,
-        maxSockets: advancedOptions.maxSockets,
-        maxFreeSockets: advancedOptions.maxFreeSockets,
-        timeout: advancedOptions.timeout,
-        freeSocketTimeout: advancedOptions.freeSocketTimeout,
-    };
-    return Object.fromEntries(Object.entries(poolConfig).filter(([_, v]) => v !== undefined));
 }
 function parseStatusCodes(codes) {
     if (!codes || typeof codes !== 'string') {

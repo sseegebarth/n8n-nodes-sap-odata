@@ -21,14 +21,11 @@ import {
 } from '../constants';
 import { ISapOdataCredentials } from '../types';
 import { CacheManager } from '../utils/CacheManager';
-import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
 import { ODataErrorHandler } from '../utils/ErrorHandler';
-import { Logger } from '../utils/Logger';
 import { RetryHandler } from '../utils/RetryUtils';
 import { SapGatewaySessionManager } from '../utils/SapGatewaySession';
 import { ThrottleManager, ThrottleStrategy } from '../utils/ThrottleManager';
-import { getOAuthToken } from '../utils/OAuthTokenManager';
-import { buildRequestOptions, parsePoolConfig } from './RequestBuilder';
+import { buildRequestOptions } from './RequestBuilder';
 
 /**
  * Get or create throttle manager scoped to workflow execution
@@ -109,27 +106,7 @@ export async function executeRequest(
 	// This ensures DiscoveryService and other helpers can override the service path
 	const servicePath = config.servicePath || resolveServicePath(this);
 
-	// Security warning for disabled SSL validation (only once per execution)
-	if (credentials.allowUnauthorizedCerts === true) {
-		const warningKey = 'sslWarningShown';
-		try {
-			const staticData = 'getWorkflowStaticData' in this
-				? this.getWorkflowStaticData('global')
-				: {};
-
-			if (!staticData[warningKey]) {
-				Logger.logSecurityWarning(
-					'SSL certificate validation is DISABLED! ' +
-					'This should ONLY be used in development environments. ' +
-					'Production systems must use valid SSL certificates to prevent man-in-the-middle attacks.'
-				);
-				staticData[warningKey] = true;
-			}
-		} catch {
-			// If staticData not available, just warn once per function call
-			Logger.logSecurityWarning('SSL validation disabled - use only in development!');
-		}
-	}
+	// Note: SSL certificate validation disabled warning removed (credentials.allowUnauthorizedCerts)
 
 	// Get advanced options (connection pool configuration) if available
 	let advancedOptions: IDataObject = {};
@@ -151,23 +128,6 @@ export async function executeRequest(
 			maxRequestsPerSecond: (advancedOptions.maxRequestsPerSecond as number) || 10,
 			strategy: (advancedOptions.throttleStrategy as ThrottleStrategy) || 'delay',
 			burstSize: (advancedOptions.throttleBurstSize as number) || 5,
-			onThrottle: (waitTime) => {
-				if (advancedOptions.logThrottling) {
-					Logger.info('Request throttled', {
-						module: 'ThrottleManager',
-						waitTime: `${waitTime}ms`,
-						strategy: advancedOptions.throttleStrategy,
-						method,
-						resource,
-					});
-				}
-			},
-		});
-
-		Logger.debug('ThrottleManager retrieved/initialized', {
-			module: 'ThrottleManager',
-			maxRequestsPerSecond: advancedOptions.maxRequestsPerSecond,
-			strategy: advancedOptions.throttleStrategy,
 		});
 	}
 
@@ -185,50 +145,8 @@ export async function executeRequest(
 		}
 	}
 
-	// Parse pool configuration
-	const poolConfig = parsePoolConfig(advancedOptions);
-
 	// Create request function that will be executed with or without retry
 	const makeRequest = async () => {
-		// Fetch OAuth token if using OAuth 2.0 authentication
-		let oauthToken: string | undefined;
-		if (credentials.authentication === 'oauth2ClientCredentials') {
-			if (!credentials.oauthTokenUrl || !credentials.oauthClientId || !credentials.oauthClientSecret) {
-				throw new NodeOperationError(
-					this.getNode(),
-					'OAuth 2.0 configuration incomplete',
-					{
-						description: 'Token URL, Client ID, and Client Secret are required for OAuth 2.0 authentication.',
-					},
-				);
-			}
-
-			try {
-				const token = await getOAuthToken(this, {
-					tokenUrl: credentials.oauthTokenUrl,
-					clientId: credentials.oauthClientId,
-					clientSecret: credentials.oauthClientSecret,
-					scope: credentials.oauthScope,
-					allowUnauthorizedCerts: credentials.allowUnauthorizedCerts,
-				});
-				oauthToken = token.accessToken;
-
-				Logger.debug('OAuth token acquired', {
-					module: 'ApiClient',
-					expiresIn: token.expiresIn,
-					tokenType: token.tokenType,
-				});
-			} catch (error) {
-				throw new NodeOperationError(
-					this.getNode(),
-					'Failed to acquire OAuth token',
-					{
-						description: error instanceof Error ? error.message : 'Unknown OAuth error',
-					},
-				);
-			}
-		}
-
 		// Build request options
 		const requestOptions = buildRequestOptions({
 			method,
@@ -241,36 +159,10 @@ export async function executeRequest(
 			options: option,
 			credentials,
 			csrfToken,
-			oauthToken,
-			poolConfig,
 			node: this.getNode(),
 		});
 
-		// Debug logging
-		const debugLogging = advancedOptions.debugLogging === true;
-		Logger.setDebugMode(debugLogging);
-		const startTime = debugLogging ? Date.now() : 0;
-
-		if (debugLogging) {
-			Logger.logRequest(method, requestOptions.url);
-			Logger.debug('Request headers', {
-				module: 'ApiClient',
-				headers: {
-					...requestOptions.headers,
-					Authorization: requestOptions.headers?.Authorization ? '*****' : undefined,
-					'X-CSRF-Token': requestOptions.headers?.['X-CSRF-Token'] ? '(token present)' : undefined,
-					Cookie: requestOptions.headers?.Cookie ? '(cookies present)' : undefined,
-				},
-			});
-			// Log CSRF token status for write operations
-			if (method !== 'GET') {
-				Logger.debug('CSRF token status', {
-					module: 'ApiClient',
-					hasToken: !!csrfToken,
-					tokenLength: csrfToken ? csrfToken.length : 0,
-				});
-			}
-		}
+		// Debug logging removed
 
 		try {
 			// Build auth object for Basic Auth (helpers.request format)
@@ -288,10 +180,6 @@ export async function executeRequest(
 						...requestOptions.headers,
 						Cookie: cookieHeader,
 					};
-					Logger.debug('Session cookies added to request', {
-						module: 'ApiClient',
-						cookieCount: cookieHeader.split(';').length,
-					});
 				}
 			}
 
@@ -303,49 +191,11 @@ export async function executeRequest(
 				auth,
 			} as any);
 
-			if (debugLogging) {
-				const duration = Date.now() - startTime;
-				Logger.debug('Response received', {
-					module: 'ApiClient',
-					duration: `${duration}ms`,
-					responseType: typeof response,
-				});
-
-				// Log connection pool stats
-				const poolManager = ConnectionPoolManager.getInstance();
-				const stats = poolManager.getStats();
-				Logger.logPoolStats({
-					activeSockets: stats.activeSockets,
-					freeSockets: stats.freeSockets,
-					pendingRequests: stats.pendingRequests,
-					totalRequests: stats.totalRequests,
-					connectionsCreated: stats.totalConnectionsCreated,
-					connectionsReused: stats.totalConnectionsReused,
-					reuseRate: stats.totalRequests > 0
-						? `${((stats.totalConnectionsReused / stats.totalRequests) * 100).toFixed(1)}%`
-						: '0%',
-				});
-			}
-
 			return response;
 		} catch (error) {
-			if (debugLogging) {
-				const duration = Date.now() - startTime;
-				Logger.error('Request failed', error as Error, {
-					module: 'ApiClient',
-					duration: `${duration}ms`,
-					method,
-					resource,
-				});
-			}
-
 			// Check if 404 error - invalidate metadata cache to allow retry with fresh data
 			const statusCode = (error as any)?.response?.statusCode || (error as any)?.statusCode;
 			if (statusCode === 404) {
-				Logger.debug('404 error detected - invalidating metadata cache', {
-					module: 'ApiClient',
-					resource,
-				});
 				await CacheManager.invalidateCacheOn404(this, credentials.host, servicePath);
 			}
 
@@ -364,17 +214,6 @@ export async function executeRequest(
 		backoffFactor: 2,
 		retryableStatusCodes: RETRY_STATUS_CODES,
 		retryNetworkErrors: true,
-		onRetry: (attempt, error, delay) => {
-			Logger.info('Retrying request', {
-				module: 'RetryHandler',
-				attempt,
-				maxAttempts: MAX_RETRY_ATTEMPTS,
-				delay: `${delay}ms`,
-				error: error instanceof Error ? error.message : 'Unknown error',
-				method,
-				resource,
-			});
-		},
 	});
 
 	return retryHandler.execute(makeRequest);

@@ -9,7 +9,6 @@
 
 import { IExecuteFunctions, INodeExecutionData, IDataObject } from 'n8n-workflow';
 import { executeRequest } from '../core/ApiClient';
-import { Logger } from '../utils/Logger';
 import {
 	NavigationPropertyHelper,
 	INavigationConfig,
@@ -41,13 +40,6 @@ export class GetEntityWithNavigationStrategy extends CrudStrategy {
 			// Navigation properties configuration
 			const useNavigation = this.getNodeParameter('useNavigation', itemIndex, false) as boolean;
 
-			Logger.debug('Get Entity with Navigation', {
-				module: 'GetEntityWithNavigationStrategy',
-				entitySet,
-				entityKey,
-				useNavigation,
-			});
-
 			// Build query parameters
 			const queryParams: IDataObject = {
 				...getQueryOptions(this, itemIndex),
@@ -73,12 +65,6 @@ export class GetEntityWithNavigationStrategy extends CrudStrategy {
 
 						// Build multi-level expand
 						queryParams.$expand = NavigationPropertyHelper.buildMultiLevelExpand(paths);
-
-						Logger.debug('Simple navigation expand', {
-							module: 'GetEntityWithNavigationStrategy',
-							paths,
-							expand: queryParams.$expand,
-						});
 					}
 				} else if (navigationMode === 'advanced') {
 					// Advanced expand with options
@@ -91,12 +77,6 @@ export class GetEntityWithNavigationStrategy extends CrudStrategy {
 
 					if (Array.isArray(navConfigs) && navConfigs.length > 0) {
 						queryParams.$expand = NavigationPropertyHelper.buildExpandParameter(navConfigs);
-
-						Logger.debug('Advanced navigation expand', {
-							module: 'GetEntityWithNavigationStrategy',
-							configCount: navConfigs.length,
-							expand: queryParams.$expand,
-						});
 					}
 				}
 			}
@@ -117,12 +97,6 @@ export class GetEntityWithNavigationStrategy extends CrudStrategy {
 
 			// Apply type conversion
 			const convertedResult = applyTypeConversion(result, this, itemIndex);
-
-			Logger.info('Entity with navigation retrieved', {
-				module: 'GetEntityWithNavigationStrategy',
-				entitySet,
-				hasNavigationData: useNavigation,
-			});
 
 			return formatSuccessResponse(convertedResult, 'Get Entity with Navigation');
 

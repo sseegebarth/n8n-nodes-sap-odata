@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReplayProtectionManager = void 0;
-const Logger_1 = require("./Logger");
 class ReplayProtectionManager {
     constructor(config) {
         this.cleanupTimer = null;
@@ -11,20 +10,10 @@ class ReplayProtectionManager {
         };
         this.nonceStore = new Map();
         this.startCleanup();
-        Logger_1.Logger.info('Replay Protection Manager initialized', {
-            module: 'ReplayProtectionManager',
-            nonceTTL: this.config.nonceTTL,
-            maxNonces: this.config.maxNonces,
-        });
     }
     static getInstance(config) {
         if (!ReplayProtectionManager.instance) {
             ReplayProtectionManager.instance = new ReplayProtectionManager(config);
-        }
-        else if (config) {
-            Logger_1.Logger.warn('getInstance called with config, but instance already exists. Config ignored.', {
-                module: 'ReplayProtectionManager',
-            });
         }
         return ReplayProtectionManager.instance;
     }
@@ -32,17 +21,11 @@ class ReplayProtectionManager {
         if (ReplayProtectionManager.instance) {
             ReplayProtectionManager.instance.destroy();
             ReplayProtectionManager.instance = null;
-            Logger_1.Logger.debug('Singleton instance reset', {
-                module: 'ReplayProtectionManager',
-            });
         }
     }
     destroy() {
         this.stopCleanup();
         this.clearAll();
-        Logger_1.Logger.info('ReplayProtectionManager destroyed', {
-            module: 'ReplayProtectionManager',
-        });
     }
     checkNonce(nonce) {
         if (!nonce || nonce.length === 0) {
@@ -60,21 +43,11 @@ class ReplayProtectionManager {
         const now = Date.now();
         const age = now - entry.timestamp;
         if (entry.expiresAt < now) {
-            Logger_1.Logger.debug('Expired nonce reused (allowed)', {
-                module: 'ReplayProtectionManager',
-                nonce: this.truncateNonce(nonce),
-                age: `${Math.floor(age / 1000)}s`,
-            });
             return {
                 isReplay: false,
                 isExpired: true,
             };
         }
-        Logger_1.Logger.warn('Replay attack detected', {
-            module: 'ReplayProtectionManager',
-            nonce: this.truncateNonce(nonce),
-            age: `${Math.floor(age / 1000)}s`,
-        });
         return {
             isReplay: true,
             error: 'Nonce already used',
@@ -99,19 +72,11 @@ class ReplayProtectionManager {
     }
     storeNonce(nonce, signature, ttl) {
         if (!nonce || nonce.length === 0) {
-            Logger_1.Logger.warn('Attempted to store empty nonce', {
-                module: 'ReplayProtectionManager',
-            });
             return false;
         }
         if (this.nonceStore.size >= this.config.maxNonces) {
             this.cleanup();
             if (this.nonceStore.size >= this.config.maxNonces) {
-                Logger_1.Logger.error('Nonce store at maximum capacity', undefined, {
-                    module: 'ReplayProtectionManager',
-                    size: this.nonceStore.size,
-                    max: this.config.maxNonces,
-                });
                 return false;
             }
         }
@@ -124,12 +89,6 @@ class ReplayProtectionManager {
             signature,
         };
         this.nonceStore.set(nonce, entry);
-        Logger_1.Logger.debug('Nonce stored', {
-            module: 'ReplayProtectionManager',
-            nonce: this.truncateNonce(nonce),
-            expiresIn: `${Math.floor(effectiveTTL / 1000)}s`,
-            storeSize: this.nonceStore.size,
-        });
         return true;
     }
     validateTimestamp(timestamp, toleranceMs) {
@@ -187,13 +146,6 @@ class ReplayProtectionManager {
                 cleanedCount++;
             }
         }
-        if (cleanedCount > 0) {
-            Logger_1.Logger.debug('Cleaned up expired nonces', {
-                module: 'ReplayProtectionManager',
-                cleaned: cleanedCount,
-                remaining: this.nonceStore.size,
-            });
-        }
     }
     startCleanup() {
         if (this.cleanupTimer) {
@@ -205,27 +157,15 @@ class ReplayProtectionManager {
         if (this.cleanupTimer.unref) {
             this.cleanupTimer.unref();
         }
-        Logger_1.Logger.debug('Automatic cleanup started', {
-            module: 'ReplayProtectionManager',
-            intervalMs: this.config.cleanupIntervalMs,
-        });
     }
     stopCleanup() {
         if (this.cleanupTimer) {
             clearInterval(this.cleanupTimer);
             this.cleanupTimer = null;
-            Logger_1.Logger.debug('Automatic cleanup stopped', {
-                module: 'ReplayProtectionManager',
-            });
         }
     }
     clearAll() {
-        const count = this.nonceStore.size;
         this.nonceStore.clear();
-        Logger_1.Logger.warn('All nonces cleared', {
-            module: 'ReplayProtectionManager',
-            count,
-        });
     }
     getStats() {
         const size = this.nonceStore.size;
@@ -240,12 +180,6 @@ class ReplayProtectionManager {
     static generateNonce(length = 32) {
         const crypto = require('crypto');
         return crypto.randomBytes(length).toString('hex');
-    }
-    truncateNonce(nonce) {
-        if (nonce.length <= 16) {
-            return nonce;
-        }
-        return `${nonce.substring(0, 8)}...${nonce.substring(nonce.length - 8)}`;
     }
 }
 exports.ReplayProtectionManager = ReplayProtectionManager;

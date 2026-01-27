@@ -34,7 +34,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CrudStrategy = void 0;
-const Logger_1 = require("../../utils/Logger");
 const SecurityUtils_1 = require("../../utils/SecurityUtils");
 const StrategyHelpers = __importStar(require("../../utils/StrategyHelpers"));
 class CrudStrategy {
@@ -70,11 +69,6 @@ class CrudStrategy {
     handleOperationError(error, operation, itemIndex, continueOnFail = false) {
         const errorMessage = error.message || 'Unknown error occurred';
         const sanitizedMessage = (0, SecurityUtils_1.sanitizeErrorMessage)(errorMessage);
-        Logger_1.Logger.error(`${operation} failed`, error, {
-            module: 'CrudStrategy',
-            operation,
-            itemIndex,
-        });
         if (continueOnFail) {
             return [
                 {
@@ -92,12 +86,7 @@ class CrudStrategy {
     buildResourcePath(entitySet, entityKey) {
         return StrategyHelpers.buildResourcePath(entitySet, entityKey);
     }
-    logOperation(operation, details) {
-        Logger_1.Logger.debug(`CRUD Operation: ${operation}`, {
-            module: 'CrudStrategy',
-            operation,
-            ...details,
-        });
+    logOperation(_operation, _details) {
     }
     applyTypeConversion(context, itemIndex, data) {
         return StrategyHelpers.applyTypeConversion(data, context, itemIndex);

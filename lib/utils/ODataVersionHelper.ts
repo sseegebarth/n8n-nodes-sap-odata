@@ -1,6 +1,5 @@
 import { IExecuteFunctions, IDataObject } from 'n8n-workflow';
 import { METADATA_CACHE_TTL } from '../constants';
-import { LoggerAdapter } from './LoggerAdapter';
 
 /**
  * Cache entry for OData version with TTL support
@@ -33,10 +32,6 @@ export class ODataVersionHelper {
 
 		// If explicitly configured, use that
 		if (configuredVersion === 'v2' || configuredVersion === 'v4') {
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'version_configured',
-				version: configuredVersion,
-			});
 			return configuredVersion;
 		}
 
@@ -49,11 +44,6 @@ export class ODataVersionHelper {
 		// Check cache first (with TTL validation)
 		const cached = this.versionCache.get(cacheKey);
 		if (cached && cached.expires > Date.now()) {
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'version_cached',
-				version: cached.version,
-				ttlRemaining: Math.round((cached.expires - Date.now()) / 1000),
-			});
 			return cached.version;
 		}
 
@@ -69,14 +59,6 @@ export class ODataVersionHelper {
 		this.versionCache.set(cacheKey, {
 			version: detectedVersion,
 			expires: Date.now() + METADATA_CACHE_TTL,
-		});
-
-		LoggerAdapter.info('ODataVersionHelper', {
-			action: 'version_detected',
-			version: detectedVersion,
-			serviceUrl,
-			servicePath,
-			cacheTtl: METADATA_CACHE_TTL,
 		});
 
 		return detectedVersion;
@@ -107,12 +89,7 @@ export class ODataVersionHelper {
 
 			// Analyze the response to determine version
 			return this.analyzeMetadataVersion(metadataResponse);
-		} catch (error) {
-			LoggerAdapter.warn('ODataVersionHelper', {
-				action: 'version_detection_failed',
-				error: error instanceof Error ? error.message : String(error),
-				defaulting_to: 'v2',
-			});
+		} catch {
 			// Default to V2 if detection fails (most common in SAP)
 			return 'v2';
 		}
@@ -128,25 +105,12 @@ export class ODataVersionHelper {
 		// Handle JSON response (rare for $metadata, but possible)
 		if (typeof response !== 'string') {
 			if (response['@odata.context'] !== undefined) {
-				LoggerAdapter.debug('ODataVersionHelper', {
-					action: 'v4_indicator_found',
-					indicator: '@odata.context property',
-				});
 				return 'v4';
 			}
 			if (response.d !== undefined) {
-				LoggerAdapter.debug('ODataVersionHelper', {
-					action: 'v2_indicator_found',
-					indicator: 'd wrapper property',
-				});
 				return 'v2';
 			}
 			// Unknown structure, default to v2
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'no_indicator_found',
-				defaulting_to: 'v2',
-				reason: 'unknown JSON structure',
-			});
 			return 'v2';
 		}
 
@@ -158,19 +122,11 @@ export class ODataVersionHelper {
 		// V2 uses Microsoft namespace, V4 uses OASIS namespace
 		if (xml.includes('xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx"') ||
 			xml.includes("xmlns:edmx='http://schemas.microsoft.com/ado/2007/06/edmx'")) {
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'v2_indicator_found',
-				indicator: 'Microsoft EDMX namespace (definitive V2)',
-			});
 			return 'v2';
 		}
 
 		if (xml.includes('xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"') ||
 			xml.includes("xmlns:edmx='http://docs.oasis-open.org/odata/ns/edmx'")) {
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'v4_indicator_found',
-				indicator: 'OASIS EDMX namespace (definitive V4)',
-			});
 			return 'v4';
 		}
 
@@ -179,20 +135,12 @@ export class ODataVersionHelper {
 			xml.includes('DataServiceVersion="1.0"') ||
 			xml.includes("DataServiceVersion='2.0'") ||
 			xml.includes("DataServiceVersion='1.0'")) {
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'v2_indicator_found',
-				indicator: 'DataServiceVersion header',
-			});
 			return 'v2';
 		}
 
 		// Secondary check: V4 explicit version
 		if (xml.includes('Version="4.0"') || xml.includes('Version="4.01"') ||
 			xml.includes("Version='4.0'") || xml.includes("Version='4.01'")) {
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'v4_indicator_found',
-				indicator: 'Version 4.x',
-			});
 			return 'v4';
 		}
 
@@ -205,29 +153,16 @@ export class ODataVersionHelper {
 
 		for (const ns of v2EdmNamespaces) {
 			if (xml.includes(ns)) {
-				LoggerAdapter.debug('ODataVersionHelper', {
-					action: 'v2_indicator_found',
-					indicator: `Microsoft EDM namespace: ${ns}`,
-				});
 				return 'v2';
 			}
 		}
 
 		// Tertiary check: OASIS EDM namespace (V4)
 		if (xml.includes('http://docs.oasis-open.org/odata/ns/edm')) {
-			LoggerAdapter.debug('ODataVersionHelper', {
-				action: 'v4_indicator_found',
-				indicator: 'OASIS EDM namespace',
-			});
 			return 'v4';
 		}
 
 		// No indicators found - default to v2 (most common in SAP)
-		LoggerAdapter.debug('ODataVersionHelper', {
-			action: 'no_indicator_found',
-			defaulting_to: 'v2',
-			reason: 'no known version indicators in metadata',
-		});
 		return 'v2';
 	}
 
@@ -263,13 +198,6 @@ export class ODataVersionHelper {
 			}
 			delete result.includeCount;
 		}
-
-		LoggerAdapter.debug('ODataVersionHelper', {
-			action: 'params_mapped',
-			version,
-			original: params,
-			mapped: result,
-		});
 
 		return result;
 	}
@@ -326,17 +254,6 @@ export class ODataVersionHelper {
 				data = response;
 			}
 		}
-
-		LoggerAdapter.debug('ODataVersionHelper', {
-			action: 'data_extracted',
-			version,
-			hasD: !!response.d,
-			hasDResults: !!response.d?.results,
-			hasValue: !!response.value,
-			hasODataContext: !!response['@odata.context'],
-			isArray: Array.isArray(data),
-			itemCount: Array.isArray(data) ? data.length : 1,
-		});
 
 		return data;
 	}
@@ -413,11 +330,8 @@ export class ODataVersionHelper {
 					errorMessage += ` - ${innerError.message}`;
 				}
 			}
-		} catch (parseError) {
-			LoggerAdapter.error('ODataVersionHelper parse error', parseError instanceof Error ? parseError : new Error(String(parseError)), {
-				action: 'error_parse_failed',
-				originalError: error,
-			});
+		} catch {
+			// Error parsing failed - use default message
 		}
 
 		return errorMessage;
@@ -449,8 +363,5 @@ export class ODataVersionHelper {
 	 */
 	public static clearCache(): void {
 		this.versionCache.clear();
-		LoggerAdapter.debug('ODataVersionHelper', {
-			action: 'cache_cleared',
-		});
 	}
 }

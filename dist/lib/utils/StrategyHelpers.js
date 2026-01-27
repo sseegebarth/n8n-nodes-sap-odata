@@ -15,7 +15,6 @@ exports.validateNavigationProperties = validateNavigationProperties;
 exports.parseParameterType = parseParameterType;
 const n8n_workflow_1 = require("n8n-workflow");
 const QueryBuilder_1 = require("../core/QueryBuilder");
-const Logger_1 = require("./Logger");
 const SecurityUtils_1 = require("./SecurityUtils");
 const TypeConverter_1 = require("./TypeConverter");
 function getEntitySet(context, itemIndex) {
@@ -122,11 +121,6 @@ function formatSuccessResponse(data, operation) {
 function handleOperationError(error, context, itemIndex, continueOnFail) {
     const node = context.getNode();
     const errorMessage = (0, SecurityUtils_1.sanitizeErrorMessage)(error instanceof Error ? error.message : String(error));
-    Logger_1.Logger.error('Operation failed', undefined, {
-        module: 'StrategyHelpers',
-        error: errorMessage,
-        itemIndex,
-    });
     if (continueOnFail) {
         return [{
                 json: {

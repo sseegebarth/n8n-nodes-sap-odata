@@ -6,7 +6,6 @@
 import { createHash } from 'crypto';
 import { IExecuteFunctions, IHookFunctions, ILoadOptionsFunctions } from 'n8n-workflow';
 import { SAP_GATEWAY_SESSION_TIMEOUT, SAP_GATEWAY_CSRF_TIMEOUT } from '../constants';
-import { Logger } from './Logger';
 
 /**
  * SAP Gateway Session Data
@@ -157,32 +156,17 @@ export class SapGatewaySessionManager {
 
 			// Check if session exists and is not expired
 			if (session && Date.now() < session.expiresAt) {
-				Logger.debug('SAP Gateway session retrieved from cache', {
-					module: 'SapGatewaySessionManager',
-					hasToken: !!session.csrfToken,
-					hasCookies: session.cookies.length > 0,
-					hasContextId: !!session.sapContextId,
-				});
 				return session;
 			}
 
 			// Session expired or doesn't exist
 			if (session) {
-				Logger.debug('SAP Gateway session expired', {
-					module: 'SapGatewaySessionManager',
-					expiresAt: new Date(session.expiresAt).toISOString(),
-					now: new Date().toISOString(),
-				});
 				// Clean up expired session
 				delete staticData[sessionKey];
 			}
 
 			return null;
-		} catch (error) {
-			Logger.warn('Failed to retrieve SAP Gateway session', {
-				module: 'SapGatewaySessionManager',
-				error: error instanceof Error ? error.message : String(error),
-			});
+		} catch {
 			return null;
 		}
 	}
@@ -222,19 +206,8 @@ export class SapGatewaySessionManager {
 			};
 
 			staticData[sessionKey] = updatedSession;
-
-			Logger.debug('SAP Gateway session updated', {
-				module: 'SapGatewaySessionManager',
-				hasToken: !!updatedSession.csrfToken,
-				cookieCount: updatedSession.cookies.length,
-				hasContextId: !!updatedSession.sapContextId,
-				expiresAt: new Date(updatedSession.expiresAt).toISOString(),
-			});
-		} catch (error) {
-			Logger.warn('Failed to set SAP Gateway session', {
-				module: 'SapGatewaySessionManager',
-				error: error instanceof Error ? error.message : String(error),
-			});
+		} catch {
+			// Ignore session storage errors
 		}
 	}
 
@@ -256,11 +229,6 @@ export class SapGatewaySessionManager {
 		const tokenAge = Date.now() - session.lastActivity;
 
 		if (tokenAge > csrfTimeout) {
-			Logger.debug('CSRF token expired based on activity', {
-				module: 'SapGatewaySessionManager',
-				tokenAge: `${Math.floor(tokenAge / 1000)}s`,
-				maxAge: `${Math.floor(csrfTimeout / 1000)}s`,
-			});
 			return null;
 		}
 
@@ -342,12 +310,6 @@ export class SapGatewaySessionManager {
 			await this.setSession(context, host, servicePath, {
 				cookies: Array.from(cookieMap.values()),
 			});
-
-			Logger.debug('Session cookies updated', {
-				module: 'SapGatewaySessionManager',
-				cookieCount: cookieMap.size,
-				newCookies: parsedCookies.length,
-			});
 		}
 	}
 
@@ -361,10 +323,6 @@ export class SapGatewaySessionManager {
 		contextId: string,
 	): Promise<void> {
 		await this.setSession(context, host, servicePath, { sapContextId: contextId });
-		Logger.debug('SAP-ContextId updated', {
-			module: 'SapGatewaySessionManager',
-			contextId,
-		});
 	}
 
 	/**
@@ -396,15 +354,8 @@ export class SapGatewaySessionManager {
 			const sessionKey = await this.getSessionKey(context, host, servicePath);
 
 			delete staticData[sessionKey];
-
-			Logger.debug('SAP Gateway session cleared', {
-				module: 'SapGatewaySessionManager',
-			});
-		} catch (error) {
-			Logger.warn('Failed to clear SAP Gateway session', {
-				module: 'SapGatewaySessionManager',
-				error: error instanceof Error ? error.message : String(error),
-			});
+		} catch {
+			// Ignore session clear errors
 		}
 	}
 
@@ -434,17 +385,8 @@ export class SapGatewaySessionManager {
 				}
 			});
 
-			if (cleanedCount > 0) {
-				Logger.debug('Expired SAP Gateway sessions cleaned up', {
-					module: 'SapGatewaySessionManager',
-					cleanedCount,
-				});
-			}
-		} catch (error) {
-			Logger.warn('Failed to cleanup expired sessions', {
-				module: 'SapGatewaySessionManager',
-				error: error instanceof Error ? error.message : String(error),
-			});
+		} catch {
+			// Ignore cleanup errors
 		}
 	}
 }

@@ -4,7 +4,6 @@ exports.RetryHandler = void 0;
 exports.withRetry = withRetry;
 const n8n_workflow_1 = require("n8n-workflow");
 const constants_1 = require("../constants");
-const Logger_1 = require("./Logger");
 function calculateDelay(attempt, initialDelay, maxDelay, backoffFactor) {
     const exponentialDelay = initialDelay * Math.pow(backoffFactor, attempt);
     const jitter = exponentialDelay * 0.2 * Math.random();
@@ -38,11 +37,6 @@ class RetryHandler {
                     throw error;
                 }
                 if (attempt >= this.options.maxAttempts - 1) {
-                    Logger_1.Logger.warn('Max retry attempts exhausted', {
-                        module: 'RetryHandler',
-                        maxAttempts: this.options.maxAttempts,
-                        error: error instanceof Error ? error.message : 'Unknown error',
-                    });
                     throw error;
                 }
                 const delay = this.calculateDelay(attempt);

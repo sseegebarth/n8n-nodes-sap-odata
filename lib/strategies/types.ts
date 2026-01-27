@@ -23,27 +23,17 @@ export interface IOperationOptions {
 }
 
 /**
- * Advanced options for connection pooling, caching, and data conversion
+ * Advanced options for caching, data conversion, and monitoring
  */
 export interface IAdvancedOptions {
 	// Data conversion
 	convertDataTypes?: boolean;
-
-	// Connection pool
-	keepAlive?: boolean;
-	maxSockets?: number;
-	maxFreeSockets?: number;
-	timeout?: number;
-	freeSocketTimeout?: number;
 
 	// Cache
 	clearCache?: boolean;
 
 	// Monitoring
 	includeMetrics?: boolean;
-
-	// Debug
-	debugLogging?: boolean;
 }
 
 /**

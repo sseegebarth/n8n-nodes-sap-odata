@@ -1,9 +1,5 @@
 import {
-	ICredentialDataDecryptedObject,
-	ICredentialsDecrypted,
-	ICredentialTestFunctions,
 	IExecuteFunctions,
-	INodeCredentialTestResult,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
@@ -12,9 +8,9 @@ import {
 import { OperationStrategyFactory } from '../../lib/strategies';
 import { IAdvancedOptions } from '../../lib/strategies/types';
 import { sanitizeErrorMessage } from '../../lib/utils/SecurityUtils';
+import { testSapODataConnection } from './ConnectionTest';
 import { sapODataLoadOptions, sapODataListSearch } from './SapODataLoadOptions';
 import { sapODataProperties } from './SapODataProperties';
-import { testSapODataConnection } from './ConnectionTest';
 import { version } from '../../package.json';
 
 /**
@@ -27,7 +23,7 @@ export class SapOData implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'ATW SAP Connect OData',
 		name: 'sapOData',
-		icon: 'file:sap.svg',
+		icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -41,6 +37,20 @@ export class SapOData implements INodeType {
 			{
 				name: 'sapOdataApi',
 				required: true,
+				displayOptions: {
+					show: {
+						authentication: ['basicAuth', 'none'],
+					},
+				},
+			},
+			{
+				name: 'sapOdataOAuth2Api',
+				required: true,
+				displayOptions: {
+					show: {
+						authentication: ['oauth2'],
+					},
+				},
 			},
 		],
 		properties: sapODataProperties,
@@ -50,12 +60,7 @@ export class SapOData implements INodeType {
 		loadOptions: sapODataLoadOptions,
 		listSearch: sapODataListSearch,
 		credentialTest: {
-			async sapODataCredentialTest(
-				this: ICredentialTestFunctions,
-				credential: ICredentialsDecrypted<ICredentialDataDecryptedObject>,
-			): Promise<INodeCredentialTestResult> {
-				return testSapODataConnection.call(this, credential.data as ICredentialDataDecryptedObject);
-			},
+			sapODataCredentialTest: testSapODataConnection,
 		},
 	};
 

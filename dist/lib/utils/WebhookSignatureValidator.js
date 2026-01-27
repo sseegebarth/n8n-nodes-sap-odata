@@ -35,7 +35,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WebhookSignatureValidator = exports.SignatureFormat = exports.SignatureAlgorithm = void 0;
 const crypto = __importStar(require("crypto"));
-const Logger_1 = require("./Logger");
 var SignatureAlgorithm;
 (function (SignatureAlgorithm) {
     SignatureAlgorithm["HMAC_SHA256"] = "sha256";
@@ -54,22 +53,10 @@ class WebhookSignatureValidator {
         if (!secret || secret.length === 0) {
             throw new Error('Webhook secret cannot be empty');
         }
-        if (secret.length < 32) {
-            Logger_1.Logger.warn('Webhook secret is shorter than 32 characters - consider using a longer secret', {
-                module: 'WebhookSignatureValidator',
-                length: secret.length,
-            });
-        }
         this.secret = secret;
     }
     validate(payload, receivedSignature, options, headers) {
         const { algorithm, format, validateTimestamp = false, timestampHeaderName, toleranceMs = 300000 } = options;
-        Logger_1.Logger.debug('Validating webhook signature', {
-            module: 'WebhookSignatureValidator',
-            algorithm,
-            format,
-            validateTimestamp,
-        });
         if (validateTimestamp) {
             if (!headers || !timestampHeaderName) {
                 return {
@@ -97,20 +84,11 @@ class WebhookSignatureValidator {
         const expectedSignature = this.generateSignature(payload, algorithm, format);
         const isValid = this.constantTimeCompare(receivedSignature, expectedSignature);
         if (!isValid) {
-            Logger_1.Logger.warn('Webhook signature validation failed', {
-                module: 'WebhookSignatureValidator',
-                algorithm,
-                format,
-            });
             return {
                 isValid: false,
                 error: 'Signature mismatch',
             };
         }
-        Logger_1.Logger.info('Webhook signature validated successfully', {
-            module: 'WebhookSignatureValidator',
-            algorithm,
-        });
         return {
             isValid: true,
             timestampValid: validateTimestamp ? true : undefined,
@@ -158,11 +136,6 @@ class WebhookSignatureValidator {
         const now = Date.now();
         const age = now - timestampMs;
         if (age > toleranceMs) {
-            Logger_1.Logger.warn('Webhook timestamp too old', {
-                module: 'WebhookSignatureValidator',
-                age: `${Math.floor(age / 1000)}s`,
-                tolerance: `${Math.floor(toleranceMs / 1000)}s`,
-            });
             return {
                 isValid: false,
                 error: `Timestamp too old: ${Math.floor(age / 1000)}s (max ${Math.floor(toleranceMs / 1000)}s)`,
@@ -170,10 +143,6 @@ class WebhookSignatureValidator {
             };
         }
         if (age < -60000) {
-            Logger_1.Logger.warn('Webhook timestamp in the future', {
-                module: 'WebhookSignatureValidator',
-                age: `${Math.floor(age / 1000)}s`,
-            });
             return {
                 isValid: false,
                 error: 'Timestamp is in the future',
@@ -195,10 +164,7 @@ class WebhookSignatureValidator {
                 }
                 return crypto.timingSafeEqual(bufferA, bufferB);
             }
-            catch (error) {
-                Logger_1.Logger.warn('crypto.timingSafeEqual failed, using fallback', {
-                    module: 'WebhookSignatureValidator',
-                });
+            catch {
             }
         }
         if (a.length !== b.length) {
@@ -214,10 +180,6 @@ class WebhookSignatureValidator {
         for (const algorithm of algorithms) {
             const expectedSignature = this.generateSignature(payload, algorithm, format);
             if (this.constantTimeCompare(receivedSignature, expectedSignature)) {
-                Logger_1.Logger.info('Webhook verified with algorithm', {
-                    module: 'WebhookSignatureValidator',
-                    algorithm,
-                });
                 return {
                     isValid: true,
                     algorithm,

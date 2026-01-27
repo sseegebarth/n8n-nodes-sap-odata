@@ -38,6 +38,7 @@
     "n8nNodesApiVersion": 1,
     "credentials": [
       "dist/credentials/SapOdataApi.credentials.js",
+      "dist/credentials/SapOdataOAuth2Api.credentials.js",
       "dist/credentials/SapOdataWebhookApi.credentials.js"
     ],
     "nodes": [

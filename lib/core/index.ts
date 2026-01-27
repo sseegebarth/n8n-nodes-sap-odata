@@ -34,7 +34,6 @@ export {
 export {
 	buildRequestOptions,
 	buildCsrfTokenRequest,
-	parsePoolConfig,
 	parseStatusCodes,
 	IRequestConfig,
 } from './RequestBuilder';

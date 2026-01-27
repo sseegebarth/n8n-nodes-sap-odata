@@ -100,18 +100,16 @@ export interface IRequestOptions {
 
 /**
  * Credential Data
+ *
+ * For OAuth2 authentication, use the separate SapOdataOAuth2Api credential
+ * which extends n8n's built-in oAuth2Api and handles token management automatically.
  */
 export interface ISapOdataCredentials {
 	host: string;
-	authentication: 'none' | 'basicAuth' | 'oauth2ClientCredentials';
+	authentication: 'none' | 'basicAuth';
 	// Basic Auth fields
 	username?: string;
 	password?: string;
-	// OAuth 2.0 Client Credentials fields
-	oauthTokenUrl?: string;
-	oauthClientId?: string;
-	oauthClientSecret?: string;
-	oauthScope?: string;
 	// Common fields
 	allowUnauthorizedCerts?: boolean;
 	sapClient?: string;
@@ -186,27 +184,6 @@ export interface IWebhookEventInfo {
 	entityKey?: string;
 	timestamp?: string;
 	data?: IDataObject;
-}
-
-/**
- * Connection Pool Configuration
- */
-export interface IConnectionPoolConfig {
-	maxSockets: number;
-	maxFreeSockets: number;
-	timeout: number;
-	keepAliveTimeout: number;
-}
-
-/**
- * Connection Pool Statistics
- */
-export interface IConnectionPoolStats {
-	totalConnections: number;
-	activeConnections: number;
-	idleConnections: number;
-	totalConnectionsCreated: number;
-	totalConnectionsReused: number;
 }
 
 /**

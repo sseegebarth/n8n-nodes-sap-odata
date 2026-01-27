@@ -36,7 +36,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SapODataWebhook = void 0;
 const n8n_workflow_1 = require("n8n-workflow");
 const constants_1 = require("../../lib/constants");
-const LoggerAdapter_1 = require("../../lib/utils/LoggerAdapter");
 const SecurityUtils_1 = require("../../lib/utils/SecurityUtils");
 const WebhookUtils_1 = require("../../lib/utils/WebhookUtils");
 const constants_2 = require("../../lib/constants");
@@ -45,7 +44,7 @@ class SapODataWebhook {
         this.description = {
             displayName: 'ATW SAP Connect OData Webhook',
             name: 'sapODataTrigger',
-            icon: 'file:sap.svg',
+            icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
             group: ['trigger'],
             version: 1,
             subtitle: '={{$parameter["event"]}}',
@@ -61,7 +60,7 @@ class SapODataWebhook {
                     required: false,
                     displayOptions: {
                         show: {
-                            authentication: ['headerAuth'],
+                            authentication: ['headerAuth', 'hmacSignature', 'queryAuth'],
                         },
                     },
                 },
@@ -119,23 +118,6 @@ class SapODataWebhook {
                     required: true,
                 },
                 {
-                    displayName: 'Header Value',
-                    name: 'headerValue',
-                    type: 'string',
-                    displayOptions: {
-                        show: {
-                            authentication: ['headerAuth'],
-                        },
-                    },
-                    default: '',
-                    placeholder: 'your-secret-token',
-                    description: 'Expected value of the authentication header',
-                    required: true,
-                    typeOptions: {
-                        password: true,
-                    },
-                },
-                {
                     displayName: 'Query Parameter Name',
                     name: 'queryParameterName',
                     type: 'string',
@@ -148,23 +130,6 @@ class SapODataWebhook {
                     placeholder: 'token',
                     description: 'Name of the query parameter that contains the authentication token',
                     required: true,
-                },
-                {
-                    displayName: 'Query Parameter Value',
-                    name: 'queryParameterValue',
-                    type: 'string',
-                    displayOptions: {
-                        show: {
-                            authentication: ['queryAuth'],
-                        },
-                    },
-                    default: '',
-                    placeholder: 'your-secret-token',
-                    description: 'Expected value of the query parameter',
-                    required: true,
-                    typeOptions: {
-                        password: true,
-                    },
                 },
                 {
                     displayName: 'Response',
@@ -360,10 +325,6 @@ class SapODataWebhook {
                     try {
                         const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
                         if (!credentials) {
-                            LoggerAdapter_1.LoggerAdapter.info('No SAP OData credentials found - webhook will receive events but not auto-register', {
-                                module: 'SapODataWebhook',
-                                operation: 'create',
-                            });
                             return true;
                         }
                         const eventFilter = this.getNodeParameter('eventFilter', {});
@@ -388,25 +349,12 @@ class SapODataWebhook {
                         const response = await sapOdataApiRequest.call(this, 'POST', '/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions', subscriptionPayload);
                         const staticData = this.getWorkflowStaticData('node');
                         staticData.subscriptionId = ((_a = response === null || response === void 0 ? void 0 : response.d) === null || _a === void 0 ? void 0 : _a.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.id);
-                        LoggerAdapter_1.LoggerAdapter.info('SAP OData Webhook registered', {
-                            module: 'SapODataWebhook',
-                            operation: 'create',
-                            webhookUrl,
-                            subscriptionId: staticData.subscriptionId,
-                        });
                     }
-                    catch (error) {
-                        const errorMessage = error instanceof Error ? error.message : String(error);
-                        LoggerAdapter_1.LoggerAdapter.warn('Failed to auto-register webhook with SAP - manual configuration may be required', {
-                            module: 'SapODataWebhook',
-                            operation: 'create',
-                            error: (0, SecurityUtils_1.sanitizeErrorMessage)(errorMessage),
-                        });
+                    catch (_error) {
                     }
                     return true;
                 },
                 async delete() {
-                    const webhookUrl = this.getNodeWebhookUrl('default');
                     try {
                         const staticData = this.getWorkflowStaticData('node');
                         const subscriptionId = staticData.subscriptionId;
@@ -415,29 +363,11 @@ class SapODataWebhook {
                             if (credentials) {
                                 const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../SapOData/GenericFunctions')));
                                 await sapOdataApiRequest.call(this, 'DELETE', `/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`);
-                                LoggerAdapter_1.LoggerAdapter.info('SAP OData Webhook unregistered', {
-                                    module: 'SapODataWebhook',
-                                    operation: 'delete',
-                                    subscriptionId,
-                                });
                             }
                             delete staticData.subscriptionId;
                         }
-                        else {
-                            LoggerAdapter_1.LoggerAdapter.info('SAP OData Webhook deleted locally', {
-                                module: 'SapODataWebhook',
-                                operation: 'delete',
-                                webhookUrl,
-                            });
-                        }
                     }
-                    catch (error) {
-                        const errorMessage = error instanceof Error ? error.message : String(error);
-                        LoggerAdapter_1.LoggerAdapter.warn('Failed to unregister webhook from SAP', {
-                            module: 'SapODataWebhook',
-                            operation: 'delete',
-                            error: (0, SecurityUtils_1.sanitizeErrorMessage)(errorMessage),
-                        });
+                    catch (_error) {
                     }
                     return true;
                 },
@@ -464,12 +394,6 @@ class SapODataWebhook {
             bodyString = JSON.stringify(rawBody);
         }
         if (bodyString.length > constants_1.MAX_WEBHOOK_BODY_SIZE) {
-            LoggerAdapter_1.LoggerAdapter.warn('Webhook request body too large', {
-                module: 'SapODataWebhook',
-                operation: 'webhook',
-                bodySize: bodyString.length,
-                maxSize: constants_1.MAX_WEBHOOK_BODY_SIZE,
-            });
             resp.status(413).json({
                 error: 'Request body too large',
                 maxSize: `${constants_1.MAX_WEBHOOK_BODY_SIZE / 1024 / 1024}MB`,
@@ -484,13 +408,6 @@ class SapODataWebhook {
             const rateLimit = options.rateLimit || constants_2.DEFAULT_WEBHOOK_RATE_LIMIT;
             const rateLimitResult = (0, WebhookUtils_1.checkWebhookRateLimit)(clientIp, rateLimit, constants_2.WEBHOOK_RATE_LIMIT_WINDOW);
             if (!rateLimitResult.allowed) {
-                LoggerAdapter_1.LoggerAdapter.warn('Webhook rate limit exceeded', {
-                    module: 'SapODataWebhook',
-                    operation: 'webhook',
-                    clientIp,
-                    rateLimit,
-                    retryAfter: rateLimitResult.retryAfter,
-                });
                 resp.status(429)
                     .set('Retry-After', String(rateLimitResult.retryAfter))
                     .set('X-RateLimit-Limit', String(rateLimit))

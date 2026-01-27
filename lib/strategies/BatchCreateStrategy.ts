@@ -12,7 +12,6 @@ import {
 	BatchOperationType,
 	IBatchOperation,
 } from '../utils/BatchRequestBuilder';
-import { Logger } from '../utils/Logger';
 import {
 	getEntitySet,
 	getServicePath,
@@ -48,13 +47,6 @@ export class BatchCreateStrategy extends CrudStrategy {
 				throw new Error('No entities provided for batch creation');
 			}
 
-			Logger.info('Batch Create started', {
-				module: 'BatchCreateStrategy',
-				entitySet,
-				entityCount: entities.length,
-				batchMode,
-			});
-
 			// Build batch operations
 			const operations: IBatchOperation[] = entities.map((entity) => ({
 				type: BatchOperationType.CREATE,
@@ -71,24 +63,11 @@ export class BatchCreateStrategy extends CrudStrategy {
 			// Split into batches if needed
 			const batches = BatchRequestBuilder.splitIntoBatches(operations, batchSize);
 
-			Logger.debug('Batch operations prepared', {
-				module: 'BatchCreateStrategy',
-				totalOperations: operations.length,
-				numberOfBatches: batches.length,
-			});
-
 			// Execute each batch
 			const allResults: any[] = [];
 
 			for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
 				const batchOps = batches[batchIndex];
-
-				Logger.debug('Executing batch', {
-					module: 'BatchCreateStrategy',
-					batchIndex: batchIndex + 1,
-					totalBatches: batches.length,
-					operationCount: batchOps.length,
-				});
 
 				// Build batch request
 				const batchRequest = BatchRequestBuilder.buildBatchRequest({
@@ -134,13 +113,6 @@ export class BatchCreateStrategy extends CrudStrategy {
 							index: batchIndex * batchSize + idx,
 						});
 					}
-				});
-
-				Logger.info('Batch executed', {
-					module: 'BatchCreateStrategy',
-					batchIndex: batchIndex + 1,
-					successCount: batchResponse.results.filter(r => r.success).length,
-					failureCount: batchResponse.results.filter(r => !r.success).length,
 				});
 			}
 

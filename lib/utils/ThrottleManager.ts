@@ -1,5 +1,3 @@
-import { Logger } from './Logger';
-
 /**
  * Throttle strategy options
  */
@@ -40,13 +38,6 @@ export class ThrottleManager {
 
 		// Start token refill timer
 		this.startRefillTimer();
-
-		Logger.debug('ThrottleManager initialized', {
-			module: 'ThrottleManager',
-			maxRequestsPerSecond: this.options.maxRequestsPerSecond,
-			strategy: this.options.strategy,
-			burstSize: this.options.burstSize,
-		});
 	}
 
 	/**
@@ -71,10 +62,6 @@ export class ThrottleManager {
 				return this.delayUntilAvailable();
 
 			case 'drop':
-				Logger.warn('Request dropped due to rate limiting', {
-					module: 'ThrottleManager',
-					strategy: 'drop',
-				});
 				return false;
 
 			case 'queue':
@@ -96,12 +83,6 @@ export class ThrottleManager {
 		if (Math.floor(tokensToAdd) > 0) {
 			this.tokens = Math.min(this.options.burstSize, this.tokens + Math.floor(tokensToAdd));
 			this.lastRefill = now;
-
-			Logger.debug('Tokens refilled', {
-				module: 'ThrottleManager',
-				tokens: this.tokens,
-				tokensAdded: Math.floor(tokensToAdd),
-			});
 		}
 	}
 
@@ -115,12 +96,6 @@ export class ThrottleManager {
 			this.options.onThrottle(waitTime);
 		}
 
-		Logger.debug('Request delayed due to throttling', {
-			module: 'ThrottleManager',
-			waitTime: `${waitTime}ms`,
-			strategy: 'delay',
-		});
-
 		await this.sleep(waitTime);
 
 		// After waiting, try to acquire again
@@ -133,12 +108,6 @@ export class ThrottleManager {
 	private async queueRequest(): Promise<boolean> {
 		return new Promise((resolve, reject) => {
 			this.queue.push({ resolve, reject });
-
-			Logger.debug('Request queued', {
-				module: 'ThrottleManager',
-				queueLength: this.queue.length,
-				strategy: 'queue',
-			});
 		});
 	}
 
@@ -190,11 +159,6 @@ export class ThrottleManager {
 			if (next) {
 				this.tokens--;
 				next.resolve(true);
-
-				Logger.debug('Queued request processed', {
-					module: 'ThrottleManager',
-					remainingQueue: this.queue.length,
-				});
 			}
 		}
 	}
@@ -241,9 +205,5 @@ export class ThrottleManager {
 				next.reject(new Error('ThrottleManager destroyed'));
 			}
 		}
-
-		Logger.debug('ThrottleManager destroyed', {
-			module: 'ThrottleManager',
-		});
 	}
 }

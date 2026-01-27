@@ -11,7 +11,6 @@ import {
 	INodeListSearchResult,
 	INodePropertyOptions,
 } from 'n8n-workflow';
-import { LoggerAdapter } from '../../lib/utils/LoggerAdapter';
 import {
 	parseMetadataForEntitySets,
 	parseMetadataForFunctionImports,
@@ -199,12 +198,6 @@ export const sapODataLoadOptions = {
 			// Try both modes to find the service path
 			const servicePathMode = (this.getCurrentNodeParameter('servicePathMode') as string) || '';
 
-			LoggerAdapter.debug('Resolving service path', {
-				module: 'LoadOptions',
-				operation: 'getEntitySets',
-				servicePathMode,
-			});
-
 			if (servicePathMode === 'discover') {
 				servicePath = (this.getCurrentNodeParameter('discoveredService') as string) || '';
 			} else if (servicePathMode === 'custom') {
@@ -216,12 +209,6 @@ export const sapODataLoadOptions = {
 				const discovered = (this.getCurrentNodeParameter('discoveredService') as string) || '';
 				const custom = (this.getCurrentNodeParameter('servicePath') as string) || '';
 				servicePath = discovered || custom || '';
-
-				LoggerAdapter.debug('Used fallback service path resolution', {
-					module: 'LoadOptions',
-					operation: 'getEntitySets',
-					resolvedPath: servicePath,
-				});
 			}
 
 			// Validate that we have a specific service path (not just the base path)

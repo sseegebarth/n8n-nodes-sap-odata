@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SapMessageParser = exports.SapMessageSeverity = void 0;
-const Logger_1 = require("./Logger");
 var SapMessageSeverity;
 (function (SapMessageSeverity) {
     SapMessageSeverity["Success"] = "success";
@@ -12,7 +11,6 @@ var SapMessageSeverity;
 })(SapMessageSeverity || (exports.SapMessageSeverity = SapMessageSeverity = {}));
 class SapMessageParser {
     static parseSapMessageHeader(headerValue) {
-        var _a;
         try {
             const decodedValue = decodeURIComponent(headerValue);
             const messageData = JSON.parse(decodedValue);
@@ -35,19 +33,9 @@ class SapMessageParser {
                     });
                 });
             }
-            Logger_1.Logger.debug('Parsed SAP messages from header', {
-                module: 'SapMessageParser',
-                messageCount: messages.length,
-                mainMessage: (_a = messages[0]) === null || _a === void 0 ? void 0 : _a.message,
-            });
             return messages;
         }
-        catch (error) {
-            Logger_1.Logger.warn('Failed to parse sap-message header', {
-                module: 'SapMessageParser',
-                error: error instanceof Error ? error.message : String(error),
-                headerValue: headerValue.substring(0, 100),
-            });
+        catch {
             return [];
         }
     }
@@ -102,17 +90,9 @@ class SapMessageParser {
                     });
                 }
             }
-            Logger_1.Logger.debug('Parsed SAP error response', {
-                module: 'SapMessageParser',
-                messageCount: messages.length,
-            });
             return messages;
         }
-        catch (error) {
-            Logger_1.Logger.warn('Failed to parse SAP error response', {
-                module: 'SapMessageParser',
-                error: error instanceof Error ? error.message : String(error),
-            });
+        catch {
             return [];
         }
     }

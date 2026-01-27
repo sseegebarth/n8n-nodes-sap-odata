@@ -6,7 +6,6 @@
  */
 
 import type { NormalizedEdmType, ODataValue, ITypeDetectionOptions } from '../types/odata';
-import { LoggerAdapter } from './LoggerAdapter';
 
 /**
  * Detect EDM type from JavaScript value
@@ -23,7 +22,7 @@ export class TypeDetector {
 		value: ODataValue,
 		options: ITypeDetectionOptions = {},
 	): NormalizedEdmType | undefined {
-		const { autoDetect = false, strictMode = false, warnOnAutoDetect = true } = options;
+		const { autoDetect = false, strictMode = false } = options;
 
 		// Null/undefined has no type
 		if (value === null || value === undefined) {
@@ -48,15 +47,6 @@ export class TypeDetector {
 		// String-based type detection (only if autoDetect enabled)
 		if (jsType === 'string' && autoDetect) {
 			const detectedType = this.detectFromString(value as string, strictMode);
-
-			if (detectedType && warnOnAutoDetect) {
-				LoggerAdapter.warn('Auto-detected type from string value', {
-					module: 'TypeDetector',
-					detectedType,
-					suggestion: 'Provide explicit typeHint for better reliability',
-				});
-			}
-
 			return detectedType;
 		}
 

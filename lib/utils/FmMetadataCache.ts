@@ -23,7 +23,6 @@ import {
 	IZatwFmSearchCacheEntry,
 	IZatwIdocTypeMetadata,
 } from '../types/zatw';
-import { Logger } from './Logger';
 
 type CacheContext = IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions;
 
@@ -71,26 +70,13 @@ export class FmMetadataCache {
 
 			// Check if expired
 			if (Date.now() > entry.expires) {
-				Logger.debug('FM metadata cache expired', {
-					module: 'FmMetadataCache',
-					functionName,
-				});
 				delete cache[key];
 				this.setCache(context, CACHE_KEYS.FM_METADATA, cache);
 				return null;
 			}
 
-			Logger.debug('FM metadata cache hit', {
-				module: 'FmMetadataCache',
-				functionName,
-			});
-
 			return entry.metadata;
-		} catch (error) {
-			Logger.warn('Error reading FM metadata cache', {
-				module: 'FmMetadataCache',
-				error: error instanceof Error ? error.message : 'Unknown error',
-			});
+		} catch {
 			return null;
 		}
 	}
@@ -122,17 +108,8 @@ export class FmMetadataCache {
 			};
 
 			this.setCache(context, CACHE_KEYS.FM_METADATA, cache);
-
-			Logger.debug('FM metadata cached', {
-				module: 'FmMetadataCache',
-				functionName,
-				ttl: `${ttl}ms`,
-			});
-		} catch (error) {
-			Logger.warn('Error writing FM metadata cache', {
-				module: 'FmMetadataCache',
-				error: error instanceof Error ? error.message : 'Unknown error',
-			});
+		} catch {
+			// Ignore cache write errors
 		}
 	}
 
@@ -175,17 +152,8 @@ export class FmMetadataCache {
 					this.setCache(context, CACHE_KEYS.FM_METADATA, cache);
 				}
 			}
-
-			Logger.debug('FM metadata cache invalidated', {
-				module: 'FmMetadataCache',
-				host,
-				functionName: functionName || 'all',
-			});
-		} catch (error) {
-			Logger.warn('Error invalidating FM metadata cache', {
-				module: 'FmMetadataCache',
-				error: error instanceof Error ? error.message : 'Unknown error',
-			});
+		} catch {
+			// Ignore cache invalidation errors
 		}
 	}
 
@@ -225,17 +193,8 @@ export class FmMetadataCache {
 				return null;
 			}
 
-			Logger.debug('FM search cache hit', {
-				module: 'FmMetadataCache',
-				pattern,
-			});
-
 			return entry.results;
-		} catch (error) {
-			Logger.warn('Error reading FM search cache', {
-				module: 'FmMetadataCache',
-				error: error instanceof Error ? error.message : 'Unknown error',
-			});
+		} catch {
 			return null;
 		}
 	}
@@ -268,17 +227,8 @@ export class FmMetadataCache {
 			};
 
 			this.setCache(context, CACHE_KEYS.FM_SEARCH, cache);
-
-			Logger.debug('FM search results cached', {
-				module: 'FmMetadataCache',
-				pattern,
-				resultCount: results.length,
-			});
-		} catch (error) {
-			Logger.warn('Error writing FM search cache', {
-				module: 'FmMetadataCache',
-				error: error instanceof Error ? error.message : 'Unknown error',
-			});
+		} catch {
+			// Ignore cache write errors
 		}
 	}
 
@@ -351,11 +301,8 @@ export class FmMetadataCache {
 			};
 
 			this.setCache(context, CACHE_KEYS.IDOC_METADATA, cache);
-		} catch (error) {
-			Logger.warn('Error writing IDoc metadata cache', {
-				module: 'FmMetadataCache',
-				error: error instanceof Error ? error.message : 'Unknown error',
-			});
+		} catch {
+			// Ignore cache write errors
 		}
 	}
 
@@ -384,10 +331,6 @@ export class FmMetadataCache {
 			}
 			if (cleaned > 0) {
 				this.setCache(context, CACHE_KEYS.FM_METADATA, fmCache);
-				Logger.debug('FM metadata cache cleaned', {
-					module: 'FmMetadataCache',
-					entriesRemoved: cleaned,
-				});
 			}
 		}
 

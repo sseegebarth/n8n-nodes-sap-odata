@@ -9,7 +9,6 @@ import {
 	BatchOperationType,
 	IBatchOperation,
 } from '../utils/BatchRequestBuilder';
-import { Logger } from '../utils/Logger';
 import {
 	getEntitySet,
 	getServicePath,
@@ -42,12 +41,6 @@ export class BatchDeleteStrategy extends CrudStrategy {
 			if (keys.length === 0) {
 				throw new Error('No keys provided for batch deletion');
 			}
-
-			Logger.info('Batch Delete started', {
-				module: 'BatchDeleteStrategy',
-				entitySet,
-				deleteCount: keys.length,
-			});
 
 			// Build batch operations
 			const operations: IBatchOperation[] = keys.map((key) => ({
@@ -101,12 +94,6 @@ export class BatchDeleteStrategy extends CrudStrategy {
 						index: batchIndex * batchSize + idx,
 						key: keys[batchIndex * batchSize + idx],
 					});
-				});
-
-				Logger.info('Delete batch executed', {
-					module: 'BatchDeleteStrategy',
-					batchIndex: batchIndex + 1,
-					successCount: batchResponse.results.filter(r => r.success).length,
 				});
 			}
 

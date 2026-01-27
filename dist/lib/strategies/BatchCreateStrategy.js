@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BatchCreateStrategy = void 0;
 const ApiClient_1 = require("../core/ApiClient");
 const BatchRequestBuilder_1 = require("../utils/BatchRequestBuilder");
-const Logger_1 = require("../utils/Logger");
 const StrategyHelpers_1 = require("../utils/StrategyHelpers");
 const CrudStrategy_1 = require("./base/CrudStrategy");
 class BatchCreateStrategy extends CrudStrategy_1.CrudStrategy {
@@ -21,12 +20,6 @@ class BatchCreateStrategy extends CrudStrategy_1.CrudStrategy {
             if (entities.length === 0) {
                 throw new Error('No entities provided for batch creation');
             }
-            Logger_1.Logger.info('Batch Create started', {
-                module: 'BatchCreateStrategy',
-                entitySet,
-                entityCount: entities.length,
-                batchMode,
-            });
             const operations = entities.map((entity) => ({
                 type: BatchRequestBuilder_1.BatchOperationType.CREATE,
                 entitySet,
@@ -37,20 +30,9 @@ class BatchCreateStrategy extends CrudStrategy_1.CrudStrategy {
                 throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
             }
             const batches = BatchRequestBuilder_1.BatchRequestBuilder.splitIntoBatches(operations, batchSize);
-            Logger_1.Logger.debug('Batch operations prepared', {
-                module: 'BatchCreateStrategy',
-                totalOperations: operations.length,
-                numberOfBatches: batches.length,
-            });
             const allResults = [];
             for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
                 const batchOps = batches[batchIndex];
-                Logger_1.Logger.debug('Executing batch', {
-                    module: 'BatchCreateStrategy',
-                    batchIndex: batchIndex + 1,
-                    totalBatches: batches.length,
-                    operationCount: batchOps.length,
-                });
                 const batchRequest = BatchRequestBuilder_1.BatchRequestBuilder.buildBatchRequest({
                     operations: batchOps,
                     servicePath,
@@ -86,12 +68,6 @@ class BatchCreateStrategy extends CrudStrategy_1.CrudStrategy {
                             index: batchIndex * batchSize + idx,
                         });
                     }
-                });
-                Logger_1.Logger.info('Batch executed', {
-                    module: 'BatchCreateStrategy',
-                    batchIndex: batchIndex + 1,
-                    successCount: batchResponse.results.filter(r => r.success).length,
-                    failureCount: batchResponse.results.filter(r => !r.success).length,
                 });
             }
             const convertedResults = allResults.map(result => (0, StrategyHelpers_1.applyTypeConversion)(result, this, itemIndex));

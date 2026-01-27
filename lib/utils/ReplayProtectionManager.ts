@@ -12,8 +12,6 @@
  * @module ReplayProtectionManager
  */
 
-import { Logger } from './Logger';
-
 /**
  * Nonce entry in storage
  *
@@ -106,12 +104,6 @@ export class ReplayProtectionManager {
 
 		// Start automatic cleanup
 		this.startCleanup();
-
-		Logger.info('Replay Protection Manager initialized', {
-			module: 'ReplayProtectionManager',
-			nonceTTL: this.config.nonceTTL,
-			maxNonces: this.config.maxNonces,
-		});
 	}
 
 	/**
@@ -128,10 +120,6 @@ export class ReplayProtectionManager {
 	static getInstance(config?: Partial<IReplayProtectionConfig>): ReplayProtectionManager {
 		if (!ReplayProtectionManager.instance) {
 			ReplayProtectionManager.instance = new ReplayProtectionManager(config);
-		} else if (config) {
-			Logger.warn('getInstance called with config, but instance already exists. Config ignored.', {
-				module: 'ReplayProtectionManager',
-			});
 		}
 		return ReplayProtectionManager.instance;
 	}
@@ -150,10 +138,6 @@ export class ReplayProtectionManager {
 		if (ReplayProtectionManager.instance) {
 			ReplayProtectionManager.instance.destroy();
 			ReplayProtectionManager.instance = null as any;
-
-			Logger.debug('Singleton instance reset', {
-				module: 'ReplayProtectionManager',
-			});
 		}
 	}
 
@@ -167,10 +151,6 @@ export class ReplayProtectionManager {
 	destroy(): void {
 		this.stopCleanup();
 		this.clearAll();
-
-		Logger.info('ReplayProtectionManager destroyed', {
-			module: 'ReplayProtectionManager',
-		});
 	}
 
 	/**
@@ -206,12 +186,6 @@ export class ReplayProtectionManager {
 
 		if (entry.expiresAt < now) {
 			// Nonce expired - can be reused (will be cleaned up soon)
-			Logger.debug('Expired nonce reused (allowed)', {
-				module: 'ReplayProtectionManager',
-				nonce: this.truncateNonce(nonce),
-				age: `${Math.floor(age / 1000)}s`,
-			});
-
 			return {
 				isReplay: false,
 				isExpired: true,
@@ -219,12 +193,6 @@ export class ReplayProtectionManager {
 		}
 
 		// Nonce exists and not expired - REPLAY!
-		Logger.warn('Replay attack detected', {
-			module: 'ReplayProtectionManager',
-			nonce: this.truncateNonce(nonce),
-			age: `${Math.floor(age / 1000)}s`,
-		});
-
 		return {
 			isReplay: true,
 			error: 'Nonce already used',
@@ -281,9 +249,6 @@ export class ReplayProtectionManager {
 	 */
 	storeNonce(nonce: string, signature?: string, ttl?: number): boolean {
 		if (!nonce || nonce.length === 0) {
-			Logger.warn('Attempted to store empty nonce', {
-				module: 'ReplayProtectionManager',
-			});
 			return false;
 		}
 
@@ -294,11 +259,6 @@ export class ReplayProtectionManager {
 
 			// If still at capacity, reject
 			if (this.nonceStore.size >= this.config.maxNonces) {
-				Logger.error('Nonce store at maximum capacity', undefined, {
-					module: 'ReplayProtectionManager',
-					size: this.nonceStore.size,
-					max: this.config.maxNonces,
-				});
 				return false;
 			}
 		}
@@ -314,13 +274,6 @@ export class ReplayProtectionManager {
 		};
 
 		this.nonceStore.set(nonce, entry);
-
-		Logger.debug('Nonce stored', {
-			module: 'ReplayProtectionManager',
-			nonce: this.truncateNonce(nonce),
-			expiresIn: `${Math.floor(effectiveTTL / 1000)}s`,
-			storeSize: this.nonceStore.size,
-		});
 
 		return true;
 	}
@@ -409,13 +362,6 @@ export class ReplayProtectionManager {
 			}
 		}
 
-		if (cleanedCount > 0) {
-			Logger.debug('Cleaned up expired nonces', {
-				module: 'ReplayProtectionManager',
-				cleaned: cleanedCount,
-				remaining: this.nonceStore.size,
-			});
-		}
 	}
 
 	/**
@@ -436,11 +382,6 @@ export class ReplayProtectionManager {
 		if (this.cleanupTimer.unref) {
 			this.cleanupTimer.unref();
 		}
-
-		Logger.debug('Automatic cleanup started', {
-			module: 'ReplayProtectionManager',
-			intervalMs: this.config.cleanupIntervalMs,
-		});
 	}
 
 	/**
@@ -450,10 +391,6 @@ export class ReplayProtectionManager {
 		if (this.cleanupTimer) {
 			clearInterval(this.cleanupTimer);
 			this.cleanupTimer = null;
-
-			Logger.debug('Automatic cleanup stopped', {
-				module: 'ReplayProtectionManager',
-			});
 		}
 	}
 
@@ -463,13 +400,7 @@ export class ReplayProtectionManager {
 	 * Removes all nonces from the store. Use with caution!
 	 */
 	clearAll(): void {
-		const count = this.nonceStore.size;
 		this.nonceStore.clear();
-
-		Logger.warn('All nonces cleared', {
-			module: 'ReplayProtectionManager',
-			count,
-		});
 	}
 
 	/**
@@ -504,17 +435,4 @@ export class ReplayProtectionManager {
 		return crypto.randomBytes(length).toString('hex');
 	}
 
-	/**
-	 * Truncate nonce for logging
-	 *
-	 * @private
-	 * @param {string} nonce - Full nonce
-	 * @returns {string} Truncated nonce
-	 */
-	private truncateNonce(nonce: string): string {
-		if (nonce.length <= 16) {
-			return nonce;
-		}
-		return `${nonce.substring(0, 8)}...${nonce.substring(nonce.length - 8)}`;
-	}
 }

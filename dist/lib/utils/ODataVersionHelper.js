@@ -35,16 +35,11 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ODataVersionHelper = void 0;
 const constants_1 = require("../constants");
-const LoggerAdapter_1 = require("./LoggerAdapter");
 class ODataVersionHelper {
     static async getODataVersion(context) {
         const credentials = await context.getCredentials('sapOdataApi');
         const configuredVersion = credentials.version || 'auto';
         if (configuredVersion === 'v2' || configuredVersion === 'v4') {
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'version_configured',
-                version: configuredVersion,
-            });
             return configuredVersion;
         }
         const serviceUrl = credentials.host;
@@ -52,11 +47,6 @@ class ODataVersionHelper {
         const cacheKey = `${serviceUrl}|${servicePath}`;
         const cached = this.versionCache.get(cacheKey);
         if (cached && cached.expires > Date.now()) {
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'version_cached',
-                version: cached.version,
-                ttlRemaining: Math.round((cached.expires - Date.now()) / 1000),
-            });
             return cached.version;
         }
         if (cached) {
@@ -67,13 +57,6 @@ class ODataVersionHelper {
             version: detectedVersion,
             expires: Date.now() + constants_1.METADATA_CACHE_TTL,
         });
-        LoggerAdapter_1.LoggerAdapter.info('ODataVersionHelper', {
-            action: 'version_detected',
-            version: detectedVersion,
-            serviceUrl,
-            servicePath,
-            cacheTtl: constants_1.METADATA_CACHE_TTL,
-        });
         return detectedVersion;
     }
     static async detectVersion(context, _serviceUrl) {
@@ -82,71 +65,37 @@ class ODataVersionHelper {
             const metadataResponse = await sapOdataApiRequest.call(context, 'GET', '/$metadata', {}, {});
             return this.analyzeMetadataVersion(metadataResponse);
         }
-        catch (error) {
-            LoggerAdapter_1.LoggerAdapter.warn('ODataVersionHelper', {
-                action: 'version_detection_failed',
-                error: error instanceof Error ? error.message : String(error),
-                defaulting_to: 'v2',
-            });
+        catch {
             return 'v2';
         }
     }
     static analyzeMetadataVersion(response) {
         if (typeof response !== 'string') {
             if (response['@odata.context'] !== undefined) {
-                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                    action: 'v4_indicator_found',
-                    indicator: '@odata.context property',
-                });
                 return 'v4';
             }
             if (response.d !== undefined) {
-                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                    action: 'v2_indicator_found',
-                    indicator: 'd wrapper property',
-                });
                 return 'v2';
             }
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'no_indicator_found',
-                defaulting_to: 'v2',
-                reason: 'unknown JSON structure',
-            });
             return 'v2';
         }
         const xml = response;
         if (xml.includes('xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx"') ||
             xml.includes("xmlns:edmx='http://schemas.microsoft.com/ado/2007/06/edmx'")) {
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'v2_indicator_found',
-                indicator: 'Microsoft EDMX namespace (definitive V2)',
-            });
             return 'v2';
         }
         if (xml.includes('xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"') ||
             xml.includes("xmlns:edmx='http://docs.oasis-open.org/odata/ns/edmx'")) {
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'v4_indicator_found',
-                indicator: 'OASIS EDMX namespace (definitive V4)',
-            });
             return 'v4';
         }
         if (xml.includes('DataServiceVersion="2.0"') ||
             xml.includes('DataServiceVersion="1.0"') ||
             xml.includes("DataServiceVersion='2.0'") ||
             xml.includes("DataServiceVersion='1.0'")) {
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'v2_indicator_found',
-                indicator: 'DataServiceVersion header',
-            });
             return 'v2';
         }
         if (xml.includes('Version="4.0"') || xml.includes('Version="4.01"') ||
             xml.includes("Version='4.0'") || xml.includes("Version='4.01'")) {
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'v4_indicator_found',
-                indicator: 'Version 4.x',
-            });
             return 'v4';
         }
         const v2EdmNamespaces = [
@@ -156,25 +105,12 @@ class ODataVersionHelper {
         ];
         for (const ns of v2EdmNamespaces) {
             if (xml.includes(ns)) {
-                LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                    action: 'v2_indicator_found',
-                    indicator: `Microsoft EDM namespace: ${ns}`,
-                });
                 return 'v2';
             }
         }
         if (xml.includes('http://docs.oasis-open.org/odata/ns/edm')) {
-            LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-                action: 'v4_indicator_found',
-                indicator: 'OASIS EDM namespace',
-            });
             return 'v4';
         }
-        LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-            action: 'no_indicator_found',
-            defaulting_to: 'v2',
-            reason: 'no known version indicators in metadata',
-        });
         return 'v2';
     }
     static getVersionSpecificParams(version, params) {
@@ -197,16 +133,10 @@ class ODataVersionHelper {
             }
             delete result.includeCount;
         }
-        LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-            action: 'params_mapped',
-            version,
-            original: params,
-            mapped: result,
-        });
         return result;
     }
     static extractData(response, version) {
-        var _a, _b;
+        var _a;
         if (!response)
             return null;
         let data;
@@ -244,16 +174,6 @@ class ODataVersionHelper {
                 data = response;
             }
         }
-        LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-            action: 'data_extracted',
-            version,
-            hasD: !!response.d,
-            hasDResults: !!((_b = response.d) === null || _b === void 0 ? void 0 : _b.results),
-            hasValue: !!response.value,
-            hasODataContext: !!response['@odata.context'],
-            isArray: Array.isArray(data),
-            itemCount: Array.isArray(data) ? data.length : 1,
-        });
         return data;
     }
     static getTotalCount(response, version) {
@@ -305,11 +225,7 @@ class ODataVersionHelper {
                 }
             }
         }
-        catch (parseError) {
-            LoggerAdapter_1.LoggerAdapter.error('ODataVersionHelper parse error', parseError instanceof Error ? parseError : new Error(String(parseError)), {
-                action: 'error_parse_failed',
-                originalError: error,
-            });
+        catch {
         }
         return errorMessage;
     }
@@ -325,9 +241,6 @@ class ODataVersionHelper {
     }
     static clearCache() {
         this.versionCache.clear();
-        LoggerAdapter_1.LoggerAdapter.debug('ODataVersionHelper', {
-            action: 'cache_cleared',
-        });
     }
 }
 exports.ODataVersionHelper = ODataVersionHelper;

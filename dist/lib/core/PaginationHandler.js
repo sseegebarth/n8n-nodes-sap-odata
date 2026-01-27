@@ -5,7 +5,6 @@ exports.extractNextLink = extractNextLink;
 exports.fetchAllItems = fetchAllItems;
 exports.streamAllItems = streamAllItems;
 const constants_1 = require("../constants");
-const Logger_1 = require("../utils/Logger");
 const SecurityUtils_1 = require("../utils/SecurityUtils");
 function extractItemsFromResponse(responseData, propertyName) {
     var _a;
@@ -58,12 +57,6 @@ async function fetchAllItems(requestFunction, config = {}) {
                 const itemsToAdd = maxItems - returnData.length;
                 returnData.push(...items.slice(0, itemsToAdd));
                 maxItemsReached = true;
-                Logger_1.Logger.info('Max items limit reached', {
-                    module: 'PaginationHandler',
-                    maxItems,
-                    pageNumber,
-                    itemsFetched: returnData.length,
-                });
                 break;
             }
             returnData.push(...items);
@@ -75,12 +68,6 @@ async function fetchAllItems(requestFunction, config = {}) {
                 const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
                 initialQuery.$skip = currentSkip + items.length;
                 pageNumber++;
-                Logger_1.Logger.debug('No next link but full page - using skip pagination', {
-                    module: 'PaginationHandler',
-                    pageNumber,
-                    skip: initialQuery.$skip,
-                    itemsFetched: returnData.length,
-                });
             }
             else {
                 hasMoreData = false;
@@ -95,12 +82,6 @@ async function fetchAllItems(requestFunction, config = {}) {
                 itemsFetchedSoFar: returnData.length,
             };
             if (continueOnFail) {
-                Logger_1.Logger.warn('Pagination error - continuing with partial results', {
-                    module: 'PaginationHandler',
-                    pageNumber,
-                    errorMessage: sanitizedMessage,
-                    itemsFetchedSoFar: returnData.length,
-                });
                 errors.push(paginationError);
                 hasMoreData = false;
             }
@@ -145,12 +126,6 @@ async function* streamAllItems(requestFunction, config = {}) {
         const items = extractItemsFromResponse(responseData, propertyName);
         for (const item of items) {
             if (maxItems > 0 && itemCount >= maxItems) {
-                Logger_1.Logger.info('Max items limit reached (streaming)', {
-                    module: 'PaginationHandler',
-                    maxItems,
-                    pageNumber,
-                    itemCount,
-                });
                 return;
             }
             yield item;

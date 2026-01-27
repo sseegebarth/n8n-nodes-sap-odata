@@ -59,13 +59,9 @@ export interface IRequestOptions {
 }
 export interface ISapOdataCredentials {
     host: string;
-    authentication: 'none' | 'basicAuth' | 'oauth2ClientCredentials';
+    authentication: 'none' | 'basicAuth';
     username?: string;
     password?: string;
-    oauthTokenUrl?: string;
-    oauthClientId?: string;
-    oauthClientSecret?: string;
-    oauthScope?: string;
     allowUnauthorizedCerts?: boolean;
     sapClient?: string;
     sapLanguage?: string;
@@ -110,19 +106,6 @@ export interface IWebhookEventInfo {
     entityKey?: string;
     timestamp?: string;
     data?: IDataObject;
-}
-export interface IConnectionPoolConfig {
-    maxSockets: number;
-    maxFreeSockets: number;
-    timeout: number;
-    keepAliveTimeout: number;
-}
-export interface IConnectionPoolStats {
-    totalConnections: number;
-    activeConnections: number;
-    idleConnections: number;
-    totalConnectionsCreated: number;
-    totalConnectionsReused: number;
 }
 export interface IApiClientConfig {
     method: string;

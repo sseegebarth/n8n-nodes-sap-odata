@@ -9,6 +9,6 @@ export declare abstract class CrudStrategy {
     protected formatSuccessResponse(data: unknown, itemIndex: number): INodeExecutionData[];
     protected handleOperationError(error: Error, operation: string, itemIndex: number, continueOnFail?: boolean): INodeExecutionData[];
     protected buildResourcePath(entitySet: string, entityKey?: string): string;
-    protected logOperation(operation: string, details: IDataObject): void;
+    protected logOperation(_operation: string, _details: IDataObject): void;
     protected applyTypeConversion(context: IExecuteFunctions, itemIndex: number, data: unknown): unknown;
 }

@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ThrottleManager = void 0;
-const Logger_1 = require("./Logger");
 class ThrottleManager {
     constructor(options) {
         this.queue = [];
@@ -16,12 +15,6 @@ class ThrottleManager {
         this.tokens = options.burstSize;
         this.lastRefill = Date.now();
         this.startRefillTimer();
-        Logger_1.Logger.debug('ThrottleManager initialized', {
-            module: 'ThrottleManager',
-            maxRequestsPerSecond: this.options.maxRequestsPerSecond,
-            strategy: this.options.strategy,
-            burstSize: this.options.burstSize,
-        });
     }
     async acquire() {
         if (this.destroyed) {
@@ -36,10 +29,6 @@ class ThrottleManager {
             case 'delay':
                 return this.delayUntilAvailable();
             case 'drop':
-                Logger_1.Logger.warn('Request dropped due to rate limiting', {
-                    module: 'ThrottleManager',
-                    strategy: 'drop',
-                });
                 return false;
             case 'queue':
                 return this.queueRequest();
@@ -54,11 +43,6 @@ class ThrottleManager {
         if (Math.floor(tokensToAdd) > 0) {
             this.tokens = Math.min(this.options.burstSize, this.tokens + Math.floor(tokensToAdd));
             this.lastRefill = now;
-            Logger_1.Logger.debug('Tokens refilled', {
-                module: 'ThrottleManager',
-                tokens: this.tokens,
-                tokensAdded: Math.floor(tokensToAdd),
-            });
         }
     }
     async delayUntilAvailable() {
@@ -66,22 +50,12 @@ class ThrottleManager {
         if (this.options.onThrottle) {
             this.options.onThrottle(waitTime);
         }
-        Logger_1.Logger.debug('Request delayed due to throttling', {
-            module: 'ThrottleManager',
-            waitTime: `${waitTime}ms`,
-            strategy: 'delay',
-        });
         await this.sleep(waitTime);
         return this.acquire();
     }
     async queueRequest() {
         return new Promise((resolve, reject) => {
             this.queue.push({ resolve, reject });
-            Logger_1.Logger.debug('Request queued', {
-                module: 'ThrottleManager',
-                queueLength: this.queue.length,
-                strategy: 'queue',
-            });
         });
     }
     calculateWaitTime() {
@@ -115,10 +89,6 @@ class ThrottleManager {
             if (next) {
                 this.tokens--;
                 next.resolve(true);
-                Logger_1.Logger.debug('Queued request processed', {
-                    module: 'ThrottleManager',
-                    remainingQueue: this.queue.length,
-                });
             }
         }
     }
@@ -145,9 +115,6 @@ class ThrottleManager {
                 next.reject(new Error('ThrottleManager destroyed'));
             }
         }
-        Logger_1.Logger.debug('ThrottleManager destroyed', {
-            module: 'ThrottleManager',
-        });
     }
 }
 exports.ThrottleManager = ThrottleManager;

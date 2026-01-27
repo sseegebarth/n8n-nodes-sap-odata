@@ -5,7 +5,6 @@
 
 import { IDataObject } from 'n8n-workflow';
 import { DEFAULT_PAGE_SIZE } from '../constants';
-import { Logger } from '../utils/Logger';
 import { sanitizeErrorMessage } from '../utils/SecurityUtils';
 
 /**
@@ -132,12 +131,6 @@ export async function fetchAllItems(
 				const itemsToAdd = maxItems - returnData.length;
 				returnData.push(...items.slice(0, itemsToAdd));
 				maxItemsReached = true;
-				Logger.info('Max items limit reached', {
-					module: 'PaginationHandler',
-					maxItems,
-					pageNumber,
-					itemsFetched: returnData.length,
-				});
 				break;
 			}
 
@@ -155,12 +148,6 @@ export async function fetchAllItems(
 				const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
 				initialQuery.$skip = currentSkip + items.length;
 				pageNumber++;
-				Logger.debug('No next link but full page - using skip pagination', {
-					module: 'PaginationHandler',
-					pageNumber,
-					skip: initialQuery.$skip,
-					itemsFetched: returnData.length,
-				});
 			} else {
 				// No next link and partial page = end of data
 				hasMoreData = false;
@@ -175,13 +162,7 @@ export async function fetchAllItems(
 			};
 
 			if (continueOnFail) {
-				// Log error and collect it (log original, but store sanitized in output)
-				Logger.warn('Pagination error - continuing with partial results', {
-					module: 'PaginationHandler',
-					pageNumber,
-					errorMessage: sanitizedMessage,
-					itemsFetchedSoFar: returnData.length,
-				});
+				// Collect error and continue with partial results
 				errors.push(paginationError);
 				// Stop pagination on error
 				hasMoreData = false;
@@ -263,13 +244,7 @@ export async function* streamAllItems(
 		// Yield items one by one
 		for (const item of items) {
 			if (maxItems > 0 && itemCount >= maxItems) {
-				Logger.info('Max items limit reached (streaming)', {
-					module: 'PaginationHandler',
-					maxItems,
-					pageNumber,
-					itemCount,
-				});
-				return; // Stop streaming
+				return; // Stop streaming - max items limit reached
 			}
 			yield item;
 			itemCount++;

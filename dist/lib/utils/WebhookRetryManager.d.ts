@@ -102,7 +102,6 @@ export declare class WebhookRetryManager {
     resetCircuit(endpoint: string): void;
     clearAll(): void;
     private generateDeliveryId;
-    private sanitizeUrl;
     getStats(): {
         total: number;
         delivered: number;

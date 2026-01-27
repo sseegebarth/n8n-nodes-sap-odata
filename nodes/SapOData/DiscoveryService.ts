@@ -1,5 +1,4 @@
 import { ILoadOptionsFunctions } from 'n8n-workflow';
-import { LoggerAdapter } from '../../lib/utils/LoggerAdapter';
 
 /**
  * DiscoveryService - SAP OData Service Discovery
@@ -117,15 +116,9 @@ export async function discoverServices(
 			});
 
 		return services;
-	} catch (error) {
+	} catch {
 		// If catalog service is not available or user lacks permissions,
 		// return empty array to allow fallback to manual input
-		LoggerAdapter.debug('Catalog service unavailable', {
-			module: 'DiscoveryService',
-			error: error instanceof Error ? error.message : String(error),
-		});
-
-		// Return empty array so UI can fallback to manual input or common services
 		return [];
 	}
 }

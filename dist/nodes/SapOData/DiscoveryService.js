@@ -37,7 +37,6 @@ exports.discoverServices = discoverServices;
 exports.getCommonServices = getCommonServices;
 exports.searchServices = searchServices;
 exports.groupServicesByCategory = groupServicesByCategory;
-const LoggerAdapter_1 = require("../../lib/utils/LoggerAdapter");
 const CATALOGSERVICE_PATH = '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/';
 async function discoverServices(context) {
     var _a;
@@ -81,11 +80,7 @@ async function discoverServices(context) {
         });
         return services;
     }
-    catch (error) {
-        LoggerAdapter_1.LoggerAdapter.debug('Catalog service unavailable', {
-            module: 'DiscoveryService',
-            error: error instanceof Error ? error.message : String(error),
-        });
+    catch {
         return [];
     }
 }

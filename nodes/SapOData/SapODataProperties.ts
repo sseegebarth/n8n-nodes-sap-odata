@@ -10,6 +10,34 @@ import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PAGE_SIZE } from '../../lib/const
 
 export const sapODataProperties: INodeProperties[] = [
 	// ============================================
+	// 0. Authentication (Which credential type?)
+	// ============================================
+	{
+		displayName: 'Authentication',
+		name: 'authentication',
+		type: 'options',
+		options: [
+			{
+				name: 'Basic Auth / None',
+				value: 'basicAuth',
+				description: 'Use Basic Auth or no authentication (On-Premise SAP)',
+			},
+			{
+				name: 'None',
+				value: 'none',
+				description: 'No authentication (for public OData services)',
+			},
+			{
+				name: 'OAuth2',
+				value: 'oauth2',
+				description: 'Use OAuth2 authentication (SAP Cloud, SAP BTP)',
+			},
+		],
+		default: 'basicAuth',
+		description: 'Authentication method to use for connecting to SAP',
+	},
+
+	// ============================================
 	// 1. Resource (What type of SAP object?)
 	// ============================================
 	{
@@ -598,59 +626,6 @@ export const sapODataProperties: INodeProperties[] = [
 				description: 'Whether to remove __metadata field from results. Removes the __metadata object (id, uri, type) from SAP OData responses for cleaner output.',
 			},
 
-			// Connection Pool Options
-			{
-				displayName: 'Connection: Pool - Keep Alive',
-				name: 'keepAlive',
-				type: 'boolean',
-				default: true,
-				description: 'Whether to keep connections alive for reuse. Recommended for better performance.',
-			},
-			{
-				displayName: 'Connection: Pool - Max Sockets',
-				name: 'maxSockets',
-				type: 'number',
-				default: 10,
-				description: 'Maximum concurrent connections per host. Controls how many parallel requests can be made.',
-				typeOptions: {
-					minValue: 1,
-					maxValue: 50,
-				},
-			},
-			{
-				displayName: 'Connection: Pool - Max Free Sockets',
-				name: 'maxFreeSockets',
-				type: 'number',
-				default: 5,
-				description: 'Maximum idle connections to keep in pool. Keeping idle connections reduces connection overhead.',
-				typeOptions: {
-					minValue: 0,
-					maxValue: 25,
-				},
-			},
-			{
-				displayName: 'Connection: Pool - Socket Timeout',
-				name: 'timeout',
-				type: 'number',
-				default: 120000,
-				description: 'Socket timeout in milliseconds. Time to wait before closing an active connection.',
-				typeOptions: {
-					minValue: 10000,
-					maxValue: 300000,
-				},
-			},
-			{
-				displayName: 'Connection: Pool - Free Socket Timeout',
-				name: 'freeSocketTimeout',
-				type: 'number',
-				default: 30000,
-				description: 'Free socket timeout in milliseconds. Time to wait before closing an idle connection.',
-				typeOptions: {
-					minValue: 5000,
-					maxValue: 120000,
-				},
-			},
-
 			// Cache Options
 			{
 				displayName: 'Cache: Clear Before Execution',
@@ -669,14 +644,6 @@ export const sapODataProperties: INodeProperties[] = [
 				description: 'Whether to include execution metrics in the output. Adds a _metrics object to the last item with performance data.',
 			},
 
-			// Debug Options
-			{
-				displayName: 'Debug: Enable Logging',
-				name: 'debugLogging',
-				type: 'boolean',
-				default: false,
-				description: 'Whether to log detailed request/response information. Logs URLs, headers (sanitized), status codes, timing, and connection pool stats.',
-			},
 		],
 	},
 ];

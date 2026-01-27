@@ -14,7 +14,6 @@ import {
 	FunctionImportHelper,
 	IFunctionParameter,
 } from '../utils/FunctionImportHelper';
-import { Logger } from '../utils/Logger';
 import {
 	getServicePath,
 	validateAndParseJson,
@@ -37,13 +36,6 @@ export class EnhancedFunctionImportStrategy extends CrudStrategy {
 			const servicePath = getServicePath(this, itemIndex);
 			const parameterMode = this.getNodeParameter('parameterMode', itemIndex, 'simple') as string;
 
-			Logger.info('Enhanced Function Import started', {
-				module: 'EnhancedFunctionImportStrategy',
-				functionName,
-				httpMethod,
-				parameterMode,
-			});
-
 			// Build parameters
 			let parameters: IFunctionParameter[] = [];
 
@@ -57,11 +49,6 @@ export class EnhancedFunctionImportStrategy extends CrudStrategy {
 				) as IDataObject;
 
 				parameters = FunctionImportHelper.buildParametersFromObject(paramsObj);
-
-				Logger.debug('Simple parameters built', {
-					module: 'EnhancedFunctionImportStrategy',
-					parameterCount: parameters.length,
-				});
 			} else {
 				// Advanced mode: Explicit type definitions
 				const paramsStr = this.getNodeParameter('typedParameters', itemIndex, '[]') as string;
@@ -82,12 +69,6 @@ export class EnhancedFunctionImportStrategy extends CrudStrategy {
 					value: param.value,
 					nullable: param.nullable,
 				}));
-
-				Logger.debug('Advanced parameters built', {
-					module: 'EnhancedFunctionImportStrategy',
-					parameterCount: parameters.length,
-					types: parameters.map(p => `${p.name}:${p.type}`),
-				});
 			}
 
 			// Validate parameters
@@ -104,13 +85,6 @@ export class EnhancedFunctionImportStrategy extends CrudStrategy {
 				parameters,
 				httpMethod
 			);
-
-			Logger.debug('Function import request prepared', {
-				module: 'EnhancedFunctionImportStrategy',
-				url,
-				method: httpMethod,
-				hasBody: !!body,
-			});
 
 			// Execute function import
 			const response = await executeRequest.call(this, {
@@ -131,12 +105,6 @@ export class EnhancedFunctionImportStrategy extends CrudStrategy {
 
 			// Apply type conversion
 			const convertedResult = applyTypeConversion(returnValue as IDataObject | IDataObject[], this, itemIndex);
-
-			Logger.info('Function import executed successfully', {
-				module: 'EnhancedFunctionImportStrategy',
-				functionName,
-				resultType: Array.isArray(convertedResult) ? 'collection' : typeof convertedResult,
-			});
 
 			return formatSuccessResponse(convertedResult, 'Enhanced Function Import');
 

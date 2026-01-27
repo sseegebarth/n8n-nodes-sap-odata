@@ -18,7 +18,6 @@ import {
 } from 'n8n-workflow';
 import { buildODataQuery } from '../core/QueryBuilder';
 import { IODataQueryOptions } from '../types';
-import { Logger } from './Logger';
 import { sanitizeErrorMessage } from './SecurityUtils';
 import { convertDataTypes } from './TypeConverter';
 
@@ -250,12 +249,6 @@ export function handleOperationError(
 
 	// TODO: Should we preserve HTTP status codes and SAP messages here?
 	// Currently stripping too much error context
-
-	Logger.error('Operation failed', undefined, {
-		module: 'StrategyHelpers',
-		error: errorMessage,
-		itemIndex,
-	});
 
 	if (continueOnFail) {
 		return [{

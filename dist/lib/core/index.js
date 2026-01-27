@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseStatusCodes = exports.parsePoolConfig = exports.buildCsrfTokenRequest = exports.buildRequestOptions = exports.parseMetadataForFunctionImports = exports.parseMetadataForEntitySets = exports.normalizeODataOptions = exports.escapeODataString = exports.buildODataFilter = exports.buildODataQuery = exports.extractNextLink = exports.extractItemsFromResponse = exports.streamAllItems = exports.fetchAllItems = exports.resetThrottleManager = exports.executeRequest = void 0;
+exports.parseStatusCodes = exports.buildCsrfTokenRequest = exports.buildRequestOptions = exports.parseMetadataForFunctionImports = exports.parseMetadataForEntitySets = exports.normalizeODataOptions = exports.escapeODataString = exports.buildODataFilter = exports.buildODataQuery = exports.extractNextLink = exports.extractItemsFromResponse = exports.streamAllItems = exports.fetchAllItems = exports.resetThrottleManager = exports.executeRequest = void 0;
 var ApiClient_1 = require("./ApiClient");
 Object.defineProperty(exports, "executeRequest", { enumerable: true, get: function () { return ApiClient_1.executeRequest; } });
 Object.defineProperty(exports, "resetThrottleManager", { enumerable: true, get: function () { return ApiClient_1.resetThrottleManager; } });
@@ -19,5 +19,4 @@ Object.defineProperty(exports, "parseMetadataForFunctionImports", { enumerable: 
 var RequestBuilder_1 = require("./RequestBuilder");
 Object.defineProperty(exports, "buildRequestOptions", { enumerable: true, get: function () { return RequestBuilder_1.buildRequestOptions; } });
 Object.defineProperty(exports, "buildCsrfTokenRequest", { enumerable: true, get: function () { return RequestBuilder_1.buildCsrfTokenRequest; } });
-Object.defineProperty(exports, "parsePoolConfig", { enumerable: true, get: function () { return RequestBuilder_1.parsePoolConfig; } });
 Object.defineProperty(exports, "parseStatusCodes", { enumerable: true, get: function () { return RequestBuilder_1.parseStatusCodes; } });

@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BatchRequestBuilder = exports.BatchOperationType = void 0;
 const crypto_1 = require("crypto");
-const Logger_1 = require("./Logger");
 var BatchOperationType;
 (function (BatchOperationType) {
     BatchOperationType["CREATE"] = "POST";
@@ -98,8 +97,7 @@ class BatchRequestBuilder {
                     results.push(result);
                 }
             }
-            catch (error) {
-                Logger_1.Logger.error('Failed to parse batch response part', error instanceof Error ? error : undefined, { module: 'BatchRequestBuilder' });
+            catch {
             }
         });
         const allSuccess = results.every(r => r.success);

@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BatchUpdateStrategy = void 0;
 const ApiClient_1 = require("../core/ApiClient");
 const BatchRequestBuilder_1 = require("../utils/BatchRequestBuilder");
-const Logger_1 = require("../utils/Logger");
 const StrategyHelpers_1 = require("../utils/StrategyHelpers");
 const CrudStrategy_1 = require("./base/CrudStrategy");
 class BatchUpdateStrategy extends CrudStrategy_1.CrudStrategy {
@@ -18,11 +17,6 @@ class BatchUpdateStrategy extends CrudStrategy_1.CrudStrategy {
             if (!Array.isArray(updates)) {
                 throw new Error('Updates must be an array of {key, data} objects');
             }
-            Logger_1.Logger.info('Batch Update started', {
-                module: 'BatchUpdateStrategy',
-                entitySet,
-                updateCount: updates.length,
-            });
             const operations = updates.map((update) => {
                 if (!update.key) {
                     throw new Error('Each update must have a "key" property');
@@ -74,11 +68,6 @@ class BatchUpdateStrategy extends CrudStrategy_1.CrudStrategy {
                         index: batchIndex * batchSize + idx,
                         key: (_a = updates[batchIndex * batchSize + idx]) === null || _a === void 0 ? void 0 : _a.key,
                     });
-                });
-                Logger_1.Logger.info('Update batch executed', {
-                    module: 'BatchUpdateStrategy',
-                    batchIndex: batchIndex + 1,
-                    successCount: batchResponse.results.filter(r => r.success).length,
                 });
             }
             const convertedResults = allResults.map(result => (0, StrategyHelpers_1.applyTypeConversion)(result, this, itemIndex));

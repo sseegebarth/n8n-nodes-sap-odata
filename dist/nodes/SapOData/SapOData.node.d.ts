@@ -1,4 +1,5 @@
-import { ICredentialDataDecryptedObject, ICredentialsDecrypted, ICredentialTestFunctions, IExecuteFunctions, INodeCredentialTestResult, INodeExecutionData, INodeType, INodeTypeDescription } from 'n8n-workflow';
+import { IExecuteFunctions, INodeExecutionData, INodeType, INodeTypeDescription } from 'n8n-workflow';
+import { testSapODataConnection } from './ConnectionTest';
 export declare class SapOData implements INodeType {
     description: INodeTypeDescription;
     methods: {
@@ -13,7 +14,7 @@ export declare class SapOData implements INodeType {
             entitySetSearch(this: import("n8n-workflow").ILoadOptionsFunctions, filter?: string, _paginationToken?: unknown): Promise<import("n8n-workflow").INodeListSearchResult>;
         };
         credentialTest: {
-            sapODataCredentialTest(this: ICredentialTestFunctions, credential: ICredentialsDecrypted<ICredentialDataDecryptedObject>): Promise<INodeCredentialTestResult>;
+            sapODataCredentialTest: typeof testSapODataConnection;
         };
     };
     execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]>;

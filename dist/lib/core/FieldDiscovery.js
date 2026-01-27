@@ -6,7 +6,6 @@ exports.getEntityFields = getEntityFields;
 exports.getNavigationProperties = getNavigationProperties;
 const GenericFunctions_1 = require("../../nodes/SapOData/GenericFunctions");
 const CacheManager_1 = require("../utils/CacheManager");
-const LoggerAdapter_1 = require("../utils/LoggerAdapter");
 const MetadataParser_1 = require("./MetadataParser");
 async function fetchMetadata(context, host, servicePath) {
     const cached = await CacheManager_1.CacheManager.getMetadata(context, host, servicePath);
@@ -61,12 +60,7 @@ async function getEntityFields(context, entitySetName) {
         options.sort((a, b) => a.name.localeCompare(b.name));
         return options;
     }
-    catch (error) {
-        LoggerAdapter_1.LoggerAdapter.debug('Failed to fetch entity fields', {
-            module: 'FieldDiscovery',
-            operation: 'getEntityFields',
-            error: error instanceof Error ? error.message : String(error),
-        });
+    catch {
         return [];
     }
 }
@@ -101,12 +95,7 @@ async function getNavigationProperties(context, entitySetName) {
         options.sort((a, b) => a.name.localeCompare(b.name));
         return options;
     }
-    catch (error) {
-        LoggerAdapter_1.LoggerAdapter.debug('Failed to fetch navigation properties', {
-            module: 'FieldDiscovery',
-            operation: 'getNavigationProperties',
-            error: error instanceof Error ? error.message : String(error),
-        });
+    catch {
         return [];
     }
 }

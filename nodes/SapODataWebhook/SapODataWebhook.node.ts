@@ -8,7 +8,6 @@ import {
 	NodeOperationError,
 } from 'n8n-workflow';
 import { MAX_WEBHOOK_BODY_SIZE } from '../../lib/constants';
-import { LoggerAdapter } from '../../lib/utils/LoggerAdapter';
 import { sanitizeErrorMessage } from '../../lib/utils/SecurityUtils';
 import {
 	verifyHmacSignature,
@@ -31,7 +30,7 @@ export class SapODataWebhook implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'ATW SAP Connect OData Webhook',
 		name: 'sapODataTrigger',
-		icon: 'file:sap.svg',
+		icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
 		group: ['trigger'],
 		version: 1,
 		subtitle: '={{$parameter["event"]}}',
@@ -47,7 +46,7 @@ export class SapODataWebhook implements INodeType {
 				required: false,
 				displayOptions: {
 					show: {
-						authentication: ['headerAuth'],
+						authentication: ['headerAuth', 'hmacSignature', 'queryAuth'],
 					},
 				},
 			},
@@ -108,25 +107,6 @@ export class SapODataWebhook implements INodeType {
 				required: true,
 			},
 
-			// Header Auth - Expected Value
-			{
-				displayName: 'Header Value',
-				name: 'headerValue',
-				type: 'string',
-				displayOptions: {
-					show: {
-						authentication: ['headerAuth'],
-					},
-				},
-				default: '',
-				placeholder: 'your-secret-token',
-				description: 'Expected value of the authentication header',
-				required: true,
-				typeOptions: {
-					password: true,
-				},
-			},
-
 			// Query Auth - Parameter Name
 			{
 				displayName: 'Query Parameter Name',
@@ -141,25 +121,6 @@ export class SapODataWebhook implements INodeType {
 				placeholder: 'token',
 				description: 'Name of the query parameter that contains the authentication token',
 				required: true,
-			},
-
-			// Query Auth - Expected Value
-			{
-				displayName: 'Query Parameter Value',
-				name: 'queryParameterValue',
-				type: 'string',
-				displayOptions: {
-					show: {
-						authentication: ['queryAuth'],
-					},
-				},
-				default: '',
-				placeholder: 'your-secret-token',
-				description: 'Expected value of the query parameter',
-				required: true,
-				typeOptions: {
-					password: true,
-				},
 			},
 
 			// Response Mode
@@ -390,10 +351,7 @@ export class SapODataWebhook implements INodeType {
 					// Only register with SAP if we have OData credentials
 					const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
 					if (!credentials) {
-						LoggerAdapter.info('No SAP OData credentials found - webhook will receive events but not auto-register', {
-							module: 'SapODataWebhook',
-							operation: 'create',
-						});
+						// Webhook will receive events but not auto-register with SAP
 						return true;
 					}
 
@@ -435,20 +393,7 @@ export class SapODataWebhook implements INodeType {
 					const staticData = this.getWorkflowStaticData('node');
 					staticData.subscriptionId = response?.d?.SubscriptionID || response?.SubscriptionID || response?.id;
 
-					LoggerAdapter.info('SAP OData Webhook registered', {
-						module: 'SapODataWebhook',
-						operation: 'create',
-						webhookUrl,
-						subscriptionId: staticData.subscriptionId,
-					});
-
-				} catch (error) {
-					const errorMessage = error instanceof Error ? error.message : String(error);
-					LoggerAdapter.warn('Failed to auto-register webhook with SAP - manual configuration may be required', {
-						module: 'SapODataWebhook',
-						operation: 'create',
-						error: sanitizeErrorMessage(errorMessage),
-					});
+				} catch (_error) {
 					// Don't fail - allow manual webhook configuration
 				}
 
@@ -460,8 +405,6 @@ export class SapODataWebhook implements INodeType {
 			 * Called when workflow is deactivated
 			 */
 			async delete(this: IHookFunctions): Promise<boolean> {
-				const webhookUrl = this.getNodeWebhookUrl('default') as string;
-
 				try {
 					const staticData = this.getWorkflowStaticData('node');
 					const subscriptionId = staticData.subscriptionId as string;
@@ -476,27 +419,10 @@ export class SapODataWebhook implements INodeType {
 								'DELETE',
 								`/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`
 							);
-							LoggerAdapter.info('SAP OData Webhook unregistered', {
-								module: 'SapODataWebhook',
-								operation: 'delete',
-								subscriptionId,
-							});
 						}
 						delete staticData.subscriptionId;
-					} else {
-						LoggerAdapter.info('SAP OData Webhook deleted locally', {
-							module: 'SapODataWebhook',
-							operation: 'delete',
-							webhookUrl,
-						});
 					}
-				} catch (error) {
-					const errorMessage = error instanceof Error ? error.message : String(error);
-					LoggerAdapter.warn('Failed to unregister webhook from SAP', {
-						module: 'SapODataWebhook',
-						operation: 'delete',
-						error: sanitizeErrorMessage(errorMessage),
-					});
+				} catch (_error) {
 					// Don't fail - allow workflow deactivation even if unregistration fails
 				}
 
@@ -529,12 +455,6 @@ export class SapODataWebhook implements INodeType {
 
 		// Validate request body size to prevent DoS attacks
 		if (bodyString.length > MAX_WEBHOOK_BODY_SIZE) {
-			LoggerAdapter.warn('Webhook request body too large', {
-				module: 'SapODataWebhook',
-				operation: 'webhook',
-				bodySize: bodyString.length,
-				maxSize: MAX_WEBHOOK_BODY_SIZE,
-			});
 			resp.status(413).json({
 				error: 'Request body too large',
 				maxSize: `${MAX_WEBHOOK_BODY_SIZE / 1024 / 1024}MB`,
@@ -555,14 +475,6 @@ export class SapODataWebhook implements INodeType {
 			const rateLimitResult = checkWebhookRateLimit(clientIp, rateLimit, WEBHOOK_RATE_LIMIT_WINDOW);
 
 			if (!rateLimitResult.allowed) {
-				LoggerAdapter.warn('Webhook rate limit exceeded', {
-					module: 'SapODataWebhook',
-					operation: 'webhook',
-					clientIp,
-					rateLimit,
-					retryAfter: rateLimitResult.retryAfter,
-				});
-
 				resp.status(429)
 					.set('Retry-After', String(rateLimitResult.retryAfter))
 					.set('X-RateLimit-Limit', String(rateLimit))

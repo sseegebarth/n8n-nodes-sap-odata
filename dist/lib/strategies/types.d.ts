@@ -13,14 +13,8 @@ export interface IOperationOptions {
 }
 export interface IAdvancedOptions {
     convertDataTypes?: boolean;
-    keepAlive?: boolean;
-    maxSockets?: number;
-    maxFreeSockets?: number;
-    timeout?: number;
-    freeSocketTimeout?: number;
     clearCache?: boolean;
     includeMetrics?: boolean;
-    debugLogging?: boolean;
 }
 export interface ISapODataResponse {
     d?: {

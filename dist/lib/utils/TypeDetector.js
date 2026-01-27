@@ -1,10 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TypeDetector = void 0;
-const LoggerAdapter_1 = require("./LoggerAdapter");
 class TypeDetector {
     static detectType(value, options = {}) {
-        const { autoDetect = false, strictMode = false, warnOnAutoDetect = true } = options;
+        const { autoDetect = false, strictMode = false } = options;
         if (value === null || value === undefined) {
             return undefined;
         }
@@ -20,13 +19,6 @@ class TypeDetector {
         }
         if (jsType === 'string' && autoDetect) {
             const detectedType = this.detectFromString(value, strictMode);
-            if (detectedType && warnOnAutoDetect) {
-                LoggerAdapter_1.LoggerAdapter.warn('Auto-detected type from string value', {
-                    module: 'TypeDetector',
-                    detectedType,
-                    suggestion: 'Provide explicit typeHint for better reliability',
-                });
-            }
             return detectedType;
         }
         if (jsType === 'object' && value !== null && typeof value === 'object') {

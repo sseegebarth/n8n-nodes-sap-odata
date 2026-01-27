@@ -1,13 +1,21 @@
 import {
 	IAuthenticateGeneric,
+	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
 } from 'n8n-workflow';
 
+/**
+ * SAP OData API Credentials
+ *
+ * Supports Basic Auth and anonymous access for On-Premise SAP systems.
+ * For OAuth2 (SAP Cloud/BTP), use SapOdataOAuth2Api instead.
+ */
 export class SapOdataApi implements ICredentialType {
 	name = 'sapOdataApi';
 	displayName = 'ATW SAP OData API';
 	documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
+	icon = 'file:../nodes/SapOData/sap.svg' as const;
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Host',
@@ -32,11 +40,6 @@ export class SapOdataApi implements ICredentialType {
 					name: 'Basic Auth',
 					value: 'basicAuth',
 					description: 'Username and password (On-Premise SAP systems)',
-				},
-				{
-					name: 'OAuth 2.0 Client Credentials',
-					value: 'oauth2ClientCredentials',
-					description: 'OAuth 2.0 Client Credentials flow (SAP Cloud, SAP BTP)',
 				},
 			],
 			default: 'none',
@@ -75,80 +78,15 @@ export class SapOdataApi implements ICredentialType {
 		},
 
 		// ============================================
-		// OAuth 2.0 Client Credentials Fields
-		// ============================================
-		{
-			displayName: 'Token URL',
-			name: 'oauthTokenUrl',
-			type: 'string',
-			default: '',
-			placeholder: 'https://your-tenant.authentication.eu10.hana.ondemand.com/oauth/token',
-			description: 'The OAuth 2.0 token endpoint URL. For SAP BTP: https://{subdomain}.authentication.{region}.hana.ondemand.com/oauth/token',
-			displayOptions: {
-				show: {
-					authentication: ['oauth2ClientCredentials'],
-				},
-			},
-			required: true,
-			hint: 'Find this in your SAP BTP service key under "url" + "/oauth/token"',
-		},
-		{
-			displayName: 'Client ID',
-			name: 'oauthClientId',
-			type: 'string',
-			default: '',
-			placeholder: 'sb-xxxx-xxxx-xxxx',
-			description: 'The OAuth 2.0 Client ID from your service key',
-			displayOptions: {
-				show: {
-					authentication: ['oauth2ClientCredentials'],
-				},
-			},
-			required: true,
-			hint: 'Find this in your SAP BTP service key under "clientid"',
-		},
-		{
-			displayName: 'Client Secret',
-			name: 'oauthClientSecret',
-			type: 'string',
-			typeOptions: {
-				password: true,
-			},
-			default: '',
-			description: 'The OAuth 2.0 Client Secret from your service key',
-			displayOptions: {
-				show: {
-					authentication: ['oauth2ClientCredentials'],
-				},
-			},
-			required: true,
-			hint: 'Find this in your SAP BTP service key under "clientsecret"',
-		},
-		{
-			displayName: 'Scope',
-			name: 'oauthScope',
-			type: 'string',
-			default: '',
-			placeholder: 'API_BUSINESS_PARTNER_0001',
-			description: 'OAuth 2.0 scope(s) - space-separated if multiple. Leave empty if not required.',
-			displayOptions: {
-				show: {
-					authentication: ['oauth2ClientCredentials'],
-				},
-			},
-			hint: 'Some SAP APIs require specific scopes. Check the API documentation.',
-		},
-
-		// ============================================
 		// Common Fields
 		// ============================================
+		// eslint-disable-next-line @n8n/community-nodes/credential-password-field -- this is a boolean, not a password
 		{
 			displayName: 'Ignore SSL Issues',
 			name: 'allowUnauthorizedCerts',
 			type: 'boolean',
 			default: false,
-			description: 'Whether to connect even if SSL certificate validation is not possible',
-			hint: '⚠️ SECURITY WARNING: Only use in development environments! Production systems should always use valid SSL certificates. Disabling SSL validation exposes your connection to man-in-the-middle attacks.',
+			description: 'Whether to connect even if SSL certificate validation is not possible. Only use in development environments.',
 		},
 		{
 			displayName: 'SAP Client',
@@ -156,13 +94,7 @@ export class SapOdataApi implements ICredentialType {
 			type: 'string',
 			default: '',
 			placeholder: '100',
-			description: 'SAP Client number (Mandant). Will be sent as sap-client header.',
-			hint: 'Common SAP client numbers: 100 (DEV), 200 (QA), 300 (PROD). Not required for SAP Cloud.',
-			displayOptions: {
-				hide: {
-					authentication: ['oauth2ClientCredentials'],
-				},
-			},
+			description: 'SAP Client number (Mandant). Will be sent as sap-client header. Common values: 100 (DEV), 200 (QA), 300 (PROD)',
 		},
 		{
 			displayName: 'SAP Language',
@@ -170,8 +102,7 @@ export class SapOdataApi implements ICredentialType {
 			type: 'string',
 			default: '',
 			placeholder: 'EN',
-			description: 'SAP language code. Will be sent as sap-language header.',
-			hint: 'Common language codes: EN (English), DE (German), FR (French), ES (Spanish)',
+			description: 'SAP language code. Will be sent as sap-language header. Common codes: EN, DE, FR, ES',
 		},
 		{
 			displayName: 'Custom Headers',
@@ -207,8 +138,6 @@ export class SapOdataApi implements ICredentialType {
 		},
 	];
 
-	// Conditional authentication based on authentication type
-	// Note: OAuth 2.0 is handled manually in the node (not via n8n's built-in auth)
 	authenticate: IAuthenticateGeneric = {
 		type: 'generic',
 		properties: {
@@ -219,9 +148,15 @@ export class SapOdataApi implements ICredentialType {
 		},
 	};
 
-	/**
-	 * Test connection - delegated to node for consistent URL validation
-	 * The node's credentialTest method includes SSRF protection checks
-	 */
-	testedBy = 'sapODataCredentialTest';
+	// Declarative credential test - checks if SAP system is reachable
+	// Note: SAP returns 404 for root URL, but any HTTP response means the system is up
+	// We use ignoreHttpStatusErrors to accept any response as "reachable"
+	test: ICredentialTestRequest = {
+		request: {
+			baseURL: '={{$credentials.host}}',
+			url: '/',
+			skipSslCertificateValidation: '={{$credentials.allowUnauthorizedCerts}}',
+			ignoreHttpStatusErrors: true,
+		},
+	};
 }

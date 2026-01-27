@@ -15,7 +15,6 @@
  */
 
 import * as crypto from 'crypto';
-import { Logger } from './Logger';
 
 /**
  * Signature algorithm types
@@ -110,13 +109,6 @@ export class WebhookSignatureValidator {
 			throw new Error('Webhook secret cannot be empty');
 		}
 
-		if (secret.length < 32) {
-			Logger.warn('Webhook secret is shorter than 32 characters - consider using a longer secret', {
-				module: 'WebhookSignatureValidator',
-				length: secret.length,
-			});
-		}
-
 		this.secret = secret;
 	}
 
@@ -140,13 +132,6 @@ export class WebhookSignatureValidator {
 		headers?: Record<string, string>,
 	): IValidationResult {
 		const { algorithm, format, validateTimestamp = false, timestampHeaderName, toleranceMs = 300000 } = options;
-
-		Logger.debug('Validating webhook signature', {
-			module: 'WebhookSignatureValidator',
-			algorithm,
-			format,
-			validateTimestamp,
-		});
 
 		// Validate timestamp if requested
 		if (validateTimestamp) {
@@ -183,22 +168,11 @@ export class WebhookSignatureValidator {
 		const isValid = this.constantTimeCompare(receivedSignature, expectedSignature);
 
 		if (!isValid) {
-			Logger.warn('Webhook signature validation failed', {
-				module: 'WebhookSignatureValidator',
-				algorithm,
-				format,
-			});
-
 			return {
 				isValid: false,
 				error: 'Signature mismatch',
 			};
 		}
-
-		Logger.info('Webhook signature validated successfully', {
-			module: 'WebhookSignatureValidator',
-			algorithm,
-		});
 
 		return {
 			isValid: true,
@@ -296,12 +270,6 @@ export class WebhookSignatureValidator {
 
 		// Check if too old
 		if (age > toleranceMs) {
-			Logger.warn('Webhook timestamp too old', {
-				module: 'WebhookSignatureValidator',
-				age: `${Math.floor(age / 1000)}s`,
-				tolerance: `${Math.floor(toleranceMs / 1000)}s`,
-			});
-
 			return {
 				isValid: false,
 				error: `Timestamp too old: ${Math.floor(age / 1000)}s (max ${Math.floor(toleranceMs / 1000)}s)`,
@@ -311,11 +279,6 @@ export class WebhookSignatureValidator {
 
 		// Check if too far in the future (allow 60 seconds clock skew)
 		if (age < -60000) {
-			Logger.warn('Webhook timestamp in the future', {
-				module: 'WebhookSignatureValidator',
-				age: `${Math.floor(age / 1000)}s`,
-			});
-
 			return {
 				isValid: false,
 				error: 'Timestamp is in the future',
@@ -352,11 +315,8 @@ export class WebhookSignatureValidator {
 				}
 
 				return crypto.timingSafeEqual(bufferA, bufferB);
-			} catch (error) {
+			} catch {
 				// Fallback to manual comparison
-				Logger.warn('crypto.timingSafeEqual failed, using fallback', {
-					module: 'WebhookSignatureValidator',
-				});
 			}
 		}
 
@@ -395,11 +355,6 @@ export class WebhookSignatureValidator {
 			const expectedSignature = this.generateSignature(payload, algorithm, format);
 
 			if (this.constantTimeCompare(receivedSignature, expectedSignature)) {
-				Logger.info('Webhook verified with algorithm', {
-					module: 'WebhookSignatureValidator',
-					algorithm,
-				});
-
 				return {
 					isValid: true,
 					algorithm,

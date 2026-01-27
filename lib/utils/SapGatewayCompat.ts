@@ -11,7 +11,6 @@ import {
 	IDataObject,
 	IHttpRequestOptions,
 } from 'n8n-workflow';
-import { Logger } from './Logger';
 import { SapGatewaySessionManager } from './SapGatewaySession';
 import { SapMessageParser, ISapMessage } from './SapMessageParser';
 
@@ -79,10 +78,6 @@ export class SapGatewayCompat {
 			const cookieHeader = await SapGatewaySessionManager.getCookieHeader(context, host, servicePath);
 			if (cookieHeader) {
 				headers['Cookie'] = cookieHeader;
-				Logger.debug('Added session cookies to request', {
-					module: 'SapGatewayCompat',
-					cookieCount: cookieHeader.split(';').length,
-				});
 			}
 		}
 
@@ -91,10 +86,6 @@ export class SapGatewayCompat {
 			const contextId = await SapGatewaySessionManager.getContextId(context, host, servicePath);
 			if (contextId) {
 				headers['SAP-ContextId'] = contextId;
-				Logger.debug('Added SAP-ContextId to request', {
-					module: 'SapGatewayCompat',
-					contextId,
-				});
 			}
 		}
 
@@ -129,14 +120,6 @@ export class SapGatewayCompat {
 
 		// Enable full response to capture headers
 		enhancedOptions.returnFullResponse = true;
-
-		Logger.debug('Request options enhanced with SAP Gateway compatibility', {
-			module: 'SapGatewayCompat',
-			enableSession,
-			enableContextId,
-			enableMessageParsing,
-			preferRepresentation,
-		});
 
 		return enhancedOptions;
 	}
@@ -185,13 +168,6 @@ export class SapGatewayCompat {
 			body = response;
 		}
 
-		Logger.debug('Processing response', {
-			module: 'SapGatewayCompat',
-			statusCode,
-			hasHeaders: Object.keys(headers).length > 0,
-			headerKeys: Object.keys(headers),
-		});
-
 		const result: ISapGatewayResponse = {
 			body,
 			statusCode,
@@ -207,10 +183,6 @@ export class SapGatewayCompat {
 				servicePath,
 				setCookie as string | string[],
 			);
-			Logger.debug('Session cookies extracted', {
-				module: 'SapGatewayCompat',
-				cookieCount: Array.isArray(setCookie) ? setCookie.length : 1,
-			});
 		}
 
 		// Extract and store SAP-ContextId if enabled (case-insensitive)
@@ -225,20 +197,10 @@ export class SapGatewayCompat {
 		const csrfTokenHeader = this.getHeader(headers, 'x-csrf-token');
 		if (csrfTokenHeader) {
 			const csrfToken = String(csrfTokenHeader);
-			Logger.debug('CSRF token header found', {
-				module: 'SapGatewayCompat',
-				tokenValue: csrfToken.substring(0, 10) + '...',
-				isRequired: csrfToken === 'Required',
-				isFetch: csrfToken === 'Fetch',
-			});
 			// Only update if it's not the "Required" message
 			if (csrfToken && csrfToken !== 'Required' && csrfToken !== 'Fetch') {
 				result.csrfToken = csrfToken;
 				await SapGatewaySessionManager.updateCsrfToken(context, host, servicePath, csrfToken);
-				Logger.debug('CSRF token extracted from response', {
-					module: 'SapGatewayCompat',
-					tokenLength: csrfToken.length,
-				});
 			}
 		}
 
@@ -247,12 +209,6 @@ export class SapGatewayCompat {
 			const messages = SapMessageParser.extractAllMessages(headers, body);
 			if (messages.length > 0) {
 				result.messages = messages;
-				Logger.debug('SAP messages extracted from response', {
-					module: 'SapGatewayCompat',
-					messageCount: messages.length,
-					errorCount: messages.filter((m) => m.severity === 'error').length,
-					warningCount: messages.filter((m) => m.severity === 'warning').length,
-				});
 			}
 		}
 
@@ -271,18 +227,8 @@ export class SapGatewayCompat {
 		// Try to get token from session first
 		const cachedToken = await SapGatewaySessionManager.getCsrfToken(context, host, servicePath);
 		if (cachedToken) {
-			Logger.debug('Using cached CSRF token from session', {
-				module: 'SapGatewayCompat',
-			});
 			return cachedToken;
 		}
-
-		// Fetch new token
-		Logger.debug('Fetching new CSRF token', {
-			module: 'SapGatewayCompat',
-			host,
-			servicePath,
-		});
 
 		try {
 			// Build request options
@@ -309,13 +255,6 @@ export class SapGatewayCompat {
 				? { username: credentials.username as string, password: credentials.password as string }
 				: undefined;
 
-			Logger.debug('CSRF token request details', {
-				module: 'SapGatewayCompat',
-				url: enhancedOptions.url,
-				hasAuth: !!auth,
-				headers: Object.keys(enhancedOptions.headers || {}),
-			});
-
 			// Use helpers.request directly (same as ApiClient) to ensure consistent behavior
 			// httpRequestWithAuthentication may not return headers properly
 			const response = await context.helpers.request({
@@ -323,12 +262,6 @@ export class SapGatewayCompat {
 				auth,
 				resolveWithFullResponse: true, // Get full response with headers
 			} as any);
-
-			Logger.debug('CSRF token response received', {
-				module: 'SapGatewayCompat',
-				hasHeaders: !!response?.headers,
-				statusCode: response?.statusCode,
-			});
 
 			// Process response to extract token and session data
 			const processedResponse = await this.processResponse(
@@ -344,10 +277,6 @@ export class SapGatewayCompat {
 			);
 
 			if (processedResponse.csrfToken) {
-				Logger.debug('CSRF token extracted successfully', {
-					module: 'SapGatewayCompat',
-					tokenLength: processedResponse.csrfToken.length,
-				});
 				return processedResponse.csrfToken;
 			}
 
@@ -356,25 +285,12 @@ export class SapGatewayCompat {
 				const token = String(processedResponse.headers['x-csrf-token']);
 				if (token && token !== 'Required' && token !== 'Fetch') {
 					await SapGatewaySessionManager.updateCsrfToken(context, host, servicePath, token);
-					Logger.debug('CSRF token extracted from headers fallback', {
-						module: 'SapGatewayCompat',
-						tokenLength: token.length,
-					});
 					return token;
 				}
 			}
 
-			Logger.warn('CSRF token not found in response', {
-				module: 'SapGatewayCompat',
-				responseHeaders: Object.keys(processedResponse.headers),
-			});
-
 			return '';
-		} catch (error) {
-			Logger.warn('Failed to fetch CSRF token', {
-				module: 'SapGatewayCompat',
-				error: error instanceof Error ? error.message : String(error),
-			});
+		} catch {
 			return '';
 		}
 	}
@@ -388,11 +304,6 @@ export class SapGatewayCompat {
 		servicePath: string,
 	): void {
 		SapGatewaySessionManager.clearSession(context, host, servicePath);
-		Logger.info('SAP Gateway session cleared', {
-			module: 'SapGatewayCompat',
-			host,
-			servicePath,
-		});
 	}
 
 	/**

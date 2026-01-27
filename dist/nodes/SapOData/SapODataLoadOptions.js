@@ -34,7 +34,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sapODataListSearch = exports.sapODataLoadOptions = void 0;
-const LoggerAdapter_1 = require("../../lib/utils/LoggerAdapter");
 const GenericFunctions_1 = require("./GenericFunctions");
 exports.sapODataLoadOptions = {
     async getServices() {
@@ -175,11 +174,6 @@ exports.sapODataLoadOptions = {
             const { CacheManager } = await Promise.resolve().then(() => __importStar(require('../../lib/utils/CacheManager')));
             let servicePath = '';
             const servicePathMode = this.getCurrentNodeParameter('servicePathMode') || '';
-            LoggerAdapter_1.LoggerAdapter.debug('Resolving service path', {
-                module: 'LoadOptions',
-                operation: 'getEntitySets',
-                servicePathMode,
-            });
             if (servicePathMode === 'discover') {
                 servicePath = this.getCurrentNodeParameter('discoveredService') || '';
             }
@@ -190,11 +184,6 @@ exports.sapODataLoadOptions = {
                 const discovered = this.getCurrentNodeParameter('discoveredService') || '';
                 const custom = this.getCurrentNodeParameter('servicePath') || '';
                 servicePath = discovered || custom || '';
-                LoggerAdapter_1.LoggerAdapter.debug('Used fallback service path resolution', {
-                    module: 'LoadOptions',
-                    operation: 'getEntitySets',
-                    resolvedPath: servicePath,
-                });
             }
             if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
                 return [

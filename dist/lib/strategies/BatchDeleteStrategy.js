@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BatchDeleteStrategy = void 0;
 const ApiClient_1 = require("../core/ApiClient");
 const BatchRequestBuilder_1 = require("../utils/BatchRequestBuilder");
-const Logger_1 = require("../utils/Logger");
 const StrategyHelpers_1 = require("../utils/StrategyHelpers");
 const CrudStrategy_1 = require("./base/CrudStrategy");
 class BatchDeleteStrategy extends CrudStrategy_1.CrudStrategy {
@@ -21,11 +20,6 @@ class BatchDeleteStrategy extends CrudStrategy_1.CrudStrategy {
             if (keys.length === 0) {
                 throw new Error('No keys provided for batch deletion');
             }
-            Logger_1.Logger.info('Batch Delete started', {
-                module: 'BatchDeleteStrategy',
-                entitySet,
-                deleteCount: keys.length,
-            });
             const operations = keys.map((key) => ({
                 type: BatchRequestBuilder_1.BatchOperationType.DELETE,
                 entitySet,
@@ -66,11 +60,6 @@ class BatchDeleteStrategy extends CrudStrategy_1.CrudStrategy {
                         index: batchIndex * batchSize + idx,
                         key: keys[batchIndex * batchSize + idx],
                     });
-                });
-                Logger_1.Logger.info('Delete batch executed', {
-                    module: 'BatchDeleteStrategy',
-                    batchIndex: batchIndex + 1,
-                    successCount: batchResponse.results.filter(r => r.success).length,
                 });
             }
             return (0, StrategyHelpers_1.formatSuccessResponse)({

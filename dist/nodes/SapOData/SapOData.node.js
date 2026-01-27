@@ -37,16 +37,16 @@ exports.SapOData = void 0;
 const n8n_workflow_1 = require("n8n-workflow");
 const strategies_1 = require("../../lib/strategies");
 const SecurityUtils_1 = require("../../lib/utils/SecurityUtils");
+const ConnectionTest_1 = require("./ConnectionTest");
 const SapODataLoadOptions_1 = require("./SapODataLoadOptions");
 const SapODataProperties_1 = require("./SapODataProperties");
-const ConnectionTest_1 = require("./ConnectionTest");
 const package_json_1 = require("../../package.json");
 class SapOData {
     constructor() {
         this.description = {
             displayName: 'ATW SAP Connect OData',
             name: 'sapOData',
-            icon: 'file:sap.svg',
+            icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
             group: ['transform'],
             version: 1,
             subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
@@ -60,6 +60,20 @@ class SapOData {
                 {
                     name: 'sapOdataApi',
                     required: true,
+                    displayOptions: {
+                        show: {
+                            authentication: ['basicAuth', 'none'],
+                        },
+                    },
+                },
+                {
+                    name: 'sapOdataOAuth2Api',
+                    required: true,
+                    displayOptions: {
+                        show: {
+                            authentication: ['oauth2'],
+                        },
+                    },
                 },
             ],
             properties: SapODataProperties_1.sapODataProperties,
@@ -68,9 +82,7 @@ class SapOData {
             loadOptions: SapODataLoadOptions_1.sapODataLoadOptions,
             listSearch: SapODataLoadOptions_1.sapODataListSearch,
             credentialTest: {
-                async sapODataCredentialTest(credential) {
-                    return ConnectionTest_1.testSapODataConnection.call(this, credential.data);
-                },
+                sapODataCredentialTest: ConnectionTest_1.testSapODataConnection,
             },
         };
     }

@@ -12,7 +12,6 @@
  */
 
 import { IDataObject } from 'n8n-workflow';
-import { Logger } from './Logger';
 
 /**
  * SAP Message Severity Levels
@@ -155,19 +154,8 @@ export class SapMessageParser {
 				});
 			}
 
-			Logger.debug('Parsed SAP messages from header', {
-				module: 'SapMessageParser',
-				messageCount: messages.length,
-				mainMessage: messages[0]?.message,
-			});
-
 			return messages;
-		} catch (error) {
-			Logger.warn('Failed to parse sap-message header', {
-				module: 'SapMessageParser',
-				error: error instanceof Error ? error.message : String(error),
-				headerValue: headerValue.substring(0, 100), // Log first 100 chars
-			});
+		} catch {
 			return [];
 		}
 	}
@@ -240,17 +228,8 @@ export class SapMessageParser {
 				}
 			}
 
-			Logger.debug('Parsed SAP error response', {
-				module: 'SapMessageParser',
-				messageCount: messages.length,
-			});
-
 			return messages;
-		} catch (error) {
-			Logger.warn('Failed to parse SAP error response', {
-				module: 'SapMessageParser',
-				error: error instanceof Error ? error.message : String(error),
-			});
+		} catch {
 			return [];
 		}
 	}

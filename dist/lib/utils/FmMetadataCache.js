@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FmMetadataCache = void 0;
 const constants_1 = require("../constants");
-const Logger_1 = require("./Logger");
 const CACHE_KEYS = {
     FM_METADATA: '_zatwFmMetadata',
     FM_SEARCH: '_zatwFmSearch',
@@ -21,25 +20,13 @@ class FmMetadataCache {
                 return null;
             }
             if (Date.now() > entry.expires) {
-                Logger_1.Logger.debug('FM metadata cache expired', {
-                    module: 'FmMetadataCache',
-                    functionName,
-                });
                 delete cache[key];
                 this.setCache(context, CACHE_KEYS.FM_METADATA, cache);
                 return null;
             }
-            Logger_1.Logger.debug('FM metadata cache hit', {
-                module: 'FmMetadataCache',
-                functionName,
-            });
             return entry.metadata;
         }
-        catch (error) {
-            Logger_1.Logger.warn('Error reading FM metadata cache', {
-                module: 'FmMetadataCache',
-                error: error instanceof Error ? error.message : 'Unknown error',
-            });
+        catch {
             return null;
         }
     }
@@ -55,17 +42,8 @@ class FmMetadataCache {
                 expires: Date.now() + ttl,
             };
             this.setCache(context, CACHE_KEYS.FM_METADATA, cache);
-            Logger_1.Logger.debug('FM metadata cached', {
-                module: 'FmMetadataCache',
-                functionName,
-                ttl: `${ttl}ms`,
-            });
         }
-        catch (error) {
-            Logger_1.Logger.warn('Error writing FM metadata cache', {
-                module: 'FmMetadataCache',
-                error: error instanceof Error ? error.message : 'Unknown error',
-            });
+        catch {
         }
     }
     static async invalidate(context, host, functionName) {
@@ -89,17 +67,8 @@ class FmMetadataCache {
                     this.setCache(context, CACHE_KEYS.FM_METADATA, cache);
                 }
             }
-            Logger_1.Logger.debug('FM metadata cache invalidated', {
-                module: 'FmMetadataCache',
-                host,
-                functionName: functionName || 'all',
-            });
         }
-        catch (error) {
-            Logger_1.Logger.warn('Error invalidating FM metadata cache', {
-                module: 'FmMetadataCache',
-                error: error instanceof Error ? error.message : 'Unknown error',
-            });
+        catch {
         }
     }
     static async getSearchResults(context, host, pattern) {
@@ -118,17 +87,9 @@ class FmMetadataCache {
                 this.setCache(context, CACHE_KEYS.FM_SEARCH, cache);
                 return null;
             }
-            Logger_1.Logger.debug('FM search cache hit', {
-                module: 'FmMetadataCache',
-                pattern,
-            });
             return entry.results;
         }
-        catch (error) {
-            Logger_1.Logger.warn('Error reading FM search cache', {
-                module: 'FmMetadataCache',
-                error: error instanceof Error ? error.message : 'Unknown error',
-            });
+        catch {
             return null;
         }
     }
@@ -145,17 +106,8 @@ class FmMetadataCache {
                 expires: Date.now() + ttl,
             };
             this.setCache(context, CACHE_KEYS.FM_SEARCH, cache);
-            Logger_1.Logger.debug('FM search results cached', {
-                module: 'FmMetadataCache',
-                pattern,
-                resultCount: results.length,
-            });
         }
-        catch (error) {
-            Logger_1.Logger.warn('Error writing FM search cache', {
-                module: 'FmMetadataCache',
-                error: error instanceof Error ? error.message : 'Unknown error',
-            });
+        catch {
         }
     }
     static async getIdocType(context, host, idocType) {
@@ -193,11 +145,7 @@ class FmMetadataCache {
             };
             this.setCache(context, CACHE_KEYS.IDOC_METADATA, cache);
         }
-        catch (error) {
-            Logger_1.Logger.warn('Error writing IDoc metadata cache', {
-                module: 'FmMetadataCache',
-                error: error instanceof Error ? error.message : 'Unknown error',
-            });
+        catch {
         }
     }
     static async cleanup(context) {
@@ -213,10 +161,6 @@ class FmMetadataCache {
             }
             if (cleaned > 0) {
                 this.setCache(context, CACHE_KEYS.FM_METADATA, fmCache);
-                Logger_1.Logger.debug('FM metadata cache cleaned', {
-                    module: 'FmMetadataCache',
-                    entriesRemoved: cleaned,
-                });
             }
         }
         const searchCache = this.getCache(context, CACHE_KEYS.FM_SEARCH);

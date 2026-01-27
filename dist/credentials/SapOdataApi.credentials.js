@@ -6,6 +6,7 @@ class SapOdataApi {
         this.name = 'sapOdataApi';
         this.displayName = 'ATW SAP OData API';
         this.documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
+        this.icon = 'file:../nodes/SapOData/sap.svg';
         this.properties = [
             {
                 displayName: 'Host',
@@ -30,11 +31,6 @@ class SapOdataApi {
                         name: 'Basic Auth',
                         value: 'basicAuth',
                         description: 'Username and password (On-Premise SAP systems)',
-                    },
-                    {
-                        name: 'OAuth 2.0 Client Credentials',
-                        value: 'oauth2ClientCredentials',
-                        description: 'OAuth 2.0 Client Credentials flow (SAP Cloud, SAP BTP)',
                     },
                 ],
                 default: 'none',
@@ -68,73 +64,11 @@ class SapOdataApi {
                 required: true,
             },
             {
-                displayName: 'Token URL',
-                name: 'oauthTokenUrl',
-                type: 'string',
-                default: '',
-                placeholder: 'https://your-tenant.authentication.eu10.hana.ondemand.com/oauth/token',
-                description: 'The OAuth 2.0 token endpoint URL. For SAP BTP: https://{subdomain}.authentication.{region}.hana.ondemand.com/oauth/token',
-                displayOptions: {
-                    show: {
-                        authentication: ['oauth2ClientCredentials'],
-                    },
-                },
-                required: true,
-                hint: 'Find this in your SAP BTP service key under "url" + "/oauth/token"',
-            },
-            {
-                displayName: 'Client ID',
-                name: 'oauthClientId',
-                type: 'string',
-                default: '',
-                placeholder: 'sb-xxxx-xxxx-xxxx',
-                description: 'The OAuth 2.0 Client ID from your service key',
-                displayOptions: {
-                    show: {
-                        authentication: ['oauth2ClientCredentials'],
-                    },
-                },
-                required: true,
-                hint: 'Find this in your SAP BTP service key under "clientid"',
-            },
-            {
-                displayName: 'Client Secret',
-                name: 'oauthClientSecret',
-                type: 'string',
-                typeOptions: {
-                    password: true,
-                },
-                default: '',
-                description: 'The OAuth 2.0 Client Secret from your service key',
-                displayOptions: {
-                    show: {
-                        authentication: ['oauth2ClientCredentials'],
-                    },
-                },
-                required: true,
-                hint: 'Find this in your SAP BTP service key under "clientsecret"',
-            },
-            {
-                displayName: 'Scope',
-                name: 'oauthScope',
-                type: 'string',
-                default: '',
-                placeholder: 'API_BUSINESS_PARTNER_0001',
-                description: 'OAuth 2.0 scope(s) - space-separated if multiple. Leave empty if not required.',
-                displayOptions: {
-                    show: {
-                        authentication: ['oauth2ClientCredentials'],
-                    },
-                },
-                hint: 'Some SAP APIs require specific scopes. Check the API documentation.',
-            },
-            {
                 displayName: 'Ignore SSL Issues',
                 name: 'allowUnauthorizedCerts',
                 type: 'boolean',
                 default: false,
-                description: 'Whether to connect even if SSL certificate validation is not possible',
-                hint: '⚠️ SECURITY WARNING: Only use in development environments! Production systems should always use valid SSL certificates. Disabling SSL validation exposes your connection to man-in-the-middle attacks.',
+                description: 'Whether to connect even if SSL certificate validation is not possible. Only use in development environments.',
             },
             {
                 displayName: 'SAP Client',
@@ -142,13 +76,7 @@ class SapOdataApi {
                 type: 'string',
                 default: '',
                 placeholder: '100',
-                description: 'SAP Client number (Mandant). Will be sent as sap-client header.',
-                hint: 'Common SAP client numbers: 100 (DEV), 200 (QA), 300 (PROD). Not required for SAP Cloud.',
-                displayOptions: {
-                    hide: {
-                        authentication: ['oauth2ClientCredentials'],
-                    },
-                },
+                description: 'SAP Client number (Mandant). Will be sent as sap-client header. Common values: 100 (DEV), 200 (QA), 300 (PROD)',
             },
             {
                 displayName: 'SAP Language',
@@ -156,8 +84,7 @@ class SapOdataApi {
                 type: 'string',
                 default: '',
                 placeholder: 'EN',
-                description: 'SAP language code. Will be sent as sap-language header.',
-                hint: 'Common language codes: EN (English), DE (German), FR (French), ES (Spanish)',
+                description: 'SAP language code. Will be sent as sap-language header. Common codes: EN, DE, FR, ES',
             },
             {
                 displayName: 'Custom Headers',
@@ -201,7 +128,14 @@ class SapOdataApi {
                 },
             },
         };
-        this.testedBy = 'sapODataCredentialTest';
+        this.test = {
+            request: {
+                baseURL: '={{$credentials.host}}',
+                url: '/',
+                skipSslCertificateValidation: '={{$credentials.allowUnauthorizedCerts}}',
+                ignoreHttpStatusErrors: true,
+            },
+        };
     }
 }
 exports.SapOdataApi = SapOdataApi;

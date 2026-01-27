@@ -35,5 +35,4 @@ export declare class ReplayProtectionManager {
         utilizationPercent: number;
     };
     static generateNonce(length?: number): string;
-    private truncateNonce;
 }

@@ -6,8 +6,6 @@
 import { IDataObject, IHttpRequestOptions, INode } from 'n8n-workflow';
 import { HEADERS, DEFAULT_TIMEOUT } from '../constants';
 import { ISapOdataCredentials } from '../types';
-import { ConnectionPoolManager } from '../utils/ConnectionPoolManager';
-import { Logger } from '../utils/Logger';
 import { buildSecureUrl, validateUrl, sanitizeHeaderValue } from '../utils/SecurityUtils';
 
 /**
@@ -24,8 +22,6 @@ export interface IRequestConfig {
 	options?: IDataObject;
 	credentials: ISapOdataCredentials;
 	csrfToken?: string;
-	oauthToken?: string;  // OAuth 2.0 Bearer token (pre-fetched)
-	poolConfig?: IDataObject;
 	node: INode;
 }
 
@@ -57,7 +53,6 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		options = {},
 		credentials,
 		csrfToken,
-		poolConfig = {},
 		node,
 	} = config;
 
@@ -106,14 +101,6 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		};
 	}
 
-	// Add OAuth 2.0 Bearer token if provided (pre-fetched by caller)
-	if (credentials.authentication === 'oauth2ClientCredentials' && config.oauthToken) {
-		requestOptions.headers = {
-			...requestOptions.headers,
-			Authorization: `Bearer ${config.oauthToken}`,
-		};
-	}
-
 	// Add CSRF token for write operations
 	if (method !== 'GET' && csrfToken) {
 		// Sanitize CSRF token to prevent header injection
@@ -154,19 +141,13 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 				// Validate header name (RFC 7230)
 				const headerName = String(key).toLowerCase().trim();
 				if (!/^[a-z0-9-]+$/i.test(headerName)) {
-					Logger.warn('Invalid custom header name skipped', {
-						module: 'RequestBuilder',
-						headerName: key,
-					});
+					// Invalid header name - skip
 					continue;
 				}
 
 				// Block forbidden headers that could interfere with security
 				if (forbiddenHeaders.includes(headerName)) {
-					Logger.warn('Forbidden custom header skipped', {
-						module: 'RequestBuilder',
-						headerName: key,
-					});
+					// Forbidden header - skip
 					continue;
 				}
 
@@ -175,30 +156,9 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 					[headerName]: sanitizeHeaderValue(String(value)),
 				};
 			}
-		} catch (error) {
-			Logger.warn('Failed to parse custom headers', {
-				module: 'RequestBuilder',
-				error: error instanceof Error ? error.message : String(error),
-			});
+		} catch {
+			// Failed to parse custom headers - ignore
 		}
-	}
-
-	// Add connection pool agent if poolConfig provided
-	if (Object.keys(poolConfig).length > 0) {
-		const poolManager = ConnectionPoolManager.getInstance();
-
-		// Filter out undefined values
-		const filteredConfig = Object.fromEntries(
-			Object.entries(poolConfig).filter(([_, v]) => v !== undefined)
-		);
-
-		if (Object.keys(filteredConfig).length > 0) {
-			poolManager.updateConfig(filteredConfig);
-		}
-
-		const urlObj = new URL(url);
-		const agent = poolManager.getAgent(urlObj.protocol);
-		(requestOptions as any).agent = agent;
 	}
 
 	// Merge additional options - deep merge headers to preserve CSRF token and other critical headers
@@ -234,18 +194,12 @@ export function buildCsrfTokenRequest(
 	servicePath: string,
 	credentials: ISapOdataCredentials,
 	node: INode,
-	oauthToken?: string,
 ): IHttpRequestOptions {
 	// Validate host URL
 	validateUrl(host, node);
 
 	// Build secure URL for CSRF token fetch
 	const url = buildSecureUrl(host, servicePath, '');
-
-	// Get connection pool agent based on protocol
-	const poolManager = ConnectionPoolManager.getInstance();
-	const urlObj = new URL(url);
-	const agent = poolManager.getAgent(urlObj.protocol);
 
 	const options: IHttpRequestOptions = {
 		method: 'GET',
@@ -258,7 +212,7 @@ export function buildCsrfTokenRequest(
 		returnFullResponse: true,
 		skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
 		timeout: DEFAULT_TIMEOUT,
-	} as IHttpRequestOptions & { agent?: any };
+	};
 
 	// Add Basic Auth if credentials provided
 	if (credentials.authentication === 'basicAuth' && credentials.username && credentials.password) {
@@ -268,39 +222,7 @@ export function buildCsrfTokenRequest(
 		};
 	}
 
-	// Add OAuth 2.0 Bearer token if provided
-	if (credentials.authentication === 'oauth2ClientCredentials' && oauthToken) {
-		options.headers = {
-			...options.headers,
-			Authorization: `Bearer ${oauthToken}`,
-		};
-	}
-
-	// Add agent for connection pooling
-	(options as any).agent = agent;
-
 	return options;
-}
-
-/**
- * Parse pool configuration from advanced options
- *
- * @param advancedOptions - Node's advanced options
- * @returns Filtered pool configuration
- */
-export function parsePoolConfig(advancedOptions: IDataObject): IDataObject {
-	const poolConfig = {
-		keepAlive: advancedOptions.keepAlive !== undefined ? advancedOptions.keepAlive as boolean : undefined,
-		maxSockets: advancedOptions.maxSockets as number | undefined,
-		maxFreeSockets: advancedOptions.maxFreeSockets as number | undefined,
-		timeout: advancedOptions.timeout as number | undefined,
-		freeSocketTimeout: advancedOptions.freeSocketTimeout as number | undefined,
-	};
-
-	// Filter out undefined values
-	return Object.fromEntries(
-		Object.entries(poolConfig).filter(([_, v]) => v !== undefined)
-	);
 }
 
 /**
