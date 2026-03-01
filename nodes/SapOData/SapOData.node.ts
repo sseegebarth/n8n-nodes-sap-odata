@@ -3,6 +3,7 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	NodeConnectionTypes,
 	NodeOperationError,
 } from 'n8n-workflow';
 import { OperationStrategyFactory } from '../../lib/strategies';
@@ -31,8 +32,8 @@ export class SapOData implements INodeType {
 		defaults: {
 			name: 'SAP Connect OData',
 		},
-		inputs: ['main'],
-		outputs: ['main'],
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [
 			{
 				name: 'sapOdataApi',

@@ -1,6 +1,6 @@
 /**
  * ApiClient - SAP OData API Request Handler
- * Handles API requests with retry logic, throttling, and connection pooling
+ * Handles API requests with retry logic and throttling
  */
 
 import {
@@ -108,7 +108,7 @@ export async function executeRequest(
 
 	// Note: SSL certificate validation disabled warning removed (credentials.allowUnauthorizedCerts)
 
-	// Get advanced options (connection pool configuration) if available
+	// Get advanced options if available
 	let advancedOptions: IDataObject = {};
 	if ('getNodeParameter' in this) {
 		try {

@@ -56,5 +56,13 @@ export class SapOdataWebhookApi implements ICredentialType {
 			placeholder: 'X-SAP-Signature',
 			description: 'Name of the HTTP header that will contain the signature or token',
 		},
+		{
+			displayName: 'Query Parameter Name',
+			name: 'queryParameterName',
+			type: 'string',
+			default: 'token',
+			placeholder: 'token',
+			description: 'Name of the query parameter that contains the authentication token (only used with Query String authentication)',
+		},
 	];
 }

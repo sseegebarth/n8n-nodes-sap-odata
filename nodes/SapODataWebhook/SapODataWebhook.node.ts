@@ -5,6 +5,7 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	IWebhookResponseData,
+	NodeConnectionTypes,
 	NodeOperationError,
 } from 'n8n-workflow';
 import { MAX_WEBHOOK_BODY_SIZE } from '../../lib/constants';
@@ -39,7 +40,7 @@ export class SapODataWebhook implements INodeType {
 			name: 'SAP Connect OData Webhook',
 		},
 		inputs: [],
-		outputs: ['main'],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [
 			{
 				name: 'sapOdataWebhookApi',
@@ -89,38 +90,6 @@ export class SapODataWebhook implements INodeType {
 				],
 				default: 'hmacSignature',
 				description: 'Method to authenticate incoming webhook requests',
-			},
-
-			// Signature/Token Header Name
-			{
-				displayName: 'Header Name',
-				name: 'headerName',
-				type: 'string',
-				displayOptions: {
-					show: {
-						authentication: ['headerAuth', 'hmacSignature'],
-					},
-				},
-				default: 'X-SAP-Signature',
-				placeholder: 'X-SAP-Signature',
-				description: 'Name of the header that contains the signature or authentication token',
-				required: true,
-			},
-
-			// Query Auth - Parameter Name
-			{
-				displayName: 'Query Parameter Name',
-				name: 'queryParameterName',
-				type: 'string',
-				displayOptions: {
-					show: {
-						authentication: ['queryAuth'],
-					},
-				},
-				default: 'token',
-				placeholder: 'token',
-				description: 'Name of the query parameter that contains the authentication token',
-				required: true,
 			},
 
 			// Response Mode
@@ -376,8 +345,8 @@ export class SapODataWebhook implements INodeType {
 					// Add authentication info to payload
 					if (authentication === 'hmacSignature') {
 						subscriptionPayload.AuthType = 'HMAC';
-						subscriptionPayload.SignatureHeader = this.getNodeParameter('headerName', 'X-SAP-Signature');
-						// Note: Secret should be configured on SAP side, not sent in request
+						const webhookCredentials = await this.getCredentials('sapOdataWebhookApi').catch(() => null);
+						subscriptionPayload.SignatureHeader = (webhookCredentials?.headerName as string) || 'X-SAP-Signature';
 					}
 
 					// Register webhook with SAP Gateway Event Hub
@@ -516,7 +485,7 @@ export class SapODataWebhook implements INodeType {
 				if (authentication === 'hmacSignature') {
 					try {
 						const credentials = await this.getCredentials('sapOdataWebhookApi');
-						const headerName = this.getNodeParameter('headerName', 'X-SAP-Signature') as string;
+						const headerName = (credentials.headerName as string) || 'X-SAP-Signature';
 						const signature = req.headers[headerName.toLowerCase()] as string;
 
 						if (!signature) {
@@ -550,7 +519,7 @@ export class SapODataWebhook implements INodeType {
 				// Header Token Authentication
 				else if (authentication === 'headerAuth') {
 					const credentials = await this.getCredentials('sapOdataWebhookApi');
-					const headerName = this.getNodeParameter('headerName') as string;
+					const headerName = (credentials.headerName as string) || 'X-SAP-Signature';
 					const expectedValue = credentials.secret as string; // Use secret field for token
 					const actualValue = req.headers[headerName.toLowerCase()];
 
@@ -562,7 +531,7 @@ export class SapODataWebhook implements INodeType {
 				// Query Parameter Authentication
 				else if (authentication === 'queryAuth') {
 					const credentials = await this.getCredentials('sapOdataWebhookApi');
-					const paramName = this.getNodeParameter('queryParameterName') as string;
+					const paramName = (credentials.queryParameterName as string) || 'token';
 					const expectedValue = credentials.secret as string; // Use secret field for token
 					const actualValue = req.query[paramName];
 

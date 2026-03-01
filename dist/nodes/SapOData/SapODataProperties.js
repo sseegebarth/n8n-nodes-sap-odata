@@ -546,7 +546,7 @@ exports.sapODataProperties = [
         type: 'collection',
         placeholder: 'Add Option',
         default: {},
-        description: 'Configure connection pooling, data conversion, caching, and debug logging for SAP OData requests.',
+        description: 'Configure data conversion, caching, and monitoring for SAP OData requests.',
         options: [
             {
                 displayName: 'Data: Convert SAP Data Types',

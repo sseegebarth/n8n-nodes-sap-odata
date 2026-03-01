@@ -54,8 +54,8 @@ class SapOData {
             defaults: {
                 name: 'SAP Connect OData',
             },
-            inputs: ['main'],
-            outputs: ['main'],
+            inputs: [n8n_workflow_1.NodeConnectionTypes.Main],
+            outputs: [n8n_workflow_1.NodeConnectionTypes.Main],
             credentials: [
                 {
                     name: 'sapOdataApi',

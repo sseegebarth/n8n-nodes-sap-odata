@@ -53,7 +53,7 @@ class SapODataWebhook {
                 name: 'SAP Connect OData Webhook',
             },
             inputs: [],
-            outputs: ['main'],
+            outputs: [n8n_workflow_1.NodeConnectionTypes.Main],
             credentials: [
                 {
                     name: 'sapOdataWebhookApi',
@@ -102,34 +102,6 @@ class SapODataWebhook {
                     ],
                     default: 'hmacSignature',
                     description: 'Method to authenticate incoming webhook requests',
-                },
-                {
-                    displayName: 'Header Name',
-                    name: 'headerName',
-                    type: 'string',
-                    displayOptions: {
-                        show: {
-                            authentication: ['headerAuth', 'hmacSignature'],
-                        },
-                    },
-                    default: 'X-SAP-Signature',
-                    placeholder: 'X-SAP-Signature',
-                    description: 'Name of the header that contains the signature or authentication token',
-                    required: true,
-                },
-                {
-                    displayName: 'Query Parameter Name',
-                    name: 'queryParameterName',
-                    type: 'string',
-                    displayOptions: {
-                        show: {
-                            authentication: ['queryAuth'],
-                        },
-                    },
-                    default: 'token',
-                    placeholder: 'token',
-                    description: 'Name of the query parameter that contains the authentication token',
-                    required: true,
                 },
                 {
                     displayName: 'Response',
@@ -343,7 +315,8 @@ class SapODataWebhook {
                         }
                         if (authentication === 'hmacSignature') {
                             subscriptionPayload.AuthType = 'HMAC';
-                            subscriptionPayload.SignatureHeader = this.getNodeParameter('headerName', 'X-SAP-Signature');
+                            const webhookCredentials = await this.getCredentials('sapOdataWebhookApi').catch(() => null);
+                            subscriptionPayload.SignatureHeader = (webhookCredentials === null || webhookCredentials === void 0 ? void 0 : webhookCredentials.headerName) || 'X-SAP-Signature';
                         }
                         const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../SapOData/GenericFunctions')));
                         const response = await sapOdataApiRequest.call(this, 'POST', '/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions', subscriptionPayload);
@@ -437,7 +410,7 @@ class SapODataWebhook {
                 if (authentication === 'hmacSignature') {
                     try {
                         const credentials = await this.getCredentials('sapOdataWebhookApi');
-                        const headerName = this.getNodeParameter('headerName', 'X-SAP-Signature');
+                        const headerName = credentials.headerName || 'X-SAP-Signature';
                         const signature = req.headers[headerName.toLowerCase()];
                         if (!signature) {
                             throw new n8n_workflow_1.NodeOperationError(this.getNode(), `Missing signature header: ${headerName}`, { description: 'Unauthorized' });
@@ -459,7 +432,7 @@ class SapODataWebhook {
                 }
                 else if (authentication === 'headerAuth') {
                     const credentials = await this.getCredentials('sapOdataWebhookApi');
-                    const headerName = this.getNodeParameter('headerName');
+                    const headerName = credentials.headerName || 'X-SAP-Signature';
                     const expectedValue = credentials.secret;
                     const actualValue = req.headers[headerName.toLowerCase()];
                     if (actualValue !== expectedValue) {
@@ -469,7 +442,7 @@ class SapODataWebhook {
                 }
                 else if (authentication === 'queryAuth') {
                     const credentials = await this.getCredentials('sapOdataWebhookApi');
-                    const paramName = this.getNodeParameter('queryParameterName');
+                    const paramName = credentials.queryParameterName || 'token';
                     const expectedValue = credentials.secret;
                     const actualValue = req.query[paramName];
                     if (actualValue !== expectedValue) {

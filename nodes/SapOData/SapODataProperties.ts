@@ -608,7 +608,7 @@ export const sapODataProperties: INodeProperties[] = [
 		type: 'collection',
 		placeholder: 'Add Option',
 		default: {},
-		description: 'Configure connection pooling, data conversion, caching, and debug logging for SAP OData requests.',
+		description: 'Configure data conversion, caching, and monitoring for SAP OData requests.',
 		options: [
 			// Data Type Conversion
 			{
