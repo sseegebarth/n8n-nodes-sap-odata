@@ -8,7 +8,6 @@ import {
 	IHookFunctions,
 	ILoadOptionsFunctions,
 	IDataObject,
-	NodeOperationError,
 } from 'n8n-workflow';
 import { resolveServicePath } from '../../nodes/SapOData/GenericFunctions';
 import {
@@ -23,37 +22,19 @@ import { ISapOdataCredentials } from '../types';
 import { CacheManager } from '../utils/CacheManager';
 import { ODataErrorHandler } from '../utils/ErrorHandler';
 import { RetryHandler } from '../utils/RetryUtils';
+import { SapGatewayCompat } from '../utils/SapGatewayCompat';
 import { SapGatewaySessionManager } from '../utils/SapGatewaySession';
-import { ThrottleManager, ThrottleStrategy } from '../utils/ThrottleManager';
-import { buildRequestOptions } from './RequestBuilder';
+import { buildCsrfTokenRequest, buildRequestOptions } from './RequestBuilder';
 
-/**
- * Get or create throttle manager scoped to workflow execution
- * This prevents throttling interference between different workflows
- */
-function getThrottleManager(
-	context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions,
-	config: {
-		maxRequestsPerSecond: number;
-		strategy: ThrottleStrategy;
-		burstSize: number;
-		onThrottle?: (waitTime: number) => void;
-	},
-): ThrottleManager {
-	// Scope throttle manager to workflow static data to prevent cross-workflow interference
-	if ('getWorkflowStaticData' in context) {
-		const staticData = context.getWorkflowStaticData('global');
-		const key = '_sapOdataThrottleManager';
+const lastRequestTime = new Map<string, number>();
 
-		if (!staticData[key]) {
-			staticData[key] = new ThrottleManager(config);
-		}
-		return staticData[key] as ThrottleManager;
+async function throttleRequest(nodeKey: string, minIntervalMs: number): Promise<void> {
+	const last = lastRequestTime.get(nodeKey) || 0;
+	const elapsed = Date.now() - last;
+	if (elapsed < minIntervalMs) {
+		await new Promise((r) => setTimeout(r, minIntervalMs - elapsed));
 	}
-
-	// Fallback for contexts without workflow static data (e.g., credential testing)
-	// Use a module-level cache with workflow ID as key
-	return new ThrottleManager(config);
+	lastRequestTime.set(nodeKey, Date.now());
 }
 
 /**
@@ -88,7 +69,7 @@ export async function executeRequest(
 	this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions,
 	config: IApiClientConfig,
 ): Promise<any> {
-	const { method, resource, body = {}, qs = {}, uri, option = {}, csrfToken } = config;
+	let { method, resource, body = {}, qs = {}, uri, option = {}, csrfToken } = config;
 
 	// Get credentials
 	const credentials = (await this.getCredentials(CREDENTIAL_TYPE)) as ISapOdataCredentials;
@@ -106,8 +87,6 @@ export async function executeRequest(
 	// This ensures DiscoveryService and other helpers can override the service path
 	const servicePath = config.servicePath || resolveServicePath(this);
 
-	// Note: SSL certificate validation disabled warning removed (credentials.allowUnauthorizedCerts)
-
 	// Get advanced options if available
 	let advancedOptions: IDataObject = {};
 	if ('getNodeParameter' in this) {
@@ -119,34 +98,18 @@ export async function executeRequest(
 		}
 	}
 
-	// Initialize throttling if enabled (scoped to workflow execution)
-	const throttleEnabled = advancedOptions.throttleEnabled === true;
-	let throttleManager: ThrottleManager | null = null;
-
-	if (throttleEnabled) {
-		throttleManager = getThrottleManager(this, {
-			maxRequestsPerSecond: (advancedOptions.maxRequestsPerSecond as number) || 10,
-			strategy: (advancedOptions.throttleStrategy as ThrottleStrategy) || 'delay',
-			burstSize: (advancedOptions.throttleBurstSize as number) || 5,
-		});
+	// Apply throttling if enabled
+	if (advancedOptions.throttleEnabled === true) {
+		const maxRps = (advancedOptions.maxRequestsPerSecond as number) || 10;
+		const minIntervalMs = Math.ceil(1000 / maxRps);
+		const node = this.getNode();
+		await throttleRequest(`${node.type}_${node.id}`, minIntervalMs);
 	}
 
-	// Apply throttling
-	if (throttleManager) {
-		const allowed = await throttleManager.acquire();
-		if (!allowed && advancedOptions.throttleStrategy === 'drop') {
-			throw new NodeOperationError(
-				this.getNode(),
-				'Request dropped due to rate limiting',
-				{
-					description: 'Too many requests. Try reducing the request rate or changing the throttle strategy.',
-				},
-			);
-		}
-	}
+	let csrfRetried = false;
 
 	// Create request function that will be executed with or without retry
-	const makeRequest = async () => {
+	const makeRequest = async (): Promise<any> => {
 		// Build request options
 		const requestOptions = buildRequestOptions({
 			method,
@@ -193,10 +156,30 @@ export async function executeRequest(
 
 			return response;
 		} catch (error) {
-			// Check if 404 error - invalidate metadata cache to allow retry with fresh data
-			const statusCode = (error as any)?.response?.statusCode || (error as any)?.statusCode;
+			const statusCode = (error as any)?.statusCode || (error as any)?.response?.statusCode || (error as any)?.httpCode;
+
+			// Invalidate metadata cache on 404
 			if (statusCode === 404) {
 				await CacheManager.invalidateCacheOn404(this, credentials.host, servicePath);
+			}
+
+			// CSRF token expired — clear session, refetch token, retry once
+			if (statusCode === 403 && method !== 'GET' && csrfToken && !csrfRetried) {
+				csrfRetried = true;
+				await SapGatewayCompat.clearSession(this, host, servicePath);
+				const freshToken = await SapGatewayCompat.fetchCsrfToken(
+					this, host, servicePath,
+					(h, sp) => buildCsrfTokenRequest(h, sp, credentials, this.getNode()),
+				);
+				if (freshToken) {
+					csrfToken = freshToken;
+					return makeRequest();
+				}
+			}
+
+			// Let RetryHandler handle retryable errors directly
+			if (statusCode && [429, 502, 503, 504].includes(statusCode)) {
+				throw error;
 			}
 
 			return ODataErrorHandler.handleApiError(error, this.getNode(), {

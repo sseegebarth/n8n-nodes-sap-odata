@@ -8,4 +8,5 @@ export declare const sapODataLoadOptions: {
 export declare const sapODataListSearch: {
     servicePathSearch(this: ILoadOptionsFunctions, filter?: string, _paginationToken?: unknown): Promise<INodeListSearchResult>;
     entitySetSearch(this: ILoadOptionsFunctions, filter?: string, _paginationToken?: unknown): Promise<INodeListSearchResult>;
+    functionImportSearch(this: ILoadOptionsFunctions, filter?: string, _paginationToken?: unknown): Promise<INodeListSearchResult>;
 };

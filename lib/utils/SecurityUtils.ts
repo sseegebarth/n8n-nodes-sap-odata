@@ -5,16 +5,16 @@ import { MAX_JSON_SIZE, MAX_NESTING_DEPTH } from '../constants';
  * Manually constructs URLs instead of using new URL(path, base) because
  * the URL API encodes ' to %27, breaking OData entity key syntax like /ProductSet('Key').
  */
-export function buildSecureUrl(host: string, servicePath: string, resource: string): string {
+export function buildSecureUrl(host: string, servicePath: string, resource: string, node: INode): string {
 	try {
 		const baseUrl = new URL(host);
 
 		if (!['http:', 'https:'].includes(baseUrl.protocol)) {
-			throw new Error(`Invalid protocol: ${baseUrl.protocol}. Only HTTP and HTTPS are allowed.`);
+			throw new NodeOperationError(node, `Invalid protocol: ${baseUrl.protocol}. Only HTTP and HTTPS are allowed.`);
 		}
 
 		let sanitizedServicePath = servicePath.replace(/\.\.[/\\]/g, '');
-		let sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
+		const sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
 
 		if (sanitizedServicePath && !sanitizedServicePath.startsWith('/')) {
 			sanitizedServicePath = '/' + sanitizedServicePath;
@@ -31,8 +31,11 @@ export function buildSecureUrl(host: string, servicePath: string, resource: stri
 
 		return `${origin}${fullPath}`;
 	} catch (error) {
+		if (error instanceof NodeOperationError) {
+			throw error;
+		}
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		throw new Error(`Invalid URL components: ${errorMessage}`);
+		throw new NodeOperationError(node, `Invalid URL components: ${errorMessage}`);
 	}
 }
 
@@ -51,31 +54,9 @@ export function validateEntityKey(key: string, node: INode): string {
 	// Normalize unicode to prevent bypass attacks
 	const normalizedKey = key.normalize('NFC');
 
-	// Check for SQL/OData injection patterns (but NOT inside quoted strings)
-	// Only check unquoted parts for injection patterns
+	// Check for query string manipulation in unquoted parts
 	const unquotedParts = extractUnquotedParts(normalizedKey);
-
-	const blacklist = [
-		';', '--', '/*', '*/', // SQL comments
-		'DROP ', 'DELETE ', 'INSERT ', 'UPDATE ', 'EXEC ', 'TRUNCATE ', // SQL commands (with space to avoid false positives)
-		'$filter', '$expand', '$select', '$orderby', '$top', '$skip', // OData query injection
-	];
-
 	for (const unquotedPart of unquotedParts) {
-		const upperPart = unquotedPart.toUpperCase();
-		for (const pattern of blacklist) {
-			if (upperPart.includes(pattern.toUpperCase())) {
-				throw new NodeOperationError(
-					node,
-					`Invalid entity key: Contains forbidden pattern '${pattern.trim()}'`,
-					{
-						description: 'Entity keys cannot contain SQL commands or OData query parameters',
-					},
-				);
-			}
-		}
-
-		// Check for query string manipulation characters in unquoted parts
 		if (unquotedPart.includes('&') || unquotedPart.includes('?')) {
 			throw new NodeOperationError(
 				node,
@@ -274,13 +255,10 @@ function validateCompositeKey(key: string, node: INode): void {
 
 /**
  * Validate OData filter expression
- * Prevents XSS and injection attacks through filter parameters
  */
 export function validateODataFilter(filter: string, node: INode): string {
-	// Normalize unicode to prevent bypass attacks
 	const normalizedFilter = filter.normalize('NFC');
 
-	// Decode URL-encoded characters for validation
 	let decodedFilter: string;
 	try {
 		decodedFilter = decodeURIComponent(normalizedFilter);
@@ -288,55 +266,7 @@ export function validateODataFilter(filter: string, node: INode): string {
 		decodedFilter = normalizedFilter;
 	}
 
-	// Check for dangerous patterns (check both encoded and decoded)
-	const dangerousPatterns = [
-		/javascript\s*:/i,
-		/<\s*script/i,
-		/<\s*\/\s*script/i,
-		/on\w+\s*=/i, // event handlers like onclick=
-		/eval\s*\(/i,
-		/expression\s*\(/i,
-		/Function\s*\(/i,
-		/setTimeout\s*\(/i,
-		/setInterval\s*\(/i,
-		/new\s+Function/i,
-		/document\s*\./i,
-		/window\s*\./i,
-		/innerHTML/i,
-		/outerHTML/i,
-		/<\s*img[^>]+onerror/i,
-		/<\s*svg[^>]+onload/i,
-		/data\s*:/i, // data: URLs
-		/vbscript\s*:/i,
-	];
-
-	for (const pattern of dangerousPatterns) {
-		if (pattern.test(normalizedFilter) || pattern.test(decodedFilter)) {
-			throw new NodeOperationError(node, 'Invalid filter: Contains potentially dangerous content', {
-				description: 'OData filters cannot contain script tags, JavaScript code, or event handlers',
-			});
-		}
-	}
-
-	// Check for SQL injection patterns in OData context
-	const sqlPatterns = [
-		/;\s*(DROP|DELETE|INSERT|UPDATE|TRUNCATE|ALTER|CREATE)\s/i,
-		/--\s*$/m, // SQL comment at end of line
-		/\/\*.*\*\//s, // SQL block comment
-		/UNION\s+SELECT/i,
-		/EXEC\s*\(/i,
-		/xp_cmdshell/i,
-	];
-
-	for (const pattern of sqlPatterns) {
-		if (pattern.test(decodedFilter)) {
-			throw new NodeOperationError(node, 'Invalid filter: Contains SQL injection pattern', {
-				description: 'OData filters cannot contain SQL commands',
-			});
-		}
-	}
-
-	// Validate balanced parentheses to prevent injection via unbalanced brackets
+	// Validate balanced parentheses
 	let parenCount = 0;
 	for (const char of decodedFilter) {
 		if (char === '(') parenCount++;
@@ -439,14 +369,14 @@ export function validateJsonInput(jsonString: string, fieldName: string, node: I
 	try {
 		// Check for excessively large input
 		if (jsonString.length > MAX_JSON_SIZE) {
-			throw new Error(`JSON input exceeds maximum size of ${MAX_JSON_SIZE / 1024 / 1024}MB`);
+			throw new NodeOperationError(node, `JSON input exceeds maximum size of ${MAX_JSON_SIZE / 1024 / 1024}MB`);
 		}
 
 		const parsed = JSON.parse(jsonString);
 
 		// Check if result is an object
 		if (typeof parsed !== 'object' || parsed === null) {
-			throw new Error('Must be a valid JSON object');
+			throw new NodeOperationError(node, 'Must be a valid JSON object');
 		}
 
 		// Check for dangerous keys
@@ -454,12 +384,12 @@ export function validateJsonInput(jsonString: string, fieldName: string, node: I
 		const checkKeys = (obj: Record<string, unknown>, depth = 0): void => {
 			// Prevent deeply nested objects (DoS protection)
 			if (depth > MAX_NESTING_DEPTH) {
-				throw new Error(`JSON object is too deeply nested (max ${MAX_NESTING_DEPTH} levels)`);
+				throw new NodeOperationError(node, `JSON object is too deeply nested (max ${MAX_NESTING_DEPTH} levels)`);
 			}
 
 			for (const key in obj) {
 				if (dangerousKeys.includes(key.toLowerCase())) {
-					throw new Error(`Forbidden property name: ${key}`);
+					throw new NodeOperationError(node, `Forbidden property name: ${key}`);
 				}
 				if (typeof obj[key] === 'object' && obj[key] !== null) {
 					checkKeys(obj[key] as Record<string, unknown>, depth + 1);
@@ -470,6 +400,9 @@ export function validateJsonInput(jsonString: string, fieldName: string, node: I
 		checkKeys(parsed);
 		return parsed;
 	} catch (error) {
+		if (error instanceof NodeOperationError) {
+			throw error;
+		}
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		throw new NodeOperationError(
 			node,
@@ -482,19 +415,10 @@ export function validateJsonInput(jsonString: string, fieldName: string, node: I
 }
 
 /**
- * Check if private IP access is allowed via environment variable
- * Set ALLOW_PRIVATE_IPS=true to allow access to internal networks (e.g., for on-premise SAP systems)
- */
-function isPrivateIpAccessAllowed(): boolean {
-	const envValue = process.env.ALLOW_PRIVATE_IPS;
-	return envValue === 'true' || envValue === '1';
-}
-
-/**
  * Validate URL to prevent SSRF attacks
- * Note: Set environment variable ALLOW_PRIVATE_IPS=true to allow access to private IP ranges
+ * Pass allowPrivateIps=true to allow access to private IP ranges (on-premise SAP systems)
  */
-export function validateUrl(url: string, node: INode): void {
+export function validateUrl(url: string, node: INode, options?: { allowPrivateIps?: boolean }): void {
 	try {
 		const parsedUrl = new URL(url);
 
@@ -509,8 +433,7 @@ export function validateUrl(url: string, node: INode): void {
 			);
 		}
 
-		// Skip private IP checks if explicitly allowed (for on-premise SAP systems)
-		const allowPrivateIps = isPrivateIpAccessAllowed();
+		const allowPrivateIps = options?.allowPrivateIps === true;
 
 		// Prevent access to private IP ranges (SSRF protection)
 		const hostname = parsedUrl.hostname.toLowerCase();
@@ -587,7 +510,7 @@ export function validateUrl(url: string, node: INode): void {
 					node,
 					'Access to private IP addresses is not allowed',
 					{
-						description: 'Cannot connect to private network resources for security reasons. Set environment variable ALLOW_PRIVATE_IPS=true to allow access to internal networks.',
+						description: 'Cannot connect to private network resources for security reasons. Enable "Allow Private Network Access" in the credential settings for on-premise SAP systems.',
 					},
 				);
 			}

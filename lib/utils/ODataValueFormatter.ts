@@ -1,124 +1,191 @@
-/**
- * ODataValueFormatter - Main formatter class using Strategy Pattern
- *
- * Coordinates type detection and value formatting using specialized formatters.
- * Replaces the monolithic formatSapODataValue function.
- */
+import { INode, NodeOperationError } from 'n8n-workflow';
 
-import type { ODataValue, IFormatOptions, NormalizedEdmType, EdmType } from '../types/odata';
-import {
-	BooleanFormatter,
-	DateFormatter,
-	DateTimeFormatter,
-	DateTimeOffsetFormatter,
-	DecimalFormatter,
-	GuidFormatter,
-	NumberFormatter,
-	StringFormatter,
-	TimeFormatter,
-} from './formatters';
-import type { IValueFormatter } from './formatters';
-import { TypeDetector } from './TypeDetector';
+export type EdmType =
+	| 'Edm.String' | 'Edm.Int16' | 'Edm.Int32' | 'Edm.Int64'
+	| 'Edm.Decimal' | 'Edm.Double' | 'Edm.Single' | 'Edm.Boolean'
+	| 'Edm.DateTime' | 'Edm.DateTimeOffset' | 'Edm.Date'
+	| 'Edm.TimeOfDay' | 'Edm.Time' | 'Edm.Guid' | 'Edm.Binary' | 'Edm.Byte';
 
-/**
- * Main OData value formatter
- */
-export class ODataValueFormatter {
-	private static formatters: Map<NormalizedEdmType, IValueFormatter> = new Map([
-		['boolean', new BooleanFormatter()],
-		['datetime', new DateTimeFormatter()],
-		['datetimeoffset', new DateTimeOffsetFormatter()],
-		['date', new DateFormatter()],
-		['time', new TimeFormatter()],
-		['timeofday', new TimeFormatter()],
-		['guid', new GuidFormatter()],
-		['decimal', new DecimalFormatter()],
-		['number', new NumberFormatter()],
-		['int16', new NumberFormatter()],
-		['int32', new NumberFormatter()],
-		['int64', new NumberFormatter()],
-		['single', new NumberFormatter()],
-		['double', new NumberFormatter()],
-		['byte', new NumberFormatter()],
-		['string', new StringFormatter()],
-	]);
+export type NormalizedEdmType =
+	| 'string' | 'int16' | 'int32' | 'int64' | 'decimal' | 'double' | 'single'
+	| 'boolean' | 'datetime' | 'datetimeoffset' | 'date' | 'timeofday' | 'time'
+	| 'guid' | 'binary' | 'byte' | 'number';
 
-	/**
-	 * Format a value for SAP OData
-	 *
-	 * @param value - Value to format
-	 * @param typeHint - Optional EDM type hint (e.g., 'Edm.DateTime', 'datetime')
-	 * @param options - Formatting options
-	 * @returns OData-formatted string
-	 */
-	static format(
-		value: ODataValue,
-		typeHint?: EdmType | string,
-		options: IFormatOptions = {},
-	): string {
-		// Handle null and undefined
-		if (value === null || value === undefined) {
-			return 'null';
-		}
+export type ODataValue = string | number | boolean | Date | IDecimalValue | null | undefined;
 
-		// Determine type (from hint or auto-detection)
-		let type: NormalizedEdmType | undefined;
+export type TimezoneStrategy = 'preserve' | 'utc' | 'local' | 'strip';
 
-		if (typeHint) {
-			// Use provided type hint
-			type = TypeDetector.normalizeTypeHint(typeHint);
-		} else {
-			// Auto-detect type
-			type = TypeDetector.detectType(value, options);
-		}
-
-		// Fallback to string if no type determined
-		if (!type) {
-			type = 'string';
-		}
-
-		// Get appropriate formatter
-		const formatter = this.formatters.get(type);
-
-		if (!formatter) {
-			throw new Error(`No formatter available for type: ${type}`);
-		}
-
-		// Format the value
-		return formatter.format(value, options);
-	}
-
-	/**
-	 * Register a custom formatter for a type
-	 *
-	 * @param type - Type to register formatter for
-	 * @param formatter - Formatter instance
-	 */
-	static registerFormatter(type: NormalizedEdmType, formatter: IValueFormatter): void {
-		this.formatters.set(type, formatter);
-	}
-
-	/**
-	 * Get all registered formatters
-	 */
-	static getFormatters(): Map<NormalizedEdmType, IValueFormatter> {
-		return new Map(this.formatters);
-	}
+export interface IDecimalValue {
+	value: string | number;
+	scale?: number;
 }
 
-/**
- * Convenience function for backwards compatibility
- * Delegates to ODataValueFormatter.format()
- *
- * @param value - Value to format
- * @param typeHint - Optional type hint
- * @param options - Format options
- * @returns Formatted OData string
- */
+export interface IFormatOptions {
+	timezoneHandling?: TimezoneStrategy;
+	targetTimezone?: string;
+	autoDetect?: boolean;
+	strictMode?: boolean;
+	warnOnAutoDetect?: boolean;
+}
+
+function normalizeTypeHint(typeHint: string): NormalizedEdmType {
+	return typeHint.toLowerCase().replace('edm.', '') as NormalizedEdmType;
+}
+
+function detectType(value: ODataValue, options: IFormatOptions = {}): NormalizedEdmType | undefined {
+	const { autoDetect = false } = options;
+
+	if (value === null || value === undefined) return undefined;
+
+	if (typeof value === 'boolean') return 'boolean';
+	if (typeof value === 'number') return 'number';
+	if (value instanceof Date) return 'datetime';
+
+	if (typeof value === 'string' && autoDetect) {
+		if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return 'guid';
+		if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}/.test(value)) return 'datetimeoffset';
+		if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/.test(value)) return 'datetime';
+		if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'date';
+		if (/^\d{2}:\d{2}:\d{2}(\.\d{3})?$/.test(value)) return 'timeofday';
+		return 'string';
+	}
+
+	if (typeof value === 'object' && value !== null && 'value' in value) return 'decimal';
+
+	return autoDetect ? 'string' : undefined;
+}
+
+function formatString(value: ODataValue): string {
+	return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function formatNumber(value: ODataValue): string {
+	return String(value);
+}
+
+function formatBoolean(value: ODataValue): string {
+	return String(value).toLowerCase();
+}
+
+function formatGuid(value: ODataValue): string {
+	return `guid'${String(value).toLowerCase()}'`;
+}
+
+function formatDate(value: ODataValue): string {
+	if (typeof value === 'string') return value;
+	const d = new Date(value as Date);
+	const year = d.getFullYear();
+	const month = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+function formatDateTime(value: ODataValue, options: IFormatOptions = {}): string {
+	const { timezoneHandling = 'strip' } = options;
+	const dateStr = typeof value === 'string' ? value : new Date(value as Date).toISOString();
+
+	let cleanDate: string;
+	switch (timezoneHandling) {
+		case 'preserve':
+			cleanDate = dateStr;
+			break;
+		case 'utc':
+			cleanDate = dateStr.endsWith('Z') ? dateStr : `${dateStr}Z`;
+			break;
+		case 'local':
+		case 'strip':
+		default:
+			cleanDate = dateStr
+				.replace(/\.\d{3}Z$/, '')
+				.replace(/Z$/, '')
+				.replace(/[+-]\d{2}:\d{2}$/, '');
+			break;
+	}
+	return `datetime'${cleanDate}'`;
+}
+
+function formatDateTimeOffset(value: ODataValue): string {
+	const offsetStr = typeof value === 'string' ? value : new Date(value as Date).toISOString();
+	return `datetimeoffset'${offsetStr}'`;
+}
+
+function formatTime(value: ODataValue): string {
+	let timeStr: string;
+	if (typeof value === 'string') {
+		if (value.includes('T')) {
+			const timePart = value.split('T')[1];
+			timeStr = timePart.replace(/\.\d+/, '').replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, '');
+		} else {
+			timeStr = value;
+		}
+	} else {
+		const d = new Date(value as Date);
+		const hours = String(d.getHours()).padStart(2, '0');
+		const minutes = String(d.getMinutes()).padStart(2, '0');
+		const seconds = String(d.getSeconds()).padStart(2, '0');
+		timeStr = `${hours}:${minutes}:${seconds}`;
+	}
+	return `time'${timeStr}'`;
+}
+
+function formatDecimal(value: ODataValue): string {
+	if (typeof value === 'object' && value !== null && 'value' in value) {
+		const decimalObj = value as IDecimalValue;
+		const decimalValue = String(decimalObj.value);
+		const scale = decimalObj.scale;
+
+		if (scale !== undefined && typeof scale === 'number') {
+			const num = parseFloat(decimalValue);
+			if (isNaN(num)) return `${decimalValue}M`;
+
+			const parts = decimalValue.split('.');
+			const intPart = parts[0];
+			const decPart = (parts[1] || '').padEnd(scale, '0').substring(0, scale);
+			return scale > 0 ? `${intPart}.${decPart}M` : `${intPart}M`;
+		}
+		return `${decimalValue}M`;
+	}
+	return `${String(value)}M`;
+}
+
+const FORMAT_MAP: Record<string, (value: ODataValue, options?: IFormatOptions) => string> = {
+	boolean: formatBoolean,
+	datetime: formatDateTime,
+	datetimeoffset: formatDateTimeOffset,
+	date: formatDate,
+	time: formatTime,
+	timeofday: formatTime,
+	guid: formatGuid,
+	decimal: formatDecimal,
+	number: formatNumber,
+	int16: formatNumber,
+	int32: formatNumber,
+	int64: formatNumber,
+	single: formatNumber,
+	double: formatNumber,
+	byte: formatNumber,
+	string: formatString,
+};
+
 export function formatODataValue(
 	value: ODataValue,
 	typeHint?: EdmType | string,
-	options?: IFormatOptions,
+	options: IFormatOptions = {},
+	node?: INode,
 ): string {
-	return ODataValueFormatter.format(value, typeHint, options);
+	if (value === null || value === undefined) return 'null';
+
+	const type: NormalizedEdmType = typeHint
+		? normalizeTypeHint(typeHint)
+		: (detectType(value, options) ?? 'string');
+
+	const formatter = FORMAT_MAP[type];
+	if (!formatter) {
+		throw new NodeOperationError(
+			node ?? ({ name: 'ODataValueFormatter', type: 'n8n-nodes-base.noOp', typeVersion: 1, position: [0, 0], parameters: {} } as INode),
+			`No formatter available for type: ${type}`,
+		);
+	}
+
+	return formatter(value, options);
 }

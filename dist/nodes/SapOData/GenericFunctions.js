@@ -102,6 +102,6 @@ async function sapOdataApiRequestAllItems(propertyName, method, resource, body =
     };
     return (0, PaginationHandler_1.fetchAllItems)(requestFunction, config);
 }
-function formatSapODataValue(value, typeHint) {
-    return (0, ODataValueFormatter_1.formatODataValue)(value, typeHint, { autoDetect: true, warnOnAutoDetect: false });
+function formatSapODataValue(value, typeHint, node) {
+    return (0, ODataValueFormatter_1.formatODataValue)(value, typeHint, { autoDetect: true, warnOnAutoDetect: false }, node);
 }

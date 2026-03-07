@@ -13,7 +13,7 @@ import {
  */
 export class SapOdataApi implements ICredentialType {
 	name = 'sapOdataApi';
-	displayName = 'avanai SAP OData API';
+	displayName = 'Avanai SAP OData API';
 	documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
 	icon = 'file:../nodes/SapOData/sap.svg' as const;
 	properties: INodeProperties[] = [
@@ -87,6 +87,14 @@ export class SapOdataApi implements ICredentialType {
 			type: 'boolean',
 			default: false,
 			description: 'Whether to connect even if SSL certificate validation is not possible. Only use in development environments.',
+		},
+		 
+		{
+			displayName: 'Allow Private Network Access',
+			name: 'allowPrivateIps',
+			type: 'boolean',
+			default: false,
+			description: 'Whether to allow connections to private IP ranges (10.x, 172.16-31.x, 192.168.x). Enable this for on-premise SAP systems.',
 		},
 		{
 			displayName: 'SAP Client',

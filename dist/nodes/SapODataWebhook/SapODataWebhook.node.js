@@ -34,11 +34,11 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SapODataWebhook = void 0;
+const crypto = __importStar(require("crypto"));
 const n8n_workflow_1 = require("n8n-workflow");
 const constants_1 = require("../../lib/constants");
 const SecurityUtils_1 = require("../../lib/utils/SecurityUtils");
 const WebhookUtils_1 = require("../../lib/utils/WebhookUtils");
-const constants_2 = require("../../lib/constants");
 class SapODataWebhook {
     constructor() {
         this.description = {
@@ -262,6 +262,7 @@ class SapODataWebhook {
                     ],
                 },
             ],
+            usableAsTool: true,
         };
         this.webhookMethods = {
             default: {
@@ -277,6 +278,7 @@ class SapODataWebhook {
                             return true;
                         }
                         try {
+                            (0, SecurityUtils_1.validateEntityKey)(subscriptionId, this.getNode());
                             const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../SapOData/GenericFunctions')));
                             await sapOdataApiRequest.call(this, 'GET', `/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`);
                             return true;
@@ -332,6 +334,7 @@ class SapODataWebhook {
                         const staticData = this.getWorkflowStaticData('node');
                         const subscriptionId = staticData.subscriptionId;
                         if (subscriptionId) {
+                            (0, SecurityUtils_1.validateEntityKey)(subscriptionId, this.getNode());
                             const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
                             if (credentials) {
                                 const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../SapOData/GenericFunctions')));
@@ -366,7 +369,7 @@ class SapODataWebhook {
         else {
             bodyString = JSON.stringify(rawBody);
         }
-        if (bodyString.length > constants_1.MAX_WEBHOOK_BODY_SIZE) {
+        if (Buffer.byteLength(bodyString, 'utf8') > constants_1.MAX_WEBHOOK_BODY_SIZE) {
             resp.status(413).json({
                 error: 'Request body too large',
                 maxSize: `${constants_1.MAX_WEBHOOK_BODY_SIZE / 1024 / 1024}MB`,
@@ -378,8 +381,8 @@ class SapODataWebhook {
             const clientIp = ((_b = (_a = req.headers['x-forwarded-for']) === null || _a === void 0 ? void 0 : _a.split(',')[0]) === null || _b === void 0 ? void 0 : _b.trim())
                 || req.socket.remoteAddress
                 || 'unknown';
-            const rateLimit = options.rateLimit || constants_2.DEFAULT_WEBHOOK_RATE_LIMIT;
-            const rateLimitResult = (0, WebhookUtils_1.checkWebhookRateLimit)(clientIp, rateLimit, constants_2.WEBHOOK_RATE_LIMIT_WINDOW);
+            const rateLimit = options.rateLimit || constants_1.DEFAULT_WEBHOOK_RATE_LIMIT;
+            const rateLimitResult = (0, WebhookUtils_1.checkWebhookRateLimit)(clientIp, rateLimit, constants_1.WEBHOOK_RATE_LIMIT_WINDOW);
             if (!rateLimitResult.allowed) {
                 resp.status(429)
                     .set('Retry-After', String(rateLimitResult.retryAfter))
@@ -401,7 +404,7 @@ class SapODataWebhook {
             if (options.ipWhitelist) {
                 const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
                 const whitelist = options.ipWhitelist.split(',').map(ip => ip.trim());
-                if (!(0, WebhookUtils_1.isIpAllowed)(clientIp, whitelist)) {
+                if (!(0, WebhookUtils_1.isIpAllowed)(clientIp, whitelist, this.getNode())) {
                     resp.status(403).json({ error: 'IP not whitelisted' });
                     return { noWebhookResponse: true };
                 }
@@ -435,7 +438,9 @@ class SapODataWebhook {
                     const headerName = credentials.headerName || 'X-SAP-Signature';
                     const expectedValue = credentials.secret;
                     const actualValue = req.headers[headerName.toLowerCase()];
-                    if (actualValue !== expectedValue) {
+                    const actual = Buffer.from(String(actualValue || ''));
+                    const expected = Buffer.from(String(expectedValue || ''));
+                    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
                         resp.status(401).json({ error: 'Invalid authentication header' });
                         return { noWebhookResponse: true };
                     }
@@ -445,7 +450,9 @@ class SapODataWebhook {
                     const paramName = credentials.queryParameterName || 'token';
                     const expectedValue = credentials.secret;
                     const actualValue = req.query[paramName];
-                    if (actualValue !== expectedValue) {
+                    const actual = Buffer.from(String(actualValue || ''));
+                    const expected = Buffer.from(String(expectedValue || ''));
+                    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
                         resp.status(401).json({ error: 'Invalid authentication token' });
                         return { noWebhookResponse: true };
                     }

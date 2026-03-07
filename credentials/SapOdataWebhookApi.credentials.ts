@@ -12,7 +12,7 @@ import {
 // eslint-disable-next-line @n8n/community-nodes/credential-test-required
 export class SapOdataWebhookApi implements ICredentialType {
 	name = 'sapOdataWebhookApi';
-	displayName = 'avanai SAP OData Webhook API';
+	displayName = 'Avanai SAP OData Webhook API';
 	documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
 	icon = 'file:../nodes/SapOData/sap.svg' as const;
 	properties: INodeProperties[] = [

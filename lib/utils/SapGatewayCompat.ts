@@ -298,12 +298,12 @@ export class SapGatewayCompat {
 	/**
 	 * Clear session (useful for testing or explicit logout)
 	 */
-	static clearSession(
+	static async clearSession(
 		context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions,
 		host: string,
 		servicePath: string,
-	): void {
-		SapGatewaySessionManager.clearSession(context, host, servicePath);
+	): Promise<void> {
+		await SapGatewaySessionManager.clearSession(context, host, servicePath);
 	}
 
 	/**

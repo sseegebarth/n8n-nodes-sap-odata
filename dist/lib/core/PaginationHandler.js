@@ -4,8 +4,8 @@ exports.extractItemsFromResponse = extractItemsFromResponse;
 exports.extractNextLink = extractNextLink;
 exports.fetchAllItems = fetchAllItems;
 exports.streamAllItems = streamAllItems;
-const constants_1 = require("../constants");
 const SecurityUtils_1 = require("../utils/SecurityUtils");
+const MAX_PAGES = 1000;
 function extractItemsFromResponse(responseData, propertyName) {
     var _a;
     let items = [];
@@ -46,12 +46,11 @@ async function fetchAllItems(requestFunction, config = {}) {
     let pageNumber = 1;
     let maxItemsReached = false;
     let hasMoreData = true;
-    const initialQuery = { $top: constants_1.DEFAULT_PAGE_SIZE };
     while (hasMoreData) {
         try {
             const responseData = nextLink
                 ? await requestFunction(undefined, nextLink)
-                : await requestFunction(initialQuery);
+                : await requestFunction();
             const items = extractItemsFromResponse(responseData, propertyName);
             if (maxItems > 0 && returnData.length + items.length > maxItems) {
                 const itemsToAdd = maxItems - returnData.length;
@@ -64,13 +63,11 @@ async function fetchAllItems(requestFunction, config = {}) {
             if (nextLink) {
                 pageNumber++;
             }
-            else if (items.length === constants_1.DEFAULT_PAGE_SIZE) {
-                const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
-                initialQuery.$skip = currentSkip + items.length;
-                pageNumber++;
-            }
             else {
                 hasMoreData = false;
+            }
+            if (pageNumber >= MAX_PAGES) {
+                break;
             }
         }
         catch (error) {
@@ -118,11 +115,10 @@ async function* streamAllItems(requestFunction, config = {}) {
     let pageNumber = 1;
     let itemCount = 0;
     let hasMoreData = true;
-    const initialQuery = { $top: constants_1.DEFAULT_PAGE_SIZE };
     while (hasMoreData) {
         const responseData = nextLink
             ? await requestFunction(undefined, nextLink)
-            : await requestFunction(initialQuery);
+            : await requestFunction();
         const items = extractItemsFromResponse(responseData, propertyName);
         for (const item of items) {
             if (maxItems > 0 && itemCount >= maxItems) {
@@ -135,13 +131,11 @@ async function* streamAllItems(requestFunction, config = {}) {
         if (nextLink) {
             pageNumber++;
         }
-        else if (items.length === constants_1.DEFAULT_PAGE_SIZE) {
-            const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
-            initialQuery.$skip = currentSkip + items.length;
-            pageNumber++;
-        }
         else {
             hasMoreData = false;
+        }
+        if (pageNumber >= MAX_PAGES) {
+            return;
         }
     }
 }

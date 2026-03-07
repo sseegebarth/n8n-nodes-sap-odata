@@ -3,23 +3,266 @@ import {
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
+	IDataObject,
 	NodeConnectionTypes,
 	NodeOperationError,
 } from 'n8n-workflow';
-import { OperationStrategyFactory } from '../../lib/strategies';
-import { IAdvancedOptions } from '../../lib/strategies/types';
-import { sanitizeErrorMessage } from '../../lib/utils/SecurityUtils';
+import { sanitizeErrorMessage, validateFunctionName } from '../../lib/utils/SecurityUtils';
+import { ODataVersionHelper } from '../../lib/utils/ODataVersionHelper';
+import { convertToSapV2Format } from '../../lib/utils/TypeConverter';
+import {
+	getEntitySet,
+	validateAndFormatKey,
+	getQueryOptions,
+	extractResult,
+	validateAndParseJson,
+	buildResourcePath,
+	applyTypeConversion,
+} from '../../lib/utils/StrategyHelpers';
+import { sapOdataApiRequest, sapOdataApiRequestAllItems, formatSapODataValue } from './GenericFunctions';
 import { testSapODataConnection } from './ConnectionTest';
 import { sapODataLoadOptions, sapODataListSearch } from './SapODataLoadOptions';
 import { sapODataProperties } from './SapODataProperties';
 import { version } from '../../package.json';
 
-/**
- * SAP OData Node (Refactored)
- *
- * Main node class with properties and methods extracted to separate modules.
- * This improves maintainability and testability.
- */
+function getEntityKeyValue(context: IExecuteFunctions, itemIndex: number): string {
+	const param = context.getNodeParameter('entityKey', itemIndex) as string | { mode: string; value: string };
+	return typeof param === 'string' ? param : param.value;
+}
+
+function toJsonResult(data: unknown, itemIndex: number): INodeExecutionData[] {
+	const jsonData: IDataObject = (typeof data === 'object' && data !== null)
+		? data as IDataObject
+		: { value: data as string | number | boolean };
+	return [{ json: jsonData, pairedItem: { item: itemIndex } }];
+}
+
+async function executeGet(context: IExecuteFunctions, itemIndex: number): Promise<INodeExecutionData[]> {
+	const entitySet = getEntitySet(context, itemIndex);
+	const odataVersion = await ODataVersionHelper.getODataVersion(context);
+	const entityKey = getEntityKeyValue(context, itemIndex);
+	let formattedKey = validateAndFormatKey(entityKey, context.getNode());
+	formattedKey = ODataVersionHelper.formatEntityKey(formattedKey, odataVersion);
+	const query = getQueryOptions(context, itemIndex);
+
+	const response = await sapOdataApiRequest.call(context, 'GET', buildResourcePath(entitySet, formattedKey), {}, query);
+	const result = ODataVersionHelper.extractData(response, odataVersion);
+	const converted = applyTypeConversion(result as IDataObject, context, itemIndex);
+	return toJsonResult(converted, itemIndex);
+}
+
+async function executeGetAll(context: IExecuteFunctions, itemIndex: number): Promise<INodeExecutionData[]> {
+	const entitySet = getEntitySet(context, itemIndex);
+	const returnAll = context.getNodeParameter('returnAll', itemIndex) as boolean;
+	const odataVersion = await ODataVersionHelper.getODataVersion(context);
+	let query = getQueryOptions(context, itemIndex);
+
+	const hasCountOption = query.$count === true;
+	if (hasCountOption) {
+		delete query.$count;
+		query = ODataVersionHelper.getVersionSpecificParams(odataVersion, { ...query, count: true });
+	}
+
+	const options = context.getNodeParameter('options', itemIndex, {}) as IDataObject;
+	if (options.batchSize) {
+		query.$top = options.batchSize;
+	}
+
+	let dataArray: IDataObject[];
+
+	if (returnAll) {
+		const result = await sapOdataApiRequestAllItems.call(context, 'results', 'GET', buildResourcePath(entitySet), {}, query, false, 0);
+
+		if (Array.isArray(result)) {
+			dataArray = result;
+		} else {
+			dataArray = Array.isArray(result.data) ? result.data : [result.data];
+		}
+	} else {
+		if (query.$top === undefined) {
+			query.$top = context.getNodeParameter('limit', itemIndex) as number;
+		}
+
+		const response: any = await sapOdataApiRequest.call(context, 'GET', buildResourcePath(entitySet), {}, query);
+		const responseData = ODataVersionHelper.extractData(response, odataVersion);
+
+		if (Array.isArray(responseData)) {
+			dataArray = responseData;
+		} else if (responseData && typeof responseData === 'object') {
+			const rd = responseData as any;
+			if (rd.results && Array.isArray(rd.results)) {
+				dataArray = rd.results;
+			} else if (rd.d?.results && Array.isArray(rd.d.results)) {
+				dataArray = rd.d.results;
+			} else {
+				dataArray = [responseData as IDataObject];
+			}
+		} else {
+			dataArray = responseData ? [responseData as IDataObject] : [];
+		}
+	}
+
+	return dataArray.map((item) => {
+		const converted = applyTypeConversion(item, context, itemIndex);
+		const jsonData: IDataObject = (typeof converted === 'object' && converted !== null)
+			? converted as IDataObject
+			: { value: converted as string | number | boolean };
+		return { json: jsonData, pairedItem: { item: itemIndex } };
+	});
+}
+
+async function executeCreate(context: IExecuteFunctions, itemIndex: number): Promise<INodeExecutionData[]> {
+	const entitySet = getEntitySet(context, itemIndex);
+	const dataString = context.getNodeParameter('data', itemIndex) as string;
+	let data = validateAndParseJson(dataString, 'Data', context.getNode()) as IDataObject;
+
+	const odataVersion = await ODataVersionHelper.getODataVersion(context);
+	if (odataVersion === 'v2') {
+		data = convertToSapV2Format(data) as IDataObject;
+	}
+
+	const response = await sapOdataApiRequest.call(context, 'POST', buildResourcePath(entitySet), data);
+	const result = extractResult(response as IDataObject);
+	const converted = applyTypeConversion(result as IDataObject, context, itemIndex);
+	return toJsonResult(converted, itemIndex);
+}
+
+async function executeUpdate(context: IExecuteFunctions, itemIndex: number): Promise<INodeExecutionData[]> {
+	const entitySet = getEntitySet(context, itemIndex);
+	const entityKey = getEntityKeyValue(context, itemIndex);
+	const dataString = context.getNodeParameter('data', itemIndex) as string;
+	const formattedKey = validateAndFormatKey(entityKey, context.getNode());
+	let data = validateAndParseJson(dataString, 'Data', context.getNode()) as IDataObject;
+	const etag = context.getNodeParameter('etag', itemIndex, '') as string;
+
+	const odataVersion = await ODataVersionHelper.getODataVersion(context);
+	if (odataVersion === 'v2') {
+		data = convertToSapV2Format(data) as IDataObject;
+	}
+
+	const requestOptions: IDataObject = { headers: { 'If-Match': etag || '*' } };
+
+	const response = await sapOdataApiRequest.call(
+		context, 'PATCH', buildResourcePath(entitySet, formattedKey), data, {}, undefined, requestOptions,
+	);
+	const result = extractResult(response as IDataObject) || { success: true };
+	const converted = applyTypeConversion(result as IDataObject, context, itemIndex);
+	return toJsonResult(converted, itemIndex);
+}
+
+async function executeDelete(context: IExecuteFunctions, itemIndex: number): Promise<INodeExecutionData[]> {
+	const entitySet = getEntitySet(context, itemIndex);
+	const entityKey = getEntityKeyValue(context, itemIndex);
+	const formattedKey = validateAndFormatKey(entityKey, context.getNode());
+	const etag = context.getNodeParameter('etag', itemIndex, '') as string;
+
+	const requestOptions: IDataObject = { headers: { 'If-Match': etag || '*' } };
+
+	await sapOdataApiRequest.call(
+		context, 'DELETE', buildResourcePath(entitySet, formattedKey), {}, {}, undefined, requestOptions,
+	);
+	return [{ json: { success: true }, pairedItem: { item: itemIndex } }];
+}
+
+async function executeGetMetadata(context: IExecuteFunctions, itemIndex: number): Promise<INodeExecutionData[]> {
+	const metadataType = context.getNodeParameter('metadataType', itemIndex) as string;
+	const resource = metadataType === 'metadata' ? '/$metadata' : '/';
+
+	const response: any = await sapOdataApiRequest.call(context, 'GET', resource, {}, {});
+
+	let result: IDataObject;
+	if (metadataType === 'metadata') {
+		result = {
+			_type: 'metadata',
+			_format: 'xml',
+			content: typeof response === 'string' ? response : JSON.stringify(response),
+		};
+	} else if (response.d?.EntitySets) {
+		result = { _type: 'serviceDocument', _version: 'v2', entitySets: response.d.EntitySets };
+	} else if (response.value) {
+		result = { _type: 'serviceDocument', _version: 'v4', value: response.value };
+	} else {
+		result = { _type: 'serviceDocument', _raw: true, ...response };
+	}
+
+	return [{ json: result, pairedItem: { item: itemIndex } }];
+}
+
+async function executeFunctionImport(context: IExecuteFunctions, itemIndex: number): Promise<INodeExecutionData[]> {
+	const functionNameParam = context.getNodeParameter('functionName', itemIndex) as
+		| string
+		| { mode: string; value: string };
+	const rawValue = typeof functionNameParam === 'object'
+		? functionNameParam.value
+		: functionNameParam;
+
+	// Extract type prefix if present (e.g. "Action::Release" -> type=Action, name=Release)
+	let callableType = '';
+	let functionName: string;
+	if (rawValue.includes('::')) {
+		const parts = rawValue.split('::');
+		callableType = parts[0];
+		functionName = parts.slice(1).join('::');
+	} else {
+		functionName = rawValue;
+	}
+
+	functionName = validateFunctionName(functionName, context.getNode());
+	const parametersString = context.getNodeParameter('functionParameters', itemIndex) as string;
+	const parameters = validateAndParseJson(parametersString, 'Parameters', context.getNode()) as IDataObject;
+
+	// Determine HTTP method: Actions/POST types use POST, Functions use GET
+	// User can still override via the HTTP Method field
+	const userHttpMethod = context.getNodeParameter('functionHttpMethod', itemIndex, '') as string;
+	let httpMethod: string;
+	if (userHttpMethod) {
+		httpMethod = userHttpMethod;
+	} else if (callableType === 'Action') {
+		httpMethod = 'POST';
+	} else if (callableType === 'Function') {
+		httpMethod = 'GET';
+	} else {
+		httpMethod = 'POST';
+	}
+
+	const urlFormat = context.getNodeParameter('functionUrlFormat', itemIndex, 'canonical') as string;
+
+	let url: string;
+	let body: IDataObject = {};
+
+	// V2 FunctionImports: parameters always in URL (even for POST)
+	// V4 Actions: parameters in request body (POST)
+	// V4 Functions: parameters in URL (GET)
+	const useUrlParams = callableType !== 'Action';
+
+	if (useUrlParams) {
+		const paramParts: string[] = [];
+		for (const [key, value] of Object.entries(parameters)) {
+			paramParts.push(`${key}=${formatSapODataValue(value, undefined, context.getNode())}`);
+		}
+
+		if (httpMethod === 'POST') {
+			// V2 FunctionImport POST: parameters as query string
+			url = paramParts.length > 0 ? `/${functionName}?${paramParts.join('&')}` : `/${functionName}`;
+		} else if (urlFormat === 'canonical') {
+			// GET canonical: /FunctionName(param1=value1)
+			url = paramParts.length > 0 ? `/${functionName}(${paramParts.join(',')})` : `/${functionName}()`;
+		} else {
+			// GET query string: /FunctionName?param1=value1
+			url = paramParts.length > 0 ? `/${functionName}?${paramParts.join('&')}` : `/${functionName}`;
+		}
+	} else {
+		// V4 Action: parameters in body
+		url = `/${functionName}`;
+		body = parameters;
+	}
+
+	const response = await sapOdataApiRequest.call(context, httpMethod, url, body);
+	const result = extractResult(response as IDataObject);
+	const converted = applyTypeConversion(result as IDataObject, context, itemIndex);
+	return toJsonResult(converted, itemIndex);
+}
+
 export class SapOData implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'avanai SAP Connect OData',
@@ -55,6 +298,7 @@ export class SapOData implements INodeType {
 			},
 		],
 		properties: sapODataProperties,
+		usableAsTool: true,
 	};
 
 	methods = {
@@ -70,65 +314,78 @@ export class SapOData implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 		const resource = this.getNodeParameter('resource', 0) as string;
 
-		// Start performance tracking
 		const startTime = Date.now();
 		let errorCount = 0;
 		let successCount = 0;
 
-		// Check if cache should be cleared
-		const advancedOptions = this.getNodeParameter('advancedOptions', 0, {}) as IAdvancedOptions;
+		const advancedOptions = this.getNodeParameter('advancedOptions', 0, {}) as IDataObject;
 		if (advancedOptions.clearCache === true) {
 			const { CacheManager } = await import('../../lib/utils/CacheManager');
 			CacheManager.clearAllCache(this);
 		}
-
-		// Check if metrics should be included
 		const includeMetrics = advancedOptions.includeMetrics === true;
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				// Get the appropriate strategy based on resource and operation
 				const operation = resource === 'entity'
 					? this.getNodeParameter('operation', i) as string
-					: 'execute'; // For function imports
+					: 'functionImport';
 
-				const strategy = OperationStrategyFactory.getStrategy(resource, operation);
+				let result: INodeExecutionData[];
+				switch (operation) {
+					case 'get':
+						result = await executeGet(this, i);
+						break;
+					case 'getAll':
+						result = await executeGetAll(this, i);
+						break;
+					case 'create':
+						result = await executeCreate(this, i);
+						break;
+					case 'update':
+						result = await executeUpdate(this, i);
+						break;
+					case 'delete':
+						result = await executeDelete(this, i);
+						break;
+					case 'getMetadata':
+						result = await executeGetMetadata(this, i);
+						break;
+					case 'functionImport':
+						result = await executeFunctionImport(this, i);
+						break;
+					default:
+						throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`);
+				}
 
-				// Execute the strategy
-				const result = await strategy.execute(this, i);
 				returnData.push(...result);
 				successCount++;
-
 			} catch (error) {
 				errorCount++;
-				// Enhanced error handling with context
 				const rawErrorMessage = error instanceof Error ? error.message : String(error);
 				const errorMessage = sanitizeErrorMessage(rawErrorMessage);
 				const operation = resource === 'entity'
 					? this.getNodeParameter('operation', i, 'unknown') as string
-					: 'execute';
+					: 'functionImport';
 				const contextMessage = `Item ${i}: ${resource}/${operation}`;
 
 				if (this.continueOnFail()) {
-					// Extract HTTP status code and SAP error code from extended error
-					const httpStatusCode = (error as { httpStatusCode?: number }).httpStatusCode || null;
-					const sapErrorCode = (error as { sapErrorCode?: string }).sapErrorCode || null;
+					const httpStatusCode = (error as any)?.httpStatusCode || null;
+					const sapErrorCode = (error as any)?.sapErrorCode || null;
 
 					returnData.push({
 						json: {
 							error: errorMessage,
 							statusCode: httpStatusCode,
-							sapErrorCode: sapErrorCode,
+							sapErrorCode,
 							context: contextMessage,
-							__success: false,
 						},
 						pairedItem: { item: i },
 					});
 					continue;
 				}
 
-				// Include HTTP status code in error message if available
-				const httpStatus = (error as { httpStatusCode?: number }).httpStatusCode;
+				const httpStatus = (error as any)?.httpStatusCode;
 				const statusInfo = httpStatus ? ` [HTTP ${httpStatus}]` : '';
 				throw new NodeOperationError(this.getNode(), `${contextMessage}${statusInfo} - ${errorMessage}`, {
 					itemIndex: i,
@@ -137,11 +394,8 @@ export class SapOData implements INodeType {
 			}
 		}
 
-		// Add metrics as a dedicated item if requested
 		if (includeMetrics) {
 			const executionTime = Date.now() - startTime;
-
-			// Create a dedicated metrics item (not mutating business data)
 			returnData.push({
 				json: {
 					_metrics: {

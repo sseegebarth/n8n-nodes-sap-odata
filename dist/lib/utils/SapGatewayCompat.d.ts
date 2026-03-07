@@ -20,7 +20,7 @@ export declare class SapGatewayCompat {
     private static getHeader;
     static processResponse(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, response: unknown, host: string, servicePath: string, gatewayOptions?: ISapGatewayRequestOptions): Promise<ISapGatewayResponse>;
     static fetchCsrfToken(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, host: string, servicePath: string, requestBuilder: (host: string, servicePath: string) => IHttpRequestOptions): Promise<string>;
-    static clearSession(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, host: string, servicePath: string): void;
+    static clearSession(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, host: string, servicePath: string): Promise<void>;
     static getSessionStatus(context: IExecuteFunctions | IHookFunctions | ILoadOptionsFunctions, host: string, servicePath: string): Promise<{
         hasSession: boolean;
         hasCsrfToken: boolean;

@@ -4,8 +4,9 @@
  */
 
 import { IDataObject } from 'n8n-workflow';
-import { DEFAULT_PAGE_SIZE } from '../constants';
 import { sanitizeErrorMessage } from '../utils/SecurityUtils';
+
+const MAX_PAGES = 1000;
 
 /**
  * Result from paginated request
@@ -112,15 +113,12 @@ export async function fetchAllItems(
 	let maxItemsReached = false;
 	let hasMoreData = true;  // Flag to control pagination loop
 
-	// Initial query with default page size
-	const initialQuery: IDataObject = { $top: DEFAULT_PAGE_SIZE };
-
 	while (hasMoreData) {
 		try {
-			// Use nextLink if available, otherwise use initialQuery
+			// Use nextLink if available, otherwise use caller's query as-is
 			const responseData = nextLink
 				? await requestFunction(undefined, nextLink)
-				: await requestFunction(initialQuery);
+				: await requestFunction();
 
 			// Extract items from response
 			const items = extractItemsFromResponse(responseData, propertyName);
@@ -140,17 +138,13 @@ export async function fetchAllItems(
 			nextLink = extractNextLink(responseData);
 
 			if (nextLink) {
-				// Server provided next link - continue with that
-				pageNumber++;
-			} else if (items.length === DEFAULT_PAGE_SIZE) {
-				// No next link but we got a full page - try manual skip increment
-				// (fallback for servers that don't provide next links)
-				const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
-				initialQuery.$skip = currentSkip + items.length;
 				pageNumber++;
 			} else {
-				// No next link and partial page = end of data
 				hasMoreData = false;
+			}
+
+			if (pageNumber >= MAX_PAGES) {
+				break;
 			}
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -229,14 +223,11 @@ export async function* streamAllItems(
 	let itemCount = 0;
 	let hasMoreData = true;  // Flag to control pagination loop
 
-	// Initial query with default page size
-	const initialQuery: IDataObject = { $top: DEFAULT_PAGE_SIZE };
-
 	while (hasMoreData) {
-		// Use nextLink if available, otherwise use initialQuery
+		// Use nextLink if available, otherwise use caller's query as-is
 		const responseData = nextLink
 			? await requestFunction(undefined, nextLink)
-			: await requestFunction(initialQuery);
+			: await requestFunction();
 
 		// Extract items from response
 		const items = extractItemsFromResponse(responseData, propertyName);
@@ -254,16 +245,13 @@ export async function* streamAllItems(
 		nextLink = extractNextLink(responseData);
 
 		if (nextLink) {
-			// Server provided next link - continue with that
-			pageNumber++;
-		} else if (items.length === DEFAULT_PAGE_SIZE) {
-			// No next link but we got a full page - try manual skip increment
-			const currentSkip = typeof initialQuery.$skip === 'number' ? initialQuery.$skip : 0;
-			initialQuery.$skip = currentSkip + items.length;
 			pageNumber++;
 		} else {
-			// No next link and partial page = end of data
 			hasMoreData = false;
+		}
+
+		if (pageNumber >= MAX_PAGES) {
+			return;
 		}
 	}
 }

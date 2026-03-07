@@ -4,7 +4,7 @@ exports.SapOdataWebhookApi = void 0;
 class SapOdataWebhookApi {
     constructor() {
         this.name = 'sapOdataWebhookApi';
-        this.displayName = 'avanai SAP OData Webhook API';
+        this.displayName = 'Avanai SAP OData Webhook API';
         this.documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
         this.icon = 'file:../nodes/SapOData/sap.svg';
         this.properties = [

@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import {
 	IHookFunctions,
 	IWebhookFunctions,
@@ -8,8 +9,8 @@ import {
 	NodeConnectionTypes,
 	NodeOperationError,
 } from 'n8n-workflow';
-import { MAX_WEBHOOK_BODY_SIZE } from '../../lib/constants';
-import { sanitizeErrorMessage } from '../../lib/utils/SecurityUtils';
+import { MAX_WEBHOOK_BODY_SIZE, DEFAULT_WEBHOOK_RATE_LIMIT, WEBHOOK_RATE_LIMIT_WINDOW  } from '../../lib/constants';
+import { sanitizeErrorMessage, validateEntityKey } from '../../lib/utils/SecurityUtils';
 import {
 	verifyHmacSignature,
 	isIpAllowed,
@@ -19,7 +20,6 @@ import {
 	extractChangedFields,
 	checkWebhookRateLimit,
 } from '../../lib/utils/WebhookUtils';
-import { DEFAULT_WEBHOOK_RATE_LIMIT, WEBHOOK_RATE_LIMIT_WINDOW } from '../../lib/constants';
 
 /**
  * SAP OData Webhook Trigger Node
@@ -262,6 +262,7 @@ export class SapODataWebhook implements INodeType {
 				],
 			},
 		],
+		usableAsTool: true,
 	};
 
 	// Webhook methods
@@ -289,6 +290,7 @@ export class SapODataWebhook implements INodeType {
 					}
 
 					try {
+						validateEntityKey(subscriptionId, this.getNode());
 						const { sapOdataApiRequest } = await import('../SapOData/GenericFunctions');
 						await sapOdataApiRequest.call(
 							this,
@@ -379,6 +381,7 @@ export class SapODataWebhook implements INodeType {
 					const subscriptionId = staticData.subscriptionId as string;
 
 					if (subscriptionId) {
+						validateEntityKey(subscriptionId, this.getNode());
 						// Try to unregister from SAP
 						const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
 						if (credentials) {
@@ -423,7 +426,7 @@ export class SapODataWebhook implements INodeType {
 		}
 
 		// Validate request body size to prevent DoS attacks
-		if (bodyString.length > MAX_WEBHOOK_BODY_SIZE) {
+		if (Buffer.byteLength(bodyString, 'utf8') > MAX_WEBHOOK_BODY_SIZE) {
 			resp.status(413).json({
 				error: 'Request body too large',
 				maxSize: `${MAX_WEBHOOK_BODY_SIZE / 1024 / 1024}MB`,
@@ -471,7 +474,7 @@ export class SapODataWebhook implements INodeType {
 				const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
 				const whitelist = (options.ipWhitelist as string).split(',').map(ip => ip.trim());
 
-				if (!isIpAllowed(clientIp as string, whitelist)) {
+				if (!isIpAllowed(clientIp as string, whitelist, this.getNode())) {
 					resp.status(403).json({ error: 'IP not whitelisted' });
 					return { noWebhookResponse: true };
 				}
@@ -520,10 +523,12 @@ export class SapODataWebhook implements INodeType {
 				else if (authentication === 'headerAuth') {
 					const credentials = await this.getCredentials('sapOdataWebhookApi');
 					const headerName = (credentials.headerName as string) || 'X-SAP-Signature';
-					const expectedValue = credentials.secret as string; // Use secret field for token
+					const expectedValue = credentials.secret as string;
 					const actualValue = req.headers[headerName.toLowerCase()];
 
-					if (actualValue !== expectedValue) {
+					const actual = Buffer.from(String(actualValue || ''));
+					const expected = Buffer.from(String(expectedValue || ''));
+					if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
 						resp.status(401).json({ error: 'Invalid authentication header' });
 						return { noWebhookResponse: true };
 					}
@@ -532,10 +537,12 @@ export class SapODataWebhook implements INodeType {
 				else if (authentication === 'queryAuth') {
 					const credentials = await this.getCredentials('sapOdataWebhookApi');
 					const paramName = (credentials.queryParameterName as string) || 'token';
-					const expectedValue = credentials.secret as string; // Use secret field for token
+					const expectedValue = credentials.secret as string;
 					const actualValue = req.query[paramName];
 
-					if (actualValue !== expectedValue) {
+					const actual = Buffer.from(String(actualValue || ''));
+					const expected = Buffer.from(String(expectedValue || ''));
+					if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
 						resp.status(401).json({ error: 'Invalid authentication token' });
 						return { noWebhookResponse: true };
 					}

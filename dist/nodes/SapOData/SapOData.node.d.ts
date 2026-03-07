@@ -12,6 +12,7 @@ export declare class SapOData implements INodeType {
         listSearch: {
             servicePathSearch(this: import("n8n-workflow").ILoadOptionsFunctions, filter?: string, _paginationToken?: unknown): Promise<import("n8n-workflow").INodeListSearchResult>;
             entitySetSearch(this: import("n8n-workflow").ILoadOptionsFunctions, filter?: string, _paginationToken?: unknown): Promise<import("n8n-workflow").INodeListSearchResult>;
+            functionImportSearch(this: import("n8n-workflow").ILoadOptionsFunctions, filter?: string, _paginationToken?: unknown): Promise<import("n8n-workflow").INodeListSearchResult>;
         };
         credentialTest: {
             sapODataCredentialTest: typeof testSapODataConnection;

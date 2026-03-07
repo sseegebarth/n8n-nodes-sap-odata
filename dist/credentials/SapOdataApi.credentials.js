@@ -4,7 +4,7 @@ exports.SapOdataApi = void 0;
 class SapOdataApi {
     constructor() {
         this.name = 'sapOdataApi';
-        this.displayName = 'avanai SAP OData API';
+        this.displayName = 'Avanai SAP OData API';
         this.documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
         this.icon = 'file:../nodes/SapOData/sap.svg';
         this.properties = [
@@ -69,6 +69,13 @@ class SapOdataApi {
                 type: 'boolean',
                 default: false,
                 description: 'Whether to connect even if SSL certificate validation is not possible. Only use in development environments.',
+            },
+            {
+                displayName: 'Allow Private Network Access',
+                name: 'allowPrivateIps',
+                type: 'boolean',
+                default: false,
+                description: 'Whether to allow connections to private IP ranges (10.x, 172.16-31.x, 192.168.x). Enable this for on-premise SAP systems.',
             },
             {
                 displayName: 'SAP Client',

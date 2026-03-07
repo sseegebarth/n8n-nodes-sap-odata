@@ -11,14 +11,14 @@ exports.validateEntitySetName = validateEntitySetName;
 exports.validateFunctionName = validateFunctionName;
 const n8n_workflow_1 = require("n8n-workflow");
 const constants_1 = require("../constants");
-function buildSecureUrl(host, servicePath, resource) {
+function buildSecureUrl(host, servicePath, resource, node) {
     try {
         const baseUrl = new URL(host);
         if (!['http:', 'https:'].includes(baseUrl.protocol)) {
-            throw new Error(`Invalid protocol: ${baseUrl.protocol}. Only HTTP and HTTPS are allowed.`);
+            throw new n8n_workflow_1.NodeOperationError(node, `Invalid protocol: ${baseUrl.protocol}. Only HTTP and HTTPS are allowed.`);
         }
         let sanitizedServicePath = servicePath.replace(/\.\.[/\\]/g, '');
-        let sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
+        const sanitizedResource = resource.replace(/\.\.[/\\]/g, '');
         if (sanitizedServicePath && !sanitizedServicePath.startsWith('/')) {
             sanitizedServicePath = '/' + sanitizedServicePath;
         }
@@ -32,27 +32,17 @@ function buildSecureUrl(host, servicePath, resource) {
         return `${origin}${fullPath}`;
     }
     catch (error) {
+        if (error instanceof n8n_workflow_1.NodeOperationError) {
+            throw error;
+        }
         const errorMessage = error instanceof Error ? error.message : String(error);
-        throw new Error(`Invalid URL components: ${errorMessage}`);
+        throw new n8n_workflow_1.NodeOperationError(node, `Invalid URL components: ${errorMessage}`);
     }
 }
 function validateEntityKey(key, node) {
     const normalizedKey = key.normalize('NFC');
     const unquotedParts = extractUnquotedParts(normalizedKey);
-    const blacklist = [
-        ';', '--', '/*', '*/',
-        'DROP ', 'DELETE ', 'INSERT ', 'UPDATE ', 'EXEC ', 'TRUNCATE ',
-        '$filter', '$expand', '$select', '$orderby', '$top', '$skip',
-    ];
     for (const unquotedPart of unquotedParts) {
-        const upperPart = unquotedPart.toUpperCase();
-        for (const pattern of blacklist) {
-            if (upperPart.includes(pattern.toUpperCase())) {
-                throw new n8n_workflow_1.NodeOperationError(node, `Invalid entity key: Contains forbidden pattern '${pattern.trim()}'`, {
-                    description: 'Entity keys cannot contain SQL commands or OData query parameters',
-                });
-            }
-        }
         if (unquotedPart.includes('&') || unquotedPart.includes('?')) {
             throw new n8n_workflow_1.NodeOperationError(node, 'Invalid entity key: Contains forbidden characters (& or ?)', {
                 description: 'Entity keys cannot contain query string characters outside of quoted strings',
@@ -198,48 +188,6 @@ function validateODataFilter(filter, node) {
     catch {
         decodedFilter = normalizedFilter;
     }
-    const dangerousPatterns = [
-        /javascript\s*:/i,
-        /<\s*script/i,
-        /<\s*\/\s*script/i,
-        /on\w+\s*=/i,
-        /eval\s*\(/i,
-        /expression\s*\(/i,
-        /Function\s*\(/i,
-        /setTimeout\s*\(/i,
-        /setInterval\s*\(/i,
-        /new\s+Function/i,
-        /document\s*\./i,
-        /window\s*\./i,
-        /innerHTML/i,
-        /outerHTML/i,
-        /<\s*img[^>]+onerror/i,
-        /<\s*svg[^>]+onload/i,
-        /data\s*:/i,
-        /vbscript\s*:/i,
-    ];
-    for (const pattern of dangerousPatterns) {
-        if (pattern.test(normalizedFilter) || pattern.test(decodedFilter)) {
-            throw new n8n_workflow_1.NodeOperationError(node, 'Invalid filter: Contains potentially dangerous content', {
-                description: 'OData filters cannot contain script tags, JavaScript code, or event handlers',
-            });
-        }
-    }
-    const sqlPatterns = [
-        /;\s*(DROP|DELETE|INSERT|UPDATE|TRUNCATE|ALTER|CREATE)\s/i,
-        /--\s*$/m,
-        /\/\*.*\*\//s,
-        /UNION\s+SELECT/i,
-        /EXEC\s*\(/i,
-        /xp_cmdshell/i,
-    ];
-    for (const pattern of sqlPatterns) {
-        if (pattern.test(decodedFilter)) {
-            throw new n8n_workflow_1.NodeOperationError(node, 'Invalid filter: Contains SQL injection pattern', {
-                description: 'OData filters cannot contain SQL commands',
-            });
-        }
-    }
     let parenCount = 0;
     for (const char of decodedFilter) {
         if (char === '(')
@@ -291,20 +239,20 @@ function sanitizeErrorMessage(message) {
 function validateJsonInput(jsonString, fieldName, node) {
     try {
         if (jsonString.length > constants_1.MAX_JSON_SIZE) {
-            throw new Error(`JSON input exceeds maximum size of ${constants_1.MAX_JSON_SIZE / 1024 / 1024}MB`);
+            throw new n8n_workflow_1.NodeOperationError(node, `JSON input exceeds maximum size of ${constants_1.MAX_JSON_SIZE / 1024 / 1024}MB`);
         }
         const parsed = JSON.parse(jsonString);
         if (typeof parsed !== 'object' || parsed === null) {
-            throw new Error('Must be a valid JSON object');
+            throw new n8n_workflow_1.NodeOperationError(node, 'Must be a valid JSON object');
         }
         const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
         const checkKeys = (obj, depth = 0) => {
             if (depth > constants_1.MAX_NESTING_DEPTH) {
-                throw new Error(`JSON object is too deeply nested (max ${constants_1.MAX_NESTING_DEPTH} levels)`);
+                throw new n8n_workflow_1.NodeOperationError(node, `JSON object is too deeply nested (max ${constants_1.MAX_NESTING_DEPTH} levels)`);
             }
             for (const key in obj) {
                 if (dangerousKeys.includes(key.toLowerCase())) {
-                    throw new Error(`Forbidden property name: ${key}`);
+                    throw new n8n_workflow_1.NodeOperationError(node, `Forbidden property name: ${key}`);
                 }
                 if (typeof obj[key] === 'object' && obj[key] !== null) {
                     checkKeys(obj[key], depth + 1);
@@ -315,17 +263,16 @@ function validateJsonInput(jsonString, fieldName, node) {
         return parsed;
     }
     catch (error) {
+        if (error instanceof n8n_workflow_1.NodeOperationError) {
+            throw error;
+        }
         const errorMessage = error instanceof Error ? error.message : String(error);
         throw new n8n_workflow_1.NodeOperationError(node, `Invalid JSON in '${fieldName}' field: ${errorMessage}`, {
             description: 'Please provide a valid JSON object',
         });
     }
 }
-function isPrivateIpAccessAllowed() {
-    const envValue = process.env.ALLOW_PRIVATE_IPS;
-    return envValue === 'true' || envValue === '1';
-}
-function validateUrl(url, node) {
+function validateUrl(url, node, options) {
     try {
         const parsedUrl = new URL(url);
         if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
@@ -333,7 +280,7 @@ function validateUrl(url, node) {
                 description: 'Only HTTP and HTTPS protocols are allowed',
             });
         }
-        const allowPrivateIps = isPrivateIpAccessAllowed();
+        const allowPrivateIps = (options === null || options === void 0 ? void 0 : options.allowPrivateIps) === true;
         const hostname = parsedUrl.hostname.toLowerCase();
         const isNumericIp = /^[\d.x]+$/.test(hostname);
         let normalizedHostname = hostname;
@@ -382,7 +329,7 @@ function validateUrl(url, node) {
             if (privateIpPatterns.some((pattern) => pattern.test(hostname)) ||
                 privateIpPatterns.some((pattern) => pattern.test(normalizedHostname))) {
                 throw new n8n_workflow_1.NodeOperationError(node, 'Access to private IP addresses is not allowed', {
-                    description: 'Cannot connect to private network resources for security reasons. Set environment variable ALLOW_PRIVATE_IPS=true to allow access to internal networks.',
+                    description: 'Cannot connect to private network resources for security reasons. Enable "Allow Private Network Access" in the credential settings for on-premise SAP systems.',
                 });
             }
         }

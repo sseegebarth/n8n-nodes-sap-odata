@@ -63,6 +63,7 @@ export interface ISapOdataCredentials {
     username?: string;
     password?: string;
     allowUnauthorizedCerts?: boolean;
+    allowPrivateIps?: boolean;
     sapClient?: string;
     sapLanguage?: string;
     customHeaders?: string | IDataObject;

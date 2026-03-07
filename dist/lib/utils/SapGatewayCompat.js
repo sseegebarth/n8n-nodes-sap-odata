@@ -137,8 +137,8 @@ class SapGatewayCompat {
             return '';
         }
     }
-    static clearSession(context, host, servicePath) {
-        SapGatewaySession_1.SapGatewaySessionManager.clearSession(context, host, servicePath);
+    static async clearSession(context, host, servicePath) {
+        await SapGatewaySession_1.SapGatewaySessionManager.clearSession(context, host, servicePath);
     }
     static async getSessionStatus(context, host, servicePath) {
         const session = await SapGatewaySession_1.SapGatewaySessionManager.getSession(context, host, servicePath);

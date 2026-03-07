@@ -6,12 +6,14 @@ exports.normalizeODataOptions = normalizeODataOptions;
 exports.buildODataQuery = buildODataQuery;
 exports.buildEncodedQueryString = buildEncodedQueryString;
 exports.parseMetadataForEntitySets = parseMetadataForEntitySets;
+exports.parseMetadataForCallables = parseMetadataForCallables;
 exports.parseMetadataForFunctionImports = parseMetadataForFunctionImports;
+const n8n_workflow_1 = require("n8n-workflow");
 const SecurityUtils_1 = require("../utils/SecurityUtils");
 function escapeODataString(value) {
     return value.replace(/'/g, "''");
 }
-function buildODataFilter(filters) {
+function buildODataFilter(filters, node) {
     const filterParts = [];
     for (const [key, value] of Object.entries(filters)) {
         if (value !== undefined && value !== null && value !== '') {
@@ -26,28 +28,34 @@ function buildODataFilter(filters) {
                 filterParts.push(`${key} eq ${value}`);
             }
             else if (typeof value === 'object') {
-                throw new Error(`Invalid filter value type for key '${key}': Objects and arrays are not supported in OData filters. Use primitive values (string, number, boolean) only.`);
+                throw new n8n_workflow_1.NodeOperationError(node, `Invalid filter value type for key '${key}': Objects and arrays are not supported in OData filters. Use primitive values (string, number, boolean) only.`);
             }
         }
     }
     return filterParts.join(' and ');
 }
+const ODATA_PARAMS = new Set(['filter', 'select', 'expand', 'orderby', 'top', 'skip', 'count', 'search', 'apply', 'format', 'inlinecount', 'skiptoken']);
 function normalizeODataOptions(options) {
     const normalized = {};
     for (const [key, value] of Object.entries(options)) {
         if (value !== undefined && value !== null && value !== '') {
-            const normalizedKey = key.startsWith('$') ? key : `$${key}`;
-            normalized[normalizedKey] = value;
+            if (key.startsWith('$')) {
+                normalized[key] = value;
+            }
+            else if (ODATA_PARAMS.has(key.toLowerCase())) {
+                normalized[`$${key}`] = value;
+            }
         }
     }
     return normalized;
 }
-function buildODataQuery(options) {
+function buildODataQuery(options, node) {
     const normalizedOptions = normalizeODataOptions(options);
     const query = {};
     if (normalizedOptions.$filter) {
-        const dummyNode = { name: 'SAP OData', type: 'n8n-nodes-sap-odata.sapOData', typeVersion: 1, position: [0, 0] };
-        (0, SecurityUtils_1.validateODataFilter)(normalizedOptions.$filter, dummyNode);
+        if (node) {
+            (0, SecurityUtils_1.validateODataFilter)(normalizedOptions.$filter, node);
+        }
         query.$filter = normalizedOptions.$filter;
     }
     if (normalizedOptions.$select) {
@@ -101,12 +109,40 @@ function parseMetadataForEntitySets(metadataXml) {
     }
     return entitySets.sort();
 }
-function parseMetadataForFunctionImports(metadataXml) {
-    const functionImports = [];
-    const functionImportRegex = /<FunctionImport\s+Name="([^"]+)"/g;
+function parseMetadataForCallables(metadataXml) {
+    const callables = [];
+    const seen = new Set();
+    const functionImportRegex = /<FunctionImport\s+[^>]*Name="([^"]+)"/g;
     let match;
     while ((match = functionImportRegex.exec(metadataXml)) !== null) {
-        functionImports.push(match[1]);
+        if (!seen.has(match[1])) {
+            seen.add(match[1]);
+            callables.push({ name: match[1], type: 'FunctionImport' });
+        }
     }
-    return functionImports.sort();
+    const actionRegex = /<Action\s+[^>]*Name="([^"]+)"/g;
+    while ((match = actionRegex.exec(metadataXml)) !== null) {
+        if (!seen.has(match[1])) {
+            seen.add(match[1]);
+            callables.push({ name: match[1], type: 'Action' });
+        }
+    }
+    const functionRegex = /<Function\s+[^>]*Name="([^"]+)"/g;
+    while ((match = functionRegex.exec(metadataXml)) !== null) {
+        if (!seen.has(match[1])) {
+            seen.add(match[1]);
+            callables.push({ name: match[1], type: 'Function' });
+        }
+    }
+    const actionImportRegex = /<ActionImport\s+[^>]*Name="([^"]+)"/g;
+    while ((match = actionImportRegex.exec(metadataXml)) !== null) {
+        if (!seen.has(match[1])) {
+            seen.add(match[1]);
+            callables.push({ name: match[1], type: 'Action' });
+        }
+    }
+    return callables.sort((a, b) => a.name.localeCompare(b.name));
+}
+function parseMetadataForFunctionImports(metadataXml) {
+    return parseMetadataForCallables(metadataXml).map((c) => c.name);
 }

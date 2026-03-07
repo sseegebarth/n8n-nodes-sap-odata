@@ -267,28 +267,15 @@ export class ODataVersionHelper {
 	 */
 	public static getTotalCount(response: any, version: 'v2' | 'v4'): number | undefined {
 		if (version === 'v2') {
-			// V2: count in d.__count
-			return response.d?.__count;
+			// V2: count in d.__count (SAP returns this as a string)
+			if (response.d?.__count !== undefined) {
+				const parsed = parseInt(String(response.d.__count), 10);
+				return isNaN(parsed) ? undefined : parsed;
+			}
+			return undefined;
 		} else {
 			// V4: count in @odata.count
 			return response['@odata.count'];
-		}
-	}
-
-	/**
-	 * Get next link from response for pagination
-	 *
-	 * @param response - OData response
-	 * @param version - OData version
-	 * @returns Next link URL or undefined
-	 */
-	public static getNextLink(response: any, version: 'v2' | 'v4'): string | undefined {
-		if (version === 'v2') {
-			// V2: next link in d.__next
-			return response.d?.__next;
-		} else {
-			// V4: next link in @odata.nextLink
-			return response['@odata.nextLink'];
 		}
 	}
 

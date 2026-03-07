@@ -179,19 +179,14 @@ class ODataVersionHelper {
     static getTotalCount(response, version) {
         var _a;
         if (version === 'v2') {
-            return (_a = response.d) === null || _a === void 0 ? void 0 : _a.__count;
+            if (((_a = response.d) === null || _a === void 0 ? void 0 : _a.__count) !== undefined) {
+                const parsed = parseInt(String(response.d.__count), 10);
+                return isNaN(parsed) ? undefined : parsed;
+            }
+            return undefined;
         }
         else {
             return response['@odata.count'];
-        }
-    }
-    static getNextLink(response, version) {
-        var _a;
-        if (version === 'v2') {
-            return (_a = response.d) === null || _a === void 0 ? void 0 : _a.__next;
-        }
-        else {
-            return response['@odata.nextLink'];
         }
     }
     static parseError(error, version) {

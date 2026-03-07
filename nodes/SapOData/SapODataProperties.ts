@@ -113,7 +113,6 @@ export const sapODataProperties: INodeProperties[] = [
 			},
 		],
 		default: 'getAll',
-		description: 'The operation to perform',
 	},
 
 	// ============================================
@@ -137,7 +136,7 @@ export const sapODataProperties: INodeProperties[] = [
 				description: 'Get the service document listing all entity sets and function imports',
 			},
 			{
-				name: '$metadata',
+				name: '$Metadata',
 				value: 'metadata',
 				description: 'Get the full service metadata (XML schema)',
 			},
@@ -181,7 +180,7 @@ export const sapODataProperties: INodeProperties[] = [
 				],
 			},
 		],
-		description: 'The SAP OData service to connect to. Select from list or enter the path manually (e.g. /sap/opu/odata/sap/API_BUSINESS_PARTNER/)',
+		description: 'The SAP OData service to connect to. Select from list or enter the path manually (e.g. /sap/opu/odata/sap/API_BUSINESS_PARTNER/).',
 	},
 
 	// ============================================
@@ -237,7 +236,7 @@ export const sapODataProperties: INodeProperties[] = [
 				],
 			},
 		],
-		description: 'The entity set to query. Select from list or enter the name directly (e.g. A_SalesOrder, ProductSet)',
+		description: 'The entity set to query. Select from list or enter the name directly (e.g. A_SalesOrder, ProductSet).',
 		hint: 'When changing the Service, you may need to re-select the Entity Set from the updated list.',
 	},
 
@@ -295,7 +294,7 @@ export const sapODataProperties: INodeProperties[] = [
 				],
 			},
 		],
-		description: 'The entity to operate on. String keys: \'ABC\' | Numeric keys: 123 | Composite: ProductID=123,Year=2024',
+		description: 'The entity to operate on. String keys: \'ABC\' | Numeric keys: 123 | Composite: ProductID=123,Year=2024.',
 	},
 
 	// Return All (for getAll)
@@ -310,7 +309,7 @@ export const sapODataProperties: INodeProperties[] = [
 			},
 		},
 		default: false,
-		description: 'Whether to return all results or use pagination. Enable for small datasets (recommended for less than 1000 items).',
+		description: 'Whether to return all results or only up to a given limit',
 	},
 
 	// Limit (for getAll when returnAll is false)
@@ -329,8 +328,8 @@ export const sapODataProperties: INodeProperties[] = [
 			minValue: 1,
 			maxValue: MAX_PAGE_SIZE,
 		},
-		default: DEFAULT_PAGE_SIZE,
-		description: 'Maximum number of results to return',
+		default: 50,
+		description: 'Max number of results to return',
 	},
 
 	// Data (for create, update)
@@ -346,8 +345,8 @@ export const sapODataProperties: INodeProperties[] = [
 			},
 		},
 		default: '{}',
-		description: 'Entity data as JSON object. Field names must match the OData entity properties. Check $metadata for available fields and required properties.',
-		placeholder: '{"CustomerName": "ACME Corp", "City": "Berlin", "Country": "DE"}',
+		description: 'Entity data as JSON object. Field names must match the OData entity properties. For deep insert, include navigation properties with nested arrays to create related entities in a single request.',
+		placeholder: '{"CustomerName": "ACME Corp", "to_Addresses": [{"City": "Berlin", "Country": "DE"}]}',
 	},
 
 	// Query Parameters (for getAll/get)
@@ -366,7 +365,7 @@ export const sapODataProperties: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: '$select',
+				displayName: '$Select',
 				name: '$select',
 				type: 'string',
 				default: '',
@@ -374,23 +373,23 @@ export const sapODataProperties: INodeProperties[] = [
 				placeholder: 'CustomerID,CustomerName,City,PostalCode',
 			},
 			{
-				displayName: '$expand',
+				displayName: '$Expand',
 				name: '$expand',
 				type: 'string',
 				default: '',
-				description: 'Expand navigation properties to include related entities. Multiple expansions: ToItems,ToPartner | Nested: ToItems($select=Material)',
+				description: 'Expand navigation properties to include related entities. Multiple expansions: ToItems,ToPartner | Nested: ToItems($select=Material).',
 				placeholder: 'ToSalesOrderItem,ToPartner',
 			},
 			{
-				displayName: '$filter',
+				displayName: '$Filter',
 				name: '$filter',
 				type: 'string',
 				default: '',
-				description: 'Filter results using OData query syntax. Examples: City eq \'Berlin\' | Price gt 100 | startswith(Name,\'A\') | CreatedAt ge datetime\'2024-01-01T00:00:00\'',
+				description: 'Filter results using OData query syntax. Examples: City eq \'Berlin\' | Price gt 100 | startswith(Name,\'A\') | CreatedAt ge datetime\'2024-01-01T00:00:00\'.',
 				placeholder: 'City eq \'Berlin\' and Status eq \'Active\'',
 			},
 			{
-				displayName: '$orderby',
+				displayName: '$Orderby',
 				name: '$orderby',
 				type: 'string',
 				default: '',
@@ -398,7 +397,7 @@ export const sapODataProperties: INodeProperties[] = [
 				placeholder: 'Name asc, CreatedAt desc',
 			},
 			{
-				displayName: '$top',
+				displayName: '$Top',
 				name: '$top',
 				type: 'number',
 				default: 0,
@@ -409,21 +408,21 @@ export const sapODataProperties: INodeProperties[] = [
 				},
 			},
 			{
-				displayName: '$skip',
+				displayName: '$Skip',
 				name: '$skip',
 				type: 'number',
 				default: 0,
 				description: 'Number of results to skip',
 			},
 			{
-				displayName: '$count',
+				displayName: '$Count',
 				name: '$count',
 				type: 'boolean',
 				default: false,
 				description: 'Include count of matching entities',
 			},
 			{
-				displayName: '$search',
+				displayName: '$Search',
 				name: '$search',
 				type: 'string',
 				default: '',
@@ -431,7 +430,7 @@ export const sapODataProperties: INodeProperties[] = [
 				placeholder: 'Berlin',
 			},
 			{
-				displayName: '$apply',
+				displayName: '$Apply',
 				name: '$apply',
 				type: 'string',
 				default: '',
@@ -449,85 +448,57 @@ export const sapODataProperties: INodeProperties[] = [
 					maxValue: MAX_PAGE_SIZE,
 				},
 			},
-			{
-				displayName: 'ETag',
-				name: 'etag',
-				type: 'string',
-				default: '',
-				description: 'ETag for optimistic locking. Prevents concurrent modification errors. Use "*" to bypass locking.',
-				placeholder: 'W/"datetime\'2024-01-15T10:30:00\'"',
-				displayOptions: {
-					show: {
-						'/operation': ['update', 'delete'],
-					},
-				},
-			},
 		],
+	},
+
+	// ETag (for update, delete)
+	{
+		displayName: 'ETag',
+		name: 'etag',
+		type: 'string',
+		default: '',
+		description: 'ETag for optimistic locking. Prevents concurrent modification errors. Use "*" to bypass locking.',
+		placeholder: 'W/"datetime\'2024-01-15T10:30:00\'"',
+		displayOptions: {
+			show: {
+				resource: ['entity'],
+				operation: ['update', 'delete'],
+			},
+		},
 	},
 
 	// ============================================
 	// 6. Function Import fields
 	// ============================================
 	{
-		displayName: 'Function Name Mode',
-		name: 'functionNameMode',
-		type: 'options',
-		noDataExpression: true,
+		displayName: 'Function Import',
+		name: 'functionName',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
+		required: true,
 		displayOptions: {
 			show: {
 				resource: ['functionImport'],
 			},
 		},
-		options: [
+		modes: [
 			{
-				name: 'From List',
-				value: 'list',
-				description: 'Select from discovered function imports',
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'functionImportSearch',
+					searchable: true,
+				},
 			},
 			{
-				name: 'Custom',
-				value: 'custom',
-				description: 'Enter function name manually',
+				displayName: 'By Name',
+				name: 'name',
+				type: 'string',
+				placeholder: 'CalculatePrice',
 			},
 		],
-		default: 'list',
-		description: 'How to specify the function import name',
-	},
-
-	// Function Import Name (from list)
-	{
-		displayName: 'Function Name',
-		name: 'functionName',
-		type: 'options',
-		typeOptions: {
-			loadOptionsMethod: 'getFunctionImports',
-		},
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['functionImport'],
-				functionNameMode: ['list'],
-			},
-		},
-		default: '',
-		description: 'The function import to execute',
-	},
-
-	// Function Import Name (custom)
-	{
-		displayName: 'Custom Function Name',
-		name: 'customFunctionName',
-		type: 'string',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['functionImport'],
-				functionNameMode: ['custom'],
-			},
-		},
-		default: '',
-		placeholder: 'CalculatePrice',
-		description: 'The function import name',
+		description: 'The function import to execute. Select from list or enter the name manually.',
 	},
 
 	// Function HTTP Method
@@ -608,7 +579,7 @@ export const sapODataProperties: INodeProperties[] = [
 		type: 'collection',
 		placeholder: 'Add Option',
 		default: {},
-		description: 'Configure data conversion, caching, and monitoring for SAP OData requests.',
+		description: 'Configure data conversion, caching, and monitoring for SAP OData requests',
 		options: [
 			// Data Type Conversion
 			{
@@ -623,7 +594,7 @@ export const sapODataProperties: INodeProperties[] = [
 				name: 'removeMetadata',
 				type: 'boolean',
 				default: true,
-				description: 'Whether to remove __metadata field from results. Removes the __metadata object (id, uri, type) from SAP OData responses for cleaner output.',
+				description: 'Whether to remove __metadata field from results. Removes the __metadata object (ID, uri, type) from SAP OData responses for cleaner output.',
 			},
 
 			// Cache Options

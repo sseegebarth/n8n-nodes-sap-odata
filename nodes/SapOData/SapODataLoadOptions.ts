@@ -14,6 +14,7 @@ import {
 import {
 	parseMetadataForEntitySets,
 	parseMetadataForFunctionImports,
+	parseMetadataForCallables,
 } from '../../lib/core/QueryBuilder';
 import {
 	resolveServicePath,
@@ -58,7 +59,7 @@ export const sapODataLoadOptions = {
 
 			return [
 				{
-					name: '⚠️ Could not load services from SAP - Showing common services',
+					name: '⚠️ Could Not Load Services From SAP - Showing Common Services',
 					value: '',
 					description: 'Switch to "Custom" mode to enter service path manually',
 				},
@@ -75,7 +76,7 @@ export const sapODataLoadOptions = {
 
 			return [
 				{
-					name: '⚠️ Service discovery failed - Showing common services',
+					name: '⚠️ Service Discovery Failed - Showing Common Services',
 					value: '',
 					description: 'Switch to "Custom" mode to enter service path manually',
 				},
@@ -156,7 +157,7 @@ export const sapODataLoadOptions = {
 					description: 'Separator',
 				},
 				{
-					name: '⚠️ Auto-discovery unavailable - Using common services list',
+					name: '⚠️ Auto-Discovery Unavailable - Using Common Services List',
 					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
 					description: 'Check credentials and Gateway Catalog Service (/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/) access or switch to Custom mode',
 				},
@@ -179,7 +180,7 @@ export const sapODataLoadOptions = {
 					description: 'Separator',
 				},
 				{
-					name: '⚠️ Auto-discovery failed - Using common services list',
+					name: '⚠️ Auto-Discovery Failed - Using Common Services List',
 					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
 					description: 'Check connection or switch to "Custom" mode to enter service path manually',
 				},
@@ -217,7 +218,7 @@ export const sapODataLoadOptions = {
 			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
 				return [
 					{
-						name: '⚠️ No service selected',
+						name: '⚠️ No Service Selected',
 						value: '',
 						description: 'Please select a service from the "Service" dropdown above first',
 					},
@@ -274,7 +275,7 @@ export const sapODataLoadOptions = {
 					{
 						name: '⚠️ Access Forbidden - Missing SAP Authorizations',
 						value: '',
-						description: 'Your SAP user lacks permissions for this service. Contact SAP Administrator or switch to "Custom" mode',
+						description: 'Your SAP user lacks permissions for this service. Contact SAP Administrator or switch to "Custom" mode.',
 					},
 				];
 			}
@@ -475,7 +476,7 @@ export const sapODataListSearch = {
 			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
 				return {
 					results: [{
-						name: '⚠️ No service selected - Please select a service first',
+						name: '⚠️ No Service Selected - Please Select a Service First',
 						value: '',
 					}],
 				};
@@ -547,6 +548,86 @@ export const sapODataListSearch = {
 				};
 			}
 
+			return {
+				results: [{
+					name: `⚠️ Error: ${errorMessage.substring(0, 50)}`,
+					value: '',
+				}],
+			};
+		}
+	},
+
+	// Search Function Imports, Actions, and Functions from $metadata (for resourceLocator)
+	async functionImportSearch(
+		this: ILoadOptionsFunctions,
+		filter?: string,
+		_paginationToken?: unknown,
+	): Promise<INodeListSearchResult> {
+		try {
+			const credentials = await this.getCredentials('sapOdataApi');
+			const { CacheManager } = await import('../../lib/utils/CacheManager');
+
+			// Get service path from resourceLocator
+			const servicePathParam = this.getCurrentNodeParameter('servicePath') as
+				| string
+				| { mode: string; value: string }
+				| undefined;
+
+			let servicePath = '';
+			if (typeof servicePathParam === 'object' && servicePathParam !== null) {
+				servicePath = servicePathParam.value || '';
+			} else if (typeof servicePathParam === 'string') {
+				servicePath = servicePathParam;
+			}
+
+			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
+				return {
+					results: [{
+						name: '⚠️ No Service Selected - Please Select a Service First',
+						value: '',
+					}],
+				};
+			}
+
+			// Always fetch fresh metadata to get callables with type info
+			const metadataXml = await sapOdataApiRequest.call(this, 'GET', '/$metadata');
+			const metadataStr = typeof metadataXml === 'string' ? metadataXml : JSON.stringify(metadataXml);
+			const callables = parseMetadataForCallables(metadataStr);
+
+			// Also update cache for other uses
+			const entitySets = parseMetadataForEntitySets(metadataStr);
+			const functionImports = callables.map((c) => c.name);
+			await CacheManager.setMetadata(
+				this,
+				credentials.host as string,
+				servicePath,
+				entitySets,
+				functionImports,
+			);
+
+			// Apply filter if provided
+			let filtered = callables;
+			if (filter) {
+				const lowerFilter = filter.toLowerCase();
+				filtered = callables.filter(
+					(c) => c.name.toLowerCase().includes(lowerFilter),
+				);
+			}
+
+			const typeLabels: Record<string, string> = {
+				FunctionImport: 'Function Import',
+				Action: 'Action',
+				Function: 'Function',
+			};
+
+			const results: INodeListSearchItems[] = filtered.map((c) => ({
+				name: `[${typeLabels[c.type]}] ${c.name}`,
+				value: `${c.type}::${c.name}`,
+			}));
+
+			return { results };
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			return {
 				results: [{
 					name: `⚠️ Error: ${errorMessage.substring(0, 50)}`,

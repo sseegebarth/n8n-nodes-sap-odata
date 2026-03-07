@@ -3,6 +3,8 @@
  * Converts SAP-specific data types to JavaScript native types
  */
 
+const MAX_RECURSION_DEPTH = 50;
+
 /**
  * Convert SAP Date format to ISO Date string
  * SAP Format: /Date(1507248000000)/ or /Date(1508418010083+0000)/
@@ -95,15 +97,17 @@ function isNumericString(value: string): boolean {
  * - Other strings → unchanged
  * - Objects/Arrays → recursively converted
  */
-export function convertValue(value: any): any {
+export function convertValue(value: any, depth = 0): any {
 	// Handle null/undefined
 	if (value === null || value === undefined) {
 		return value;
 	}
 
+	if (depth >= MAX_RECURSION_DEPTH) return value;
+
 	// Handle arrays - recursively convert each element
 	if (Array.isArray(value)) {
-		return value.map(item => convertValue(item));
+		return value.map(item => convertValue(item, depth + 1));
 	}
 
 	// Handle objects - recursively convert each property
@@ -114,7 +118,7 @@ export function convertValue(value: any): any {
 			if (key === '__metadata' || key === '__deferred') {
 				converted[key] = val; // Keep as-is
 			} else {
-				converted[key] = convertValue(val); // Recursively convert
+				converted[key] = convertValue(val, depth + 1);
 			}
 		}
 		return converted;
@@ -140,8 +144,11 @@ export function convertValue(value: any): any {
 
 		// Check for numeric strings
 		if (isNumericString(value)) {
+			// Preserve strings with leading zeros (SAP material/document numbers)
+			if (value.startsWith('0') && value.length > 1 && !value.startsWith('0.') && !value.startsWith('0x')) {
+				return value;
+			}
 			const num = parseFloat(value);
-			// Only convert if parseFloat succeeded and result is not NaN
 			if (!isNaN(num)) {
 				return num;
 			}
@@ -159,15 +166,17 @@ export function convertValue(value: any): any {
  * Remove __metadata and __deferred fields from data
  * Recursively processes all objects and arrays
  */
-export function removeMetadata(value: any): any {
+export function removeMetadata(value: any, depth = 0): any {
 	// Handle null/undefined
 	if (value === null || value === undefined) {
 		return value;
 	}
 
+	if (depth >= MAX_RECURSION_DEPTH) return value;
+
 	// Handle arrays - recursively remove metadata from each element
 	if (Array.isArray(value)) {
-		return value.map(item => removeMetadata(item));
+		return value.map(item => removeMetadata(item, depth + 1));
 	}
 
 	// Handle objects - remove __metadata and __deferred, recursively process other properties
@@ -176,13 +185,49 @@ export function removeMetadata(value: any): any {
 		for (const [key, val] of Object.entries(value)) {
 			// Skip __metadata and __deferred properties
 			if (key !== '__metadata' && key !== '__deferred') {
-				cleaned[key] = removeMetadata(val); // Recursively clean
+				cleaned[key] = removeMetadata(val, depth + 1);
 			}
 		}
 		return cleaned;
 	}
 
 	// Return all other types unchanged
+	return value;
+}
+
+/**
+ * Unwrap OData V2 navigation property wrappers
+ * SAP V2 wraps navigation collections as { results: [...], __count?: "n" }
+ * This function replaces such wrappers with the plain array.
+ */
+export function unwrapNavigationProperties(value: any, depth = 0): any {
+	if (value === null || value === undefined) return value;
+	if (depth >= MAX_RECURSION_DEPTH) return value;
+
+	if (Array.isArray(value)) {
+		return value.map(item => unwrapNavigationProperties(item, depth + 1));
+	}
+
+	if (typeof value === 'object') {
+		const unwrapped: any = {};
+		for (const [key, val] of Object.entries(value)) {
+			if (val && typeof val === 'object' && !Array.isArray(val)) {
+				const obj = val as Record<string, unknown>;
+				if (Array.isArray(obj.results)) {
+					const otherKeys = Object.keys(obj).filter(
+						k => k !== 'results' && k !== '__count' && k !== '__next' && k !== '__deferred',
+					);
+					if (otherKeys.length === 0) {
+						unwrapped[key] = unwrapNavigationProperties(obj.results, depth + 1);
+						continue;
+					}
+				}
+			}
+			unwrapped[key] = unwrapNavigationProperties(val, depth + 1);
+		}
+		return unwrapped;
+	}
+
 	return value;
 }
 
@@ -214,4 +259,57 @@ export function removeMetadata(value: any): any {
  */
 export function convertDataTypes(data: any): any {
 	return convertValue(data);
+}
+
+const ISO_DATETIME_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const TIME_REGEX = /^(\d{2}):(\d{2}):(\d{2})$/;
+
+/**
+ * Convert ISO dates and HH:MM:SS times to SAP V2 format for write operations.
+ * - ISO datetime strings → /Date(timestamp)/
+ * - HH:MM:SS time strings → PTnHnMnS duration
+ * - All other values remain unchanged
+ */
+export function convertToSapV2Format(value: any, depth = 0): any {
+	if (value === null || value === undefined) return value;
+	if (depth >= MAX_RECURSION_DEPTH) return value;
+
+	if (Array.isArray(value)) {
+		return value.map(item => convertToSapV2Format(item, depth + 1));
+	}
+
+	if (typeof value === 'object') {
+		const converted: any = {};
+		for (const [key, val] of Object.entries(value)) {
+			if (key === '__metadata' || key === '__deferred') {
+				converted[key] = val;
+			} else {
+				converted[key] = convertToSapV2Format(val, depth + 1);
+			}
+		}
+		return converted;
+	}
+
+	if (typeof value === 'string') {
+		// ISO datetime → /Date(timestamp)/
+		if (ISO_DATETIME_REGEX.test(value)) {
+			const ts = Date.parse(value);
+			if (!isNaN(ts)) {
+				return `/Date(${ts})/`;
+			}
+		}
+
+		// HH:MM:SS → PT duration
+		const timeMatch = value.match(TIME_REGEX);
+		if (timeMatch) {
+			const h = parseInt(timeMatch[1], 10);
+			const m = parseInt(timeMatch[2], 10);
+			const s = parseInt(timeMatch[3], 10);
+			if (h < 24 && m < 60 && s < 60) {
+				return `PT${h}H${m}M${s}S`;
+			}
+		}
+	}
+
+	return value;
 }

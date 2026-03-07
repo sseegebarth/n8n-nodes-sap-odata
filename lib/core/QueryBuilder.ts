@@ -3,7 +3,7 @@
  * Handles building and normalizing OData query parameters
  */
 
-import { IDataObject } from 'n8n-workflow';
+import { IDataObject, INode, NodeOperationError } from 'n8n-workflow';
 import { IODataQueryOptions } from '../types';
 import { validateODataFilter } from '../utils/SecurityUtils';
 
@@ -29,7 +29,7 @@ export function escapeODataString(value: string): string {
  * buildODataFilter({ Name: "O'Brien" })
  * // Returns: "Name eq 'O''Brien'" (escaped quote)
  */
-export function buildODataFilter(filters: IDataObject): string {
+export function buildODataFilter(filters: IDataObject, node: INode): string {
 	const filterParts: string[] = [];
 
 	for (const [key, value] of Object.entries(filters)) {
@@ -44,7 +44,8 @@ export function buildODataFilter(filters: IDataObject): string {
 				filterParts.push(`${key} eq ${value}`);
 			} else if (typeof value === 'object') {
 				// Reject complex objects/arrays - they cannot be used in OData filters
-				throw new Error(
+				throw new NodeOperationError(
+					node,
 					`Invalid filter value type for key '${key}': Objects and arrays are not supported in OData filters. Use primitive values (string, number, boolean) only.`,
 				);
 			}
@@ -62,14 +63,18 @@ export function buildODataFilter(filters: IDataObject): string {
  * @returns Normalized options with $ prefix
  * @private
  */
+const ODATA_PARAMS = new Set(['filter', 'select', 'expand', 'orderby', 'top', 'skip', 'count', 'search', 'apply', 'format', 'inlinecount', 'skiptoken']);
+
 export function normalizeODataOptions(options: any): IODataQueryOptions {
 	const normalized: any = {};
 
 	for (const [key, value] of Object.entries(options)) {
 		if (value !== undefined && value !== null && value !== '') {
-			// Add $ prefix if not present for standard OData parameters
-			const normalizedKey = key.startsWith('$') ? key : `$${key}`;
-			normalized[normalizedKey] = value;
+			if (key.startsWith('$')) {
+				normalized[key] = value;
+			} else if (ODATA_PARAMS.has(key.toLowerCase())) {
+				normalized[`$${key}`] = value;
+			}
 		}
 	}
 
@@ -91,17 +96,16 @@ export function normalizeODataOptions(options: any): IODataQueryOptions {
  * })
  * // Returns: { $filter: "Name eq 'John'", $select: "Name,Age", $top: 10 }
  */
-// eslint-disable-next-line no-useless-escape
-export function buildODataQuery(options: IODataQueryOptions): IDataObject {
+ 
+export function buildODataQuery(options: IODataQueryOptions, node?: INode): IDataObject {
 	// Normalize options to ensure $ prefix
 	const normalizedOptions = normalizeODataOptions(options);
 	const query: IDataObject = {};
 
 	if (normalizedOptions.$filter) {
-		// Validate filter for security (prevent XSS/injection)
-		// Note: We create a minimal node object for validation since we don't have access to this context
-		const dummyNode = { name: 'SAP OData', type: 'n8n-nodes-sap-odata.sapOData', typeVersion: 1, position: [0, 0] };
-		validateODataFilter(normalizedOptions.$filter as string, dummyNode as any);
+		if (node) {
+			validateODataFilter(normalizedOptions.$filter as string, node);
+		}
 		query.$filter = normalizedOptions.$filter;
 	}
 
@@ -133,7 +137,7 @@ export function buildODataQuery(options: IODataQueryOptions): IDataObject {
 		query.$count = normalizedOptions.$count;
 	}
 
-	// eslint-disable-next-line no-useless-escape
+	 
 	if (normalizedOptions.$search) {
 		query.$search = normalizedOptions.$search;
 	}
@@ -207,25 +211,69 @@ export function parseMetadataForEntitySets(metadataXml: string): string[] {
 }
 
 /**
- * Parse OData $metadata XML to extract FunctionImport names
+ * Parsed callable entry from OData $metadata
+ * Covers V2 FunctionImports and V4 Actions/Functions
+ */
+export interface IODataCallable {
+	name: string;
+	type: 'FunctionImport' | 'Action' | 'Function';
+}
+
+/**
+ * Parse OData $metadata XML to extract callable operations
+ * Supports V2 FunctionImports and V4 Actions/Functions/ActionImports
  *
  * @param metadataXml - Raw XML string from $metadata endpoint
- * @returns Sorted array of FunctionImport names
- *
- * @example
- * parseMetadataForFunctionImports(xml)
- * // Returns: ['GetSalesOrder', 'UpdateInventory']
+ * @returns Sorted array of callable entries with name and type
  */
-export function parseMetadataForFunctionImports(metadataXml: string): string[] {
-	const functionImports: string[] = [];
+export function parseMetadataForCallables(metadataXml: string): IODataCallable[] {
+	const callables: IODataCallable[] = [];
+	const seen = new Set<string>();
 
-	// Matches: <FunctionImport Name="GetSalesOrder" ...>
-	const functionImportRegex = /<FunctionImport\s+Name="([^"]+)"/g;
+	// V2: <FunctionImport Name="GetSalesOrder" ...>
+	const functionImportRegex = /<FunctionImport\s+[^>]*Name="([^"]+)"/g;
 	let match;
-
 	while ((match = functionImportRegex.exec(metadataXml)) !== null) {
-		functionImports.push(match[1]);
+		if (!seen.has(match[1])) {
+			seen.add(match[1]);
+			callables.push({ name: match[1], type: 'FunctionImport' });
+		}
 	}
 
-	return functionImports.sort();
+	// V4: <Action Name="Release" ...> (not inside <FunctionImport> or <ActionImport>)
+	const actionRegex = /<Action\s+[^>]*Name="([^"]+)"/g;
+	while ((match = actionRegex.exec(metadataXml)) !== null) {
+		if (!seen.has(match[1])) {
+			seen.add(match[1]);
+			callables.push({ name: match[1], type: 'Action' });
+		}
+	}
+
+	// V4: <Function Name="GetPrice" ...>
+	const functionRegex = /<Function\s+[^>]*Name="([^"]+)"/g;
+	while ((match = functionRegex.exec(metadataXml)) !== null) {
+		if (!seen.has(match[1])) {
+			seen.add(match[1]);
+			callables.push({ name: match[1], type: 'Function' });
+		}
+	}
+
+	// V4: <ActionImport Name="DoSomething" ...>
+	const actionImportRegex = /<ActionImport\s+[^>]*Name="([^"]+)"/g;
+	while ((match = actionImportRegex.exec(metadataXml)) !== null) {
+		if (!seen.has(match[1])) {
+			seen.add(match[1]);
+			callables.push({ name: match[1], type: 'Action' });
+		}
+	}
+
+	return callables.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Parse OData $metadata XML to extract FunctionImport names (legacy)
+ * Returns flat string array for backward compatibility with cache
+ */
+export function parseMetadataForFunctionImports(metadataXml: string): string[] {
+	return parseMetadataForCallables(metadataXml).map((c) => c.name);
 }

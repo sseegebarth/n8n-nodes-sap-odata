@@ -57,10 +57,10 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 	} = config;
 
 	// Validate host URL for security (SSRF protection)
-	validateUrl(host, node);
+	validateUrl(host, node, { allowPrivateIps: credentials?.allowPrivateIps === true });
 
 	// Build secure URL
-	let url = uri || buildSecureUrl(host, servicePath, resource);
+	let url = uri || buildSecureUrl(host, servicePath, resource, node);
 
 	// Build query string manually to avoid encoding $ in OData parameters
 	// n8n's default behavior encodes $ to %24, which SAP doesn't understand
@@ -161,18 +161,29 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		}
 	}
 
-	// Merge additional options - deep merge headers to preserve CSRF token and other critical headers
+	// Merge additional options using a whitelist to prevent overriding security-critical fields
 	if (options && typeof options === 'object') {
 		const { headers: optionHeaders, ...restOptions } = options as { headers?: IDataObject; [key: string]: unknown };
 
-		// Merge non-header options first
-		Object.assign(requestOptions, restOptions);
+		const safeOptionKeys = ['body', 'json', 'resolveWithFullResponse', 'simple', 'encoding', 'timeout'];
+		for (const key of safeOptionKeys) {
+			if (key in restOptions) {
+				(requestOptions as any)[key] = restOptions[key];
+			}
+		}
 
-		// Deep merge headers to preserve existing headers (CSRF token, auth, etc.)
+		// Deep merge headers, but protect security-critical ones
 		if (optionHeaders && typeof optionHeaders === 'object') {
+			const protectedHeaders = ['x-csrf-token', 'cookie', 'sap-client', 'sap-language', 'authorization'];
+			const safeHeaders: IDataObject = {};
+			for (const [key, value] of Object.entries(optionHeaders)) {
+				if (!protectedHeaders.includes(key.toLowerCase())) {
+					safeHeaders[key] = value;
+				}
+			}
 			requestOptions.headers = {
 				...requestOptions.headers,
-				...optionHeaders,
+				...safeHeaders,
 			};
 		}
 	}
@@ -196,10 +207,10 @@ export function buildCsrfTokenRequest(
 	node: INode,
 ): IHttpRequestOptions {
 	// Validate host URL
-	validateUrl(host, node);
+	validateUrl(host, node, { allowPrivateIps: credentials.allowPrivateIps === true });
 
 	// Build secure URL for CSRF token fetch
-	const url = buildSecureUrl(host, servicePath, '');
+	const url = buildSecureUrl(host, servicePath, '', node);
 
 	const options: IHttpRequestOptions = {
 		method: 'GET',

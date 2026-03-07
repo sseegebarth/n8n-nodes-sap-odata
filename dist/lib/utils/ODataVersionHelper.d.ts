@@ -7,7 +7,6 @@ export declare class ODataVersionHelper {
     static getVersionSpecificParams(version: 'v2' | 'v4', params: IDataObject): IDataObject;
     static extractData(response: any, version: 'v2' | 'v4'): any;
     static getTotalCount(response: any, version: 'v2' | 'v4'): number | undefined;
-    static getNextLink(response: any, version: 'v2' | 'v4'): string | undefined;
     static parseError(error: any, version: 'v2' | 'v4'): string;
     static formatEntityKey(key: string, version: 'v2' | 'v4'): string;
     static clearCache(): void;

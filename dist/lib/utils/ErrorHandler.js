@@ -85,7 +85,7 @@ class ODataErrorHandler {
         }
         switch (statusCode) {
             case 400:
-                createErrorWithStatusCode(node, 'Bad Request: Invalid OData syntax', 400, {
+                createErrorWithStatusCode(node, `Bad Request: ${sapMessage || sanitizedMessage || 'Invalid OData syntax'}`, 400, {
                     description: `${description}\n\nCommon causes:\n- Invalid $filter syntax (check quotes and operators)\n- Type mismatch in filter values\n- Malformed entity key format\n- Invalid field names in $select or $expand\n\nExample correct syntax:\n- Filter: Status eq 'A' and Amount gt 100\n- Key: ProductID='123' or ProductID='123',CompanyCode='0001'`,
                     itemIndex: context.itemIndex,
                 });

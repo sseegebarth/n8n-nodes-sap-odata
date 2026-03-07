@@ -3,6 +3,7 @@ import {
 	IHookFunctions,
 	ILoadOptionsFunctions,
 	IDataObject,
+	INode,
 } from 'n8n-workflow';
 import { CREDENTIAL_TYPE } from '../../lib/constants';
 import { executeRequest, IApiClientConfig } from '../../lib/core/ApiClient';
@@ -120,6 +121,6 @@ export async function sapOdataApiRequestAllItems(
 /**
  * Format a value for SAP OData based on its type (datetime, GUID, decimal, etc.)
  */
-export function formatSapODataValue(value: any, typeHint?: string): string {
-	return formatODataValue(value, typeHint, { autoDetect: true, warnOnAutoDetect: false });
+export function formatSapODataValue(value: any, typeHint?: string, node?: INode): string {
+	return formatODataValue(value, typeHint, { autoDetect: true, warnOnAutoDetect: false }, node);
 }

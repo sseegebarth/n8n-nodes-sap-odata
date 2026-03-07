@@ -1,28 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.executeRequest = executeRequest;
-const n8n_workflow_1 = require("n8n-workflow");
 const GenericFunctions_1 = require("../../nodes/SapOData/GenericFunctions");
 const constants_1 = require("../constants");
 const CacheManager_1 = require("../utils/CacheManager");
 const ErrorHandler_1 = require("../utils/ErrorHandler");
 const RetryUtils_1 = require("../utils/RetryUtils");
+const SapGatewayCompat_1 = require("../utils/SapGatewayCompat");
 const SapGatewaySession_1 = require("../utils/SapGatewaySession");
-const ThrottleManager_1 = require("../utils/ThrottleManager");
 const RequestBuilder_1 = require("./RequestBuilder");
-function getThrottleManager(context, config) {
-    if ('getWorkflowStaticData' in context) {
-        const staticData = context.getWorkflowStaticData('global');
-        const key = '_sapOdataThrottleManager';
-        if (!staticData[key]) {
-            staticData[key] = new ThrottleManager_1.ThrottleManager(config);
-        }
-        return staticData[key];
+const lastRequestTime = new Map();
+async function throttleRequest(nodeKey, minIntervalMs) {
+    const last = lastRequestTime.get(nodeKey) || 0;
+    const elapsed = Date.now() - last;
+    if (elapsed < minIntervalMs) {
+        await new Promise((r) => setTimeout(r, minIntervalMs - elapsed));
     }
-    return new ThrottleManager_1.ThrottleManager(config);
+    lastRequestTime.set(nodeKey, Date.now());
 }
 async function executeRequest(config) {
-    const { method, resource, body = {}, qs = {}, uri, option = {}, csrfToken } = config;
+    let { method, resource, body = {}, qs = {}, uri, option = {}, csrfToken } = config;
     const credentials = (await this.getCredentials(constants_1.CREDENTIAL_TYPE));
     if (!credentials) {
         return ErrorHandler_1.ODataErrorHandler.handleValidationError(constants_1.ERROR_MESSAGES.NO_CREDENTIALS, this.getNode());
@@ -38,23 +35,13 @@ async function executeRequest(config) {
             advancedOptions = {};
         }
     }
-    const throttleEnabled = advancedOptions.throttleEnabled === true;
-    let throttleManager = null;
-    if (throttleEnabled) {
-        throttleManager = getThrottleManager(this, {
-            maxRequestsPerSecond: advancedOptions.maxRequestsPerSecond || 10,
-            strategy: advancedOptions.throttleStrategy || 'delay',
-            burstSize: advancedOptions.throttleBurstSize || 5,
-        });
+    if (advancedOptions.throttleEnabled === true) {
+        const maxRps = advancedOptions.maxRequestsPerSecond || 10;
+        const minIntervalMs = Math.ceil(1000 / maxRps);
+        const node = this.getNode();
+        await throttleRequest(`${node.type}_${node.id}`, minIntervalMs);
     }
-    if (throttleManager) {
-        const allowed = await throttleManager.acquire();
-        if (!allowed && advancedOptions.throttleStrategy === 'drop') {
-            throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'Request dropped due to rate limiting', {
-                description: 'Too many requests. Try reducing the request rate or changing the throttle strategy.',
-            });
-        }
-    }
+    let csrfRetried = false;
     const makeRequest = async () => {
         var _a;
         const requestOptions = (0, RequestBuilder_1.buildRequestOptions)({
@@ -91,9 +78,21 @@ async function executeRequest(config) {
             return response;
         }
         catch (error) {
-            const statusCode = ((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.statusCode) || (error === null || error === void 0 ? void 0 : error.statusCode);
+            const statusCode = (error === null || error === void 0 ? void 0 : error.statusCode) || ((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.statusCode) || (error === null || error === void 0 ? void 0 : error.httpCode);
             if (statusCode === 404) {
                 await CacheManager_1.CacheManager.invalidateCacheOn404(this, credentials.host, servicePath);
+            }
+            if (statusCode === 403 && method !== 'GET' && csrfToken && !csrfRetried) {
+                csrfRetried = true;
+                await SapGatewayCompat_1.SapGatewayCompat.clearSession(this, host, servicePath);
+                const freshToken = await SapGatewayCompat_1.SapGatewayCompat.fetchCsrfToken(this, host, servicePath, (h, sp) => (0, RequestBuilder_1.buildCsrfTokenRequest)(h, sp, credentials, this.getNode()));
+                if (freshToken) {
+                    csrfToken = freshToken;
+                    return makeRequest();
+                }
+            }
+            if (statusCode && [429, 502, 503, 504].includes(statusCode)) {
+                throw error;
             }
             return ErrorHandler_1.ODataErrorHandler.handleApiError(error, this.getNode(), {
                 operation: method,

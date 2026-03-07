@@ -8,8 +8,8 @@ const constants_1 = require("../constants");
 const SecurityUtils_1 = require("../utils/SecurityUtils");
 function buildRequestOptions(config) {
     const { method, resource, host, servicePath, body = {}, qs = {}, uri, options = {}, credentials, csrfToken, node, } = config;
-    (0, SecurityUtils_1.validateUrl)(host, node);
-    let url = uri || (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, resource);
+    (0, SecurityUtils_1.validateUrl)(host, node, { allowPrivateIps: (credentials === null || credentials === void 0 ? void 0 : credentials.allowPrivateIps) === true });
+    let url = uri || (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, resource, node);
     const queryString = buildODataQueryString(qs);
     if (queryString) {
         url = url.includes('?') ? `${url}&${queryString}` : `${url}?${queryString}`;
@@ -80,19 +80,31 @@ function buildRequestOptions(config) {
     }
     if (options && typeof options === 'object') {
         const { headers: optionHeaders, ...restOptions } = options;
-        Object.assign(requestOptions, restOptions);
+        const safeOptionKeys = ['body', 'json', 'resolveWithFullResponse', 'simple', 'encoding', 'timeout'];
+        for (const key of safeOptionKeys) {
+            if (key in restOptions) {
+                requestOptions[key] = restOptions[key];
+            }
+        }
         if (optionHeaders && typeof optionHeaders === 'object') {
+            const protectedHeaders = ['x-csrf-token', 'cookie', 'sap-client', 'sap-language', 'authorization'];
+            const safeHeaders = {};
+            for (const [key, value] of Object.entries(optionHeaders)) {
+                if (!protectedHeaders.includes(key.toLowerCase())) {
+                    safeHeaders[key] = value;
+                }
+            }
             requestOptions.headers = {
                 ...requestOptions.headers,
-                ...optionHeaders,
+                ...safeHeaders,
             };
         }
     }
     return requestOptions;
 }
 function buildCsrfTokenRequest(host, servicePath, credentials, node) {
-    (0, SecurityUtils_1.validateUrl)(host, node);
-    const url = (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, '');
+    (0, SecurityUtils_1.validateUrl)(host, node, { allowPrivateIps: credentials.allowPrivateIps === true });
+    const url = (0, SecurityUtils_1.buildSecureUrl)(host, servicePath, '', node);
     const options = {
         method: 'GET',
         url,

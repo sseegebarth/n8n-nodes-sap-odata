@@ -62,7 +62,7 @@ exports.sapODataLoadOptions = {
             const commonServices = getCommonServices();
             return [
                 {
-                    name: '⚠️ Could not load services from SAP - Showing common services',
+                    name: '⚠️ Could Not Load Services From SAP - Showing Common Services',
                     value: '',
                     description: 'Switch to "Custom" mode to enter service path manually',
                 },
@@ -78,7 +78,7 @@ exports.sapODataLoadOptions = {
             const commonServices = getCommonServices();
             return [
                 {
-                    name: '⚠️ Service discovery failed - Showing common services',
+                    name: '⚠️ Service Discovery Failed - Showing Common Services',
                     value: '',
                     description: 'Switch to "Custom" mode to enter service path manually',
                 },
@@ -141,7 +141,7 @@ exports.sapODataLoadOptions = {
                     description: 'Separator',
                 },
                 {
-                    name: '⚠️ Auto-discovery unavailable - Using common services list',
+                    name: '⚠️ Auto-Discovery Unavailable - Using Common Services List',
                     value: ((_b = commonServices[0]) === null || _b === void 0 ? void 0 : _b.servicePath) || '/sap/opu/odata/sap/',
                     description: 'Check credentials and Gateway Catalog Service (/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/) access or switch to Custom mode',
                 },
@@ -162,7 +162,7 @@ exports.sapODataLoadOptions = {
                     description: 'Separator',
                 },
                 {
-                    name: '⚠️ Auto-discovery failed - Using common services list',
+                    name: '⚠️ Auto-Discovery Failed - Using Common Services List',
                     value: ((_d = commonServices[0]) === null || _d === void 0 ? void 0 : _d.servicePath) || '/sap/opu/odata/sap/',
                     description: 'Check connection or switch to "Custom" mode to enter service path manually',
                 },
@@ -189,7 +189,7 @@ exports.sapODataLoadOptions = {
             if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
                 return [
                     {
-                        name: '⚠️ No service selected',
+                        name: '⚠️ No Service Selected',
                         value: '',
                         description: 'Please select a service from the "Service" dropdown above first',
                     },
@@ -220,7 +220,7 @@ exports.sapODataLoadOptions = {
                     {
                         name: '⚠️ Access Forbidden - Missing SAP Authorizations',
                         value: '',
-                        description: 'Your SAP user lacks permissions for this service. Contact SAP Administrator or switch to "Custom" mode',
+                        description: 'Your SAP user lacks permissions for this service. Contact SAP Administrator or switch to "Custom" mode.',
                     },
                 ];
             }
@@ -340,7 +340,7 @@ exports.sapODataListSearch = {
             if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
                 return {
                     results: [{
-                            name: '⚠️ No service selected - Please select a service first',
+                            name: '⚠️ No Service Selected - Please Select a Service First',
                             value: '',
                         }],
                 };
@@ -381,6 +381,58 @@ exports.sapODataListSearch = {
                         }],
                 };
             }
+            return {
+                results: [{
+                        name: `⚠️ Error: ${errorMessage.substring(0, 50)}`,
+                        value: '',
+                    }],
+            };
+        }
+    },
+    async functionImportSearch(filter, _paginationToken) {
+        try {
+            const credentials = await this.getCredentials('sapOdataApi');
+            const { CacheManager } = await Promise.resolve().then(() => __importStar(require('../../lib/utils/CacheManager')));
+            const servicePathParam = this.getCurrentNodeParameter('servicePath');
+            let servicePath = '';
+            if (typeof servicePathParam === 'object' && servicePathParam !== null) {
+                servicePath = servicePathParam.value || '';
+            }
+            else if (typeof servicePathParam === 'string') {
+                servicePath = servicePathParam;
+            }
+            if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
+                return {
+                    results: [{
+                            name: '⚠️ No Service Selected - Please Select a Service First',
+                            value: '',
+                        }],
+                };
+            }
+            const metadataXml = await GenericFunctions_1.sapOdataApiRequest.call(this, 'GET', '/$metadata');
+            const metadataStr = typeof metadataXml === 'string' ? metadataXml : JSON.stringify(metadataXml);
+            const callables = (0, QueryBuilder_1.parseMetadataForCallables)(metadataStr);
+            const entitySets = (0, QueryBuilder_1.parseMetadataForEntitySets)(metadataStr);
+            const functionImports = callables.map((c) => c.name);
+            await CacheManager.setMetadata(this, credentials.host, servicePath, entitySets, functionImports);
+            let filtered = callables;
+            if (filter) {
+                const lowerFilter = filter.toLowerCase();
+                filtered = callables.filter((c) => c.name.toLowerCase().includes(lowerFilter));
+            }
+            const typeLabels = {
+                FunctionImport: 'Function Import',
+                Action: 'Action',
+                Function: 'Function',
+            };
+            const results = filtered.map((c) => ({
+                name: `[${typeLabels[c.type]}] ${c.name}`,
+                value: `${c.type}::${c.name}`,
+            }));
+            return { results };
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             return {
                 results: [{
                         name: `⚠️ Error: ${errorMessage.substring(0, 50)}`,
