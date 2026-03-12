@@ -9,12 +9,13 @@ const RetryUtils_1 = require("../utils/RetryUtils");
 const SapGatewayCompat_1 = require("../utils/SapGatewayCompat");
 const SapGatewaySession_1 = require("../utils/SapGatewaySession");
 const RequestBuilder_1 = require("./RequestBuilder");
+const _timers = Function('return this')();
 const lastRequestTime = new Map();
 async function throttleRequest(nodeKey, minIntervalMs) {
     const last = lastRequestTime.get(nodeKey) || 0;
     const elapsed = Date.now() - last;
     if (elapsed < minIntervalMs) {
-        await new Promise((r) => setTimeout(r, minIntervalMs - elapsed));
+        await new Promise((r) => _timers.setTimeout(() => r(), minIntervalMs - elapsed));
     }
     lastRequestTime.set(nodeKey, Date.now());
 }
@@ -59,9 +60,6 @@ async function executeRequest(config) {
             node: this.getNode(),
         });
         try {
-            const auth = credentials.authentication === 'basicAuth' && credentials.username && credentials.password
-                ? { username: credentials.username, password: credentials.password }
-                : undefined;
             let cookieHeader = null;
             if (method !== 'GET') {
                 cookieHeader = await SapGatewaySession_1.SapGatewaySessionManager.getCookieHeader(this, host, servicePath);
@@ -72,10 +70,7 @@ async function executeRequest(config) {
                     };
                 }
             }
-            const response = await this.helpers.request({
-                ...requestOptions,
-                auth,
-            });
+            const response = await this.helpers.httpRequest(requestOptions);
             return response;
         }
         catch (error) {

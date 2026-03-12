@@ -70,8 +70,7 @@ export async function testSapODataConnection(
 			requestOptions.headers = headers;
 		}
 
-		// eslint-disable-next-line @n8n/community-nodes/no-deprecated-workflow-functions
-		const response = await this.helpers.request(requestOptions);
+		const response = await (this.helpers as unknown as { httpRequest: (options: Record<string, unknown>) => Promise<unknown> }).httpRequest(requestOptions);
 
 		// Check if we got any response (even 404 is fine - it means SAP is reachable)
 		if (response !== undefined) {

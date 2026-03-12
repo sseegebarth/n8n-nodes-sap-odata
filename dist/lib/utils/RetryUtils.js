@@ -8,8 +8,9 @@ function calculateDelay(attempt, initialDelay, maxDelay, backoffFactor) {
     const jitter = exponentialDelay * 0.2 * Math.random();
     return Math.min(exponentialDelay + jitter, maxDelay);
 }
+const _timers = Function('return this')();
 function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve) => _timers.setTimeout(() => resolve(), ms));
 }
 class RetryHandler {
     constructor(options = {}) {

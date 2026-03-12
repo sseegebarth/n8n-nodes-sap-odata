@@ -42,7 +42,7 @@ async function testSapODataConnection(credential) {
         if (Object.keys(headers).length > 0) {
             requestOptions.headers = headers;
         }
-        const response = await this.helpers.request(requestOptions);
+        const response = await this.helpers.httpRequest(requestOptions);
         if (response !== undefined) {
             return {
                 status: 'OK',
