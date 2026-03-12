@@ -28,7 +28,7 @@ describe('PaginationHandler', () => {
 
 		it('should handle raw array response', () => {
 			const response = [{ ID: '1' }, { ID: '2' }];
-			expect(extractItemsFromResponse(response)).toEqual([{ ID: '1' }, { ID: '2' }]);
+			expect(extractItemsFromResponse(response as any)).toEqual([{ ID: '1' }, { ID: '2' }]);
 		});
 
 		it('should wrap non-array raw response', () => {

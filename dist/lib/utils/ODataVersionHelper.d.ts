@@ -5,9 +5,9 @@ export declare class ODataVersionHelper {
     private static detectVersion;
     private static analyzeMetadataVersion;
     static getVersionSpecificParams(version: 'v2' | 'v4', params: IDataObject): IDataObject;
-    static extractData(response: any, version: 'v2' | 'v4'): any;
-    static getTotalCount(response: any, version: 'v2' | 'v4'): number | undefined;
-    static parseError(error: any, version: 'v2' | 'v4'): string;
+    static extractData(response: Record<string, unknown>, version: 'v2' | 'v4'): unknown;
+    static getTotalCount(response: Record<string, unknown>, version: 'v2' | 'v4'): number | undefined;
+    static parseError(error: Record<string, unknown>, version: 'v2' | 'v4'): string;
     static formatEntityKey(key: string, version: 'v2' | 'v4'): string;
     static clearCache(): void;
 }

@@ -69,7 +69,7 @@ export const sapODataLoadOptions = {
 					description: service.description,
 				})),
 			];
-		} catch (error) {
+		} catch {
 			// If service discovery fails completely, return common services
 			const { getCommonServices } = await import('./DiscoveryService');
 			const commonServices = getCommonServices();
@@ -162,7 +162,7 @@ export const sapODataLoadOptions = {
 					description: 'Check credentials and Gateway Catalog Service (/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/) access or switch to Custom mode',
 				},
 			];
-		} catch (error) {
+		} catch {
 			// If service discovery fails completely, return common services
 			const { getCommonServices } = await import('./DiscoveryService');
 			const commonServices = getCommonServices();

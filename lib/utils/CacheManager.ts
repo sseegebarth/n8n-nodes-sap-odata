@@ -312,7 +312,7 @@ export class CacheManager {
 	static async setServiceCatalog(
 		context: IContextType,
 		host: string,
-		services: any[],
+		services: IServiceCatalogEntry[],
 		itemIndex?: number,
 	): Promise<void> {
 		try {

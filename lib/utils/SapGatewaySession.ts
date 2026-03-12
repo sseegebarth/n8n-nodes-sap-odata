@@ -372,15 +372,12 @@ export class SapGatewaySessionManager {
 
 			const staticData = context.getWorkflowStaticData('global');
 			const now = Date.now();
-			let cleanedCount = 0;
-
 			// Find and delete all expired sessions
 			Object.keys(staticData).forEach((key) => {
 				if (key.startsWith('sap_session_')) {
 					const session = staticData[key] as ISapGatewaySession | undefined;
 					if (session && session.expiresAt < now) {
 						delete staticData[key];
-						cleanedCount++;
 					}
 				}
 			});

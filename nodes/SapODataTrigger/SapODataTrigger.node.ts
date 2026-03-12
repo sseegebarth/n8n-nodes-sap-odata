@@ -27,9 +27,9 @@ import {
  * Receives real-time events from SAP OData services via webhook.
  * Supports event filtering, authentication, and payload parsing.
  */
-export class SapODataWebhook implements INodeType {
+export class SapODataTrigger implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'avanai SAP Connect OData Webhook',
+		displayName: 'avanai SAP Connect OData Trigger',
 		name: 'sapODataTrigger',
 		icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
 		group: ['trigger'],
@@ -204,35 +204,6 @@ export class SapODataWebhook implements INodeType {
 				default: {},
 				options: [
 					{
-						displayName: 'Validate SAP Payload Format',
-						name: 'validatePayload',
-						type: 'boolean',
-						default: true,
-						description: 'Whether to validate that the payload matches SAP OData event format',
-					},
-					{
-						displayName: 'Extract Changed Fields Only',
-						name: 'extractChangedFields',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to extract only the fields that changed (requires old/new values in payload)',
-					},
-					{
-						displayName: 'Parse SAP Date Formats',
-						name: 'parseDates',
-						type: 'boolean',
-						default: true,
-						description: 'Whether to convert SAP date formats (/Date(...)/) to ISO 8601',
-					},
-					{
-						displayName: 'IP Whitelist',
-						name: 'ipWhitelist',
-						type: 'string',
-						default: '',
-						placeholder: '10.0.0.1,192.168.0.0/24,172.16.0.0/12',
-						description: 'Comma-separated list of allowed IP addresses or CIDR ranges. Leave empty to allow all IPs. Only requests from whitelisted IPs will be accepted.',
-					},
-					{
 						displayName: 'Custom Response Body',
 						name: 'responseBody',
 						type: 'json',
@@ -248,6 +219,28 @@ export class SapODataWebhook implements INodeType {
 						description: 'Whether to limit requests per IP address to prevent abuse',
 					},
 					{
+						displayName: 'Extract Changed Fields Only',
+						name: 'extractChangedFields',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to extract only the fields that changed (requires old/new values in payload)',
+					},
+					{
+						displayName: 'IP Whitelist',
+						name: 'ipWhitelist',
+						type: 'string',
+						default: '',
+						placeholder: '10.0.0.1,192.168.0.0/24,172.16.0.0/12',
+						description: 'Comma-separated list of allowed IP addresses or CIDR ranges. Leave empty to allow all IPs. Only requests from whitelisted IPs will be accepted.',
+					},
+					{
+						displayName: 'Parse SAP Date Formats',
+						name: 'parseDates',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to convert SAP date formats (/Date(...)/) to ISO 8601',
+					},
+					{
 						displayName: 'Rate Limit (Requests/Minute)',
 						name: 'rateLimit',
 						type: 'number',
@@ -258,6 +251,13 @@ export class SapODataWebhook implements INodeType {
 							},
 						},
 						description: 'Maximum requests per minute per IP address',
+					},
+					{
+						displayName: 'Validate SAP Payload Format',
+						name: 'validatePayload',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to validate that the payload matches SAP OData event format',
 					},
 				],
 			},
@@ -299,12 +299,12 @@ export class SapODataWebhook implements INodeType {
 						);
 						// Subscription exists in SAP
 						return true;
-					} catch (error) {
+					} catch {
 						// Subscription doesn't exist in SAP anymore
 						delete staticData.subscriptionId;
 						return false;
 					}
-				} catch (error) {
+				} catch {
 					// Error checking - assume webhook needs recreation
 					return false;
 				}
@@ -358,11 +358,12 @@ export class SapODataWebhook implements INodeType {
 						'POST',
 						'/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions',
 						subscriptionPayload
-					) as any;
+					) as Record<string, unknown>;
 
 					// Store subscription ID for later use
 					const staticData = this.getWorkflowStaticData('node');
-					staticData.subscriptionId = response?.d?.SubscriptionID || response?.SubscriptionID || response?.id;
+					const d = response?.d as Record<string, unknown> | undefined;
+					staticData.subscriptionId = (d?.SubscriptionID || response?.SubscriptionID || response?.id) as string;
 
 				} catch (_error) {
 					// Don't fail - allow manual webhook configuration
@@ -415,7 +416,7 @@ export class SapODataWebhook implements INodeType {
 		const options = this.getNodeParameter('options', {}) as IDataObject;
 
 		// Get raw request body for HMAC verification
-		const rawBody = (req as any).rawBody || this.getBodyData();
+		const rawBody = (req as Record<string, unknown>).rawBody || this.getBodyData();
 		let bodyString: string;
 		if (typeof rawBody === 'string') {
 			bodyString = rawBody;
@@ -621,7 +622,7 @@ export class SapODataWebhook implements INodeType {
 			// 8. Extract Changed Fields (Optional)
 			// ========================================
 			if (options.extractChangedFields === true && event.oldValue && event.newValue) {
-				event.changedFields = extractChangedFields(event.oldValue, event.newValue);
+				event.changedFields = extractChangedFields(event.oldValue as Record<string, unknown>, event.newValue as Record<string, unknown>);
 			}
 
 			// ========================================

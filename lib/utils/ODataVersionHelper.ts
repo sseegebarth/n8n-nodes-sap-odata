@@ -88,7 +88,7 @@ export class ODataVersionHelper {
 			);
 
 			// Analyze the response to determine version
-			return this.analyzeMetadataVersion(metadataResponse);
+			return this.analyzeMetadataVersion(metadataResponse as string | Record<string, unknown>);
 		} catch {
 			// Default to V2 if detection fails (most common in SAP)
 			return 'v2';
@@ -101,7 +101,7 @@ export class ODataVersionHelper {
 	 * @param response - Metadata response (XML string or parsed object)
 	 * @returns Detected version ('v2' or 'v4')
 	 */
-	private static analyzeMetadataVersion(response: any): 'v2' | 'v4' {
+	private static analyzeMetadataVersion(response: string | Record<string, unknown>): 'v2' | 'v4' {
 		// Handle JSON response (rare for $metadata, but possible)
 		if (typeof response !== 'string') {
 			if (response['@odata.context'] !== undefined) {
@@ -210,7 +210,7 @@ export class ODataVersionHelper {
 	 * @param version - OData version
 	 * @returns Extracted data (array for collections, object for single entities)
 	 */
-	public static extractData(response: any, version: 'v2' | 'v4'): any {
+	public static extractData(response: Record<string, unknown>, version: 'v2' | 'v4'): unknown {
 		if (!response) return null;
 
 		let data;
@@ -219,16 +219,17 @@ export class ODataVersionHelper {
 			// V2: data is wrapped in 'd' property
 			// Collection: { d: { results: [...], __count: "n" } }
 			// Single entity: { d: { Property1: "...", Property2: "..." } }
-			if (response.d?.results !== undefined) {
+			const d = response.d as Record<string, unknown> | undefined;
+			if (d?.results !== undefined) {
 				// Collection response - return the results array
-				data = response.d.results;
-			} else if (response.d) {
+				data = d.results;
+			} else if (d) {
 				// Single entity response - return the entity object
 				// But check if 'd' itself looks like a wrapper with results
-				if (response.d.results === undefined && typeof response.d === 'object') {
-					data = response.d;
+				if (d.results === undefined && typeof d === 'object') {
+					data = d;
 				} else {
-					data = response.d;
+					data = d;
 				}
 			} else if (Array.isArray(response)) {
 				// Already an array (sometimes happens with pre-processed responses)
@@ -265,17 +266,18 @@ export class ODataVersionHelper {
 	 * @param version - OData version
 	 * @returns Total count or undefined
 	 */
-	public static getTotalCount(response: any, version: 'v2' | 'v4'): number | undefined {
+	public static getTotalCount(response: Record<string, unknown>, version: 'v2' | 'v4'): number | undefined {
 		if (version === 'v2') {
 			// V2: count in d.__count (SAP returns this as a string)
-			if (response.d?.__count !== undefined) {
-				const parsed = parseInt(String(response.d.__count), 10);
+			const d = response.d as Record<string, unknown> | undefined;
+			if (d?.__count !== undefined) {
+				const parsed = parseInt(String(d.__count), 10);
 				return isNaN(parsed) ? undefined : parsed;
 			}
 			return undefined;
 		} else {
 			// V4: count in @odata.count
-			return response['@odata.count'];
+			return response['@odata.count'] as number | undefined;
 		}
 	}
 
@@ -286,35 +288,36 @@ export class ODataVersionHelper {
 	 * @param version - OData version
 	 * @returns Parsed error message
 	 */
-	public static parseError(error: any, version: 'v2' | 'v4'): string {
+	public static parseError(error: Record<string, unknown>, version: 'v2' | 'v4'): string {
 		let errorMessage = 'An unknown SAP OData error occurred';
 
 		try {
+			const errObj = error.error as Record<string, unknown> | undefined;
 			if (version === 'v4') {
 				// V4 error structure
-				if (error.error?.message) {
-					errorMessage = typeof error.error.message === 'string'
-						? error.error.message
-						: error.error.message.value || errorMessage;
+				if (errObj?.message) {
+					const msg = errObj.message as string | Record<string, unknown>;
+					errorMessage = typeof msg === 'string'
+						? msg
+						: (msg.value as string) || errorMessage;
 				}
 			} else {
 				// V2 error structure
-				if (error.error?.message?.value) {
-					errorMessage = error.error.message.value;
-				} else if (error.error?.message) {
-					errorMessage = typeof error.error.message === 'string'
-						? error.error.message
-						: errorMessage;
+				const msg = errObj?.message as Record<string, unknown> | string | undefined;
+				if (typeof msg === 'object' && msg?.value) {
+					errorMessage = msg.value as string;
+				} else if (typeof msg === 'string') {
+					errorMessage = msg;
 				}
 			}
 
 			// Check for innererror details
-			const innerError = error.error?.innererror || error.error?.details;
+			const innerError = errObj?.innererror || errObj?.details;
 			if (innerError) {
 				if (typeof innerError === 'string') {
 					errorMessage += ` - ${innerError}`;
-				} else if (innerError.message) {
-					errorMessage += ` - ${innerError.message}`;
+				} else if ((innerError as Record<string, unknown>).message) {
+					errorMessage += ` - ${(innerError as Record<string, unknown>).message}`;
 				}
 			}
 		} catch {

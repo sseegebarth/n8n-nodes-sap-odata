@@ -20,6 +20,7 @@ import {
 	applyTypeConversion,
 } from '../../lib/utils/StrategyHelpers';
 import { sapOdataApiRequest, sapOdataApiRequestAllItems, formatSapODataValue } from './GenericFunctions';
+import { ODataValue } from '../../lib/utils/ODataValueFormatter';
 import { testSapODataConnection } from './ConnectionTest';
 import { sapODataLoadOptions, sapODataListSearch } from './SapODataLoadOptions';
 import { sapODataProperties } from './SapODataProperties';
@@ -45,7 +46,7 @@ async function executeGet(context: IExecuteFunctions, itemIndex: number): Promis
 	formattedKey = ODataVersionHelper.formatEntityKey(formattedKey, odataVersion);
 	const query = getQueryOptions(context, itemIndex);
 
-	const response = await sapOdataApiRequest.call(context, 'GET', buildResourcePath(entitySet, formattedKey), {}, query);
+	const response = await sapOdataApiRequest.call(context, 'GET', buildResourcePath(entitySet, formattedKey), {}, query) as Record<string, unknown>;
 	const result = ODataVersionHelper.extractData(response, odataVersion);
 	const converted = applyTypeConversion(result as IDataObject, context, itemIndex);
 	return toJsonResult(converted, itemIndex);
@@ -83,17 +84,17 @@ async function executeGetAll(context: IExecuteFunctions, itemIndex: number): Pro
 			query.$top = context.getNodeParameter('limit', itemIndex) as number;
 		}
 
-		const response: any = await sapOdataApiRequest.call(context, 'GET', buildResourcePath(entitySet), {}, query);
+		const response = await sapOdataApiRequest.call(context, 'GET', buildResourcePath(entitySet), {}, query) as Record<string, unknown>;
 		const responseData = ODataVersionHelper.extractData(response, odataVersion);
 
 		if (Array.isArray(responseData)) {
 			dataArray = responseData;
 		} else if (responseData && typeof responseData === 'object') {
-			const rd = responseData as any;
+			const rd = responseData as Record<string, unknown>;
 			if (rd.results && Array.isArray(rd.results)) {
 				dataArray = rd.results;
-			} else if (rd.d?.results && Array.isArray(rd.d.results)) {
-				dataArray = rd.d.results;
+			} else if (rd.d && typeof rd.d === 'object' && (rd.d as Record<string, unknown>).results && Array.isArray((rd.d as Record<string, unknown>).results)) {
+				dataArray = (rd.d as Record<string, unknown>).results as IDataObject[];
 			} else {
 				dataArray = [responseData as IDataObject];
 			}
@@ -168,7 +169,7 @@ async function executeGetMetadata(context: IExecuteFunctions, itemIndex: number)
 	const metadataType = context.getNodeParameter('metadataType', itemIndex) as string;
 	const resource = metadataType === 'metadata' ? '/$metadata' : '/';
 
-	const response: any = await sapOdataApiRequest.call(context, 'GET', resource, {}, {});
+	const response = await sapOdataApiRequest.call(context, 'GET', resource, {}, {}) as string | Record<string, unknown>;
 
 	let result: IDataObject;
 	if (metadataType === 'metadata') {
@@ -177,12 +178,19 @@ async function executeGetMetadata(context: IExecuteFunctions, itemIndex: number)
 			_format: 'xml',
 			content: typeof response === 'string' ? response : JSON.stringify(response),
 		};
-	} else if (response.d?.EntitySets) {
-		result = { _type: 'serviceDocument', _version: 'v2', entitySets: response.d.EntitySets };
-	} else if (response.value) {
-		result = { _type: 'serviceDocument', _version: 'v4', value: response.value };
-	} else {
+	} else if (typeof response === 'object' && (response as Record<string, unknown>).d) {
+		const d = (response as Record<string, unknown>).d as Record<string, unknown>;
+		if (d?.EntitySets) {
+			result = { _type: 'serviceDocument', _version: 'v2', entitySets: d.EntitySets as IDataObject[] };
+		} else {
+			result = { _type: 'serviceDocument', _raw: true, ...response };
+		}
+	} else if (typeof response === 'object' && (response as Record<string, unknown>).value) {
+		result = { _type: 'serviceDocument', _version: 'v4', value: (response as Record<string, unknown>).value as IDataObject[] };
+	} else if (typeof response === 'object') {
 		result = { _type: 'serviceDocument', _raw: true, ...response };
+	} else {
+		result = { _type: 'serviceDocument', _raw: true, content: response };
 	}
 
 	return [{ json: result, pairedItem: { item: itemIndex } }];
@@ -238,7 +246,7 @@ async function executeFunctionImport(context: IExecuteFunctions, itemIndex: numb
 	if (useUrlParams) {
 		const paramParts: string[] = [];
 		for (const [key, value] of Object.entries(parameters)) {
-			paramParts.push(`${key}=${formatSapODataValue(value, undefined, context.getNode())}`);
+			paramParts.push(`${key}=${formatSapODataValue(value as ODataValue, undefined, context.getNode())}`);
 		}
 
 		if (httpMethod === 'POST') {
@@ -370,8 +378,8 @@ export class SapOData implements INodeType {
 				const contextMessage = `Item ${i}: ${resource}/${operation}`;
 
 				if (this.continueOnFail()) {
-					const httpStatusCode = (error as any)?.httpStatusCode || null;
-					const sapErrorCode = (error as any)?.sapErrorCode || null;
+					const httpStatusCode = (error as Record<string, unknown>)?.httpStatusCode || null;
+					const sapErrorCode = (error as Record<string, unknown>)?.sapErrorCode || null;
 
 					returnData.push({
 						json: {
@@ -385,7 +393,7 @@ export class SapOData implements INodeType {
 					continue;
 				}
 
-				const httpStatus = (error as any)?.httpStatusCode;
+				const httpStatus = (error as Record<string, unknown>)?.httpStatusCode;
 				const statusInfo = httpStatus ? ` [HTTP ${httpStatus}]` : '';
 				throw new NodeOperationError(this.getNode(), `${contextMessage}${statusInfo} - ${errorMessage}`, {
 					itemIndex: i,

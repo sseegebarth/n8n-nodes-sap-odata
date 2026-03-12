@@ -40,26 +40,26 @@ export interface IPaginationConfig {
  * @param propertyName - Optional property name containing the data
  * @returns Array of items from the response
  */
-export function extractItemsFromResponse(responseData: any, propertyName?: string): any[] {
-	let items: any[] = [];
+export function extractItemsFromResponse(responseData: Record<string, unknown>, propertyName?: string): IDataObject[] {
+	let items: IDataObject[] = [];
 
 	if (propertyName && responseData[propertyName]) {
 		// Use specified property name
 		items = Array.isArray(responseData[propertyName])
-			? responseData[propertyName]
-			: [responseData[propertyName]];
-	} else if (responseData.d?.results) {
+			? responseData[propertyName] as IDataObject[]
+			: [responseData[propertyName] as IDataObject];
+	} else if ((responseData.d as Record<string, unknown>)?.results) {
 		// OData V2 format
-		items = responseData.d.results;
+		items = (responseData.d as Record<string, unknown>).results as IDataObject[];
 	} else if (responseData.value) {
 		// OData V4 format
-		items = responseData.value;
+		items = responseData.value as IDataObject[];
 	} else if (responseData.d) {
 		// Single item in OData V2 format
-		items = [responseData.d];
+		items = [responseData.d as IDataObject];
 	} else {
 		// Raw response
-		items = Array.isArray(responseData) ? responseData : [responseData];
+		items = Array.isArray(responseData) ? responseData : [responseData as IDataObject];
 	}
 
 	return items;
@@ -72,11 +72,11 @@ export function extractItemsFromResponse(responseData: any, propertyName?: strin
  * @param responseData - Raw response from OData API
  * @returns Next page URL or undefined if no more pages
  */
-export function extractNextLink(responseData: any): string | undefined {
-	if (responseData.d?.__next) {
-		return responseData.d.__next;
+export function extractNextLink(responseData: Record<string, unknown>): string | undefined {
+	if ((responseData.d as Record<string, unknown>)?.__next) {
+		return (responseData.d as Record<string, unknown>).__next as string;
 	} else if (responseData['@odata.nextLink']) {
-		return responseData['@odata.nextLink'];
+		return responseData['@odata.nextLink'] as string;
 	}
 	return undefined;
 }
@@ -96,7 +96,7 @@ export function extractNextLink(responseData: any): string | undefined {
  * );
  */
 export async function fetchAllItems(
-	requestFunction: (query?: IDataObject, uri?: string) => Promise<any>,
+	requestFunction: (query?: IDataObject, uri?: string) => Promise<Record<string, unknown>>,
 	config: IPaginationConfig = {},
 ): Promise<IDataObject[] | IPaginationResult> {
 	const {
@@ -106,7 +106,7 @@ export async function fetchAllItems(
 	} = config;
 
 	const returnData: IDataObject[] = [];
-	const errors: any[] = [];
+	const errors: Array<{ page: number; error: string; itemsFetchedSoFar: number }> = [];
 
 	let nextLink: string | undefined;
 	let pageNumber = 1;
@@ -210,7 +210,7 @@ export async function fetchAllItems(
  * }
  */
 export async function* streamAllItems(
-	requestFunction: (query?: IDataObject, uri?: string) => Promise<any>,
+	requestFunction: (query?: IDataObject, uri?: string) => Promise<Record<string, unknown>>,
 	config: IPaginationConfig = {},
 ): AsyncGenerator<IDataObject, void, undefined> {
 	const {

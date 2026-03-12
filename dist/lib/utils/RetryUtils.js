@@ -64,14 +64,16 @@ class RetryHandler {
                 ? parseInt(error.httpCode, 10)
                 : error.httpCode;
         }
-        if (error.statusCode) {
-            return error.statusCode;
+        const err = error;
+        if (err.statusCode) {
+            return err.statusCode;
         }
         return null;
     }
     isNetworkError(error) {
         const networkErrors = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED'];
-        return error.code && networkErrors.includes(error.code);
+        const err = error;
+        return typeof err.code === 'string' && networkErrors.includes(err.code);
     }
 }
 exports.RetryHandler = RetryHandler;

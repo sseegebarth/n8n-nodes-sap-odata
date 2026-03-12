@@ -261,7 +261,7 @@ export class SapGatewayCompat {
 				...enhancedOptions,
 				auth,
 				resolveWithFullResponse: true, // Get full response with headers
-			} as any);
+			} as unknown as Parameters<typeof context.helpers.request>[0]);
 
 			// Process response to extract token and session data
 			const processedResponse = await this.processResponse(

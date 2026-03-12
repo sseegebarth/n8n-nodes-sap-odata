@@ -15,7 +15,7 @@ export interface IRetryOptions {
 	backoffFactor?: number;
 	retryableStatusCodes?: number[];
 	retryNetworkErrors?: boolean;
-	onRetry?: (attempt: number, error: any, delay: number) => void;
+	onRetry?: (attempt: number, error: unknown, delay: number) => void;
 }
 
 /**
@@ -41,6 +41,7 @@ function calculateDelay(
  * Sleep for specified milliseconds
  */
 function sleep(ms: number): Promise<void> {
+	// eslint-disable-next-line @n8n/community-nodes/no-restricted-globals
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -66,7 +67,7 @@ export class RetryHandler {
 	 * Execute function with retry logic
 	 */
 	async execute<T>(fn: () => Promise<T>): Promise<T> {
-		let lastError: any;
+		let lastError: unknown;
 
 		for (let attempt = 0; attempt < this.options.maxAttempts; attempt++) {
 			try {
@@ -107,7 +108,7 @@ export class RetryHandler {
 	/**
 	 * Check if error is retryable
 	 */
-	private isRetryable(error: any): boolean {
+	private isRetryable(error: unknown): boolean {
 		const statusCode = this.extractStatusCode(error);
 		if (statusCode && this.options.retryableStatusCodes.includes(statusCode)) {
 			return true;
@@ -123,14 +124,15 @@ export class RetryHandler {
 	/**
 	 * Extract HTTP status code from error
 	 */
-	private extractStatusCode(error: any): number | null {
+	private extractStatusCode(error: unknown): number | null {
 		if (error instanceof NodeApiError && error.httpCode) {
 			return typeof error.httpCode === 'string'
 				? parseInt(error.httpCode, 10)
 				: error.httpCode;
 		}
-		if (error.statusCode) {
-			return error.statusCode;
+		const err = error as Record<string, unknown>;
+		if (err.statusCode) {
+			return err.statusCode as number;
 		}
 		return null;
 	}
@@ -138,8 +140,9 @@ export class RetryHandler {
 	/**
 	 * Check if error is a network error
 	 */
-	private isNetworkError(error: any): boolean {
+	private isNetworkError(error: unknown): boolean {
 		const networkErrors = ['ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED'];
-		return error.code && networkErrors.includes(error.code);
+		const err = error as Record<string, unknown>;
+		return typeof err.code === 'string' && networkErrors.includes(err.code);
 	}
 }

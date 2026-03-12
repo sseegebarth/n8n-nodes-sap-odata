@@ -136,20 +136,20 @@ class ODataVersionHelper {
         return result;
     }
     static extractData(response, version) {
-        var _a;
         if (!response)
             return null;
         let data;
         if (version === 'v2') {
-            if (((_a = response.d) === null || _a === void 0 ? void 0 : _a.results) !== undefined) {
-                data = response.d.results;
+            const d = response.d;
+            if ((d === null || d === void 0 ? void 0 : d.results) !== undefined) {
+                data = d.results;
             }
-            else if (response.d) {
-                if (response.d.results === undefined && typeof response.d === 'object') {
-                    data = response.d;
+            else if (d) {
+                if (d.results === undefined && typeof d === 'object') {
+                    data = d;
                 }
                 else {
-                    data = response.d;
+                    data = d;
                 }
             }
             else if (Array.isArray(response)) {
@@ -177,10 +177,10 @@ class ODataVersionHelper {
         return data;
     }
     static getTotalCount(response, version) {
-        var _a;
         if (version === 'v2') {
-            if (((_a = response.d) === null || _a === void 0 ? void 0 : _a.__count) !== undefined) {
-                const parsed = parseInt(String(response.d.__count), 10);
+            const d = response.d;
+            if ((d === null || d === void 0 ? void 0 : d.__count) !== undefined) {
+                const parsed = parseInt(String(d.__count), 10);
                 return isNaN(parsed) ? undefined : parsed;
             }
             return undefined;
@@ -190,27 +190,27 @@ class ODataVersionHelper {
         }
     }
     static parseError(error, version) {
-        var _a, _b, _c, _d, _e, _f;
         let errorMessage = 'An unknown SAP OData error occurred';
         try {
+            const errObj = error.error;
             if (version === 'v4') {
-                if ((_a = error.error) === null || _a === void 0 ? void 0 : _a.message) {
-                    errorMessage = typeof error.error.message === 'string'
-                        ? error.error.message
-                        : error.error.message.value || errorMessage;
+                if (errObj === null || errObj === void 0 ? void 0 : errObj.message) {
+                    const msg = errObj.message;
+                    errorMessage = typeof msg === 'string'
+                        ? msg
+                        : msg.value || errorMessage;
                 }
             }
             else {
-                if ((_c = (_b = error.error) === null || _b === void 0 ? void 0 : _b.message) === null || _c === void 0 ? void 0 : _c.value) {
-                    errorMessage = error.error.message.value;
+                const msg = errObj === null || errObj === void 0 ? void 0 : errObj.message;
+                if (typeof msg === 'object' && (msg === null || msg === void 0 ? void 0 : msg.value)) {
+                    errorMessage = msg.value;
                 }
-                else if ((_d = error.error) === null || _d === void 0 ? void 0 : _d.message) {
-                    errorMessage = typeof error.error.message === 'string'
-                        ? error.error.message
-                        : errorMessage;
+                else if (typeof msg === 'string') {
+                    errorMessage = msg;
                 }
             }
-            const innerError = ((_e = error.error) === null || _e === void 0 ? void 0 : _e.innererror) || ((_f = error.error) === null || _f === void 0 ? void 0 : _f.details);
+            const innerError = (errObj === null || errObj === void 0 ? void 0 : errObj.innererror) || (errObj === null || errObj === void 0 ? void 0 : errObj.details);
             if (innerError) {
                 if (typeof innerError === 'string') {
                     errorMessage += ` - ${innerError}`;

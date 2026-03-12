@@ -91,11 +91,11 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		returnFullResponse: false,
 		skipSslCertificateValidation: credentials.allowUnauthorizedCerts === true,
 		timeout: DEFAULT_TIMEOUT,
-	} as IHttpRequestOptions & { agent?: any };
+	} as IHttpRequestOptions & { agent?: Record<string, unknown> };
 
 	// Add Basic Auth if credentials provided
 	if (credentials.authentication === 'basicAuth' && credentials.username && credentials.password) {
-		(requestOptions as any).auth = {
+		requestOptions.auth = {
 			username: credentials.username,
 			password: credentials.password,
 		};
@@ -168,7 +168,7 @@ export function buildRequestOptions(config: IRequestConfig): IHttpRequestOptions
 		const safeOptionKeys = ['body', 'json', 'resolveWithFullResponse', 'simple', 'encoding', 'timeout'];
 		for (const key of safeOptionKeys) {
 			if (key in restOptions) {
-				(requestOptions as any)[key] = restOptions[key];
+				(requestOptions as unknown as Record<string, unknown>)[key] = restOptions[key];
 			}
 		}
 
@@ -227,7 +227,7 @@ export function buildCsrfTokenRequest(
 
 	// Add Basic Auth if credentials provided
 	if (credentials.authentication === 'basicAuth' && credentials.username && credentials.password) {
-		(options as any).auth = {
+		options.auth = {
 			username: credentials.username,
 			password: credentials.password,
 		};

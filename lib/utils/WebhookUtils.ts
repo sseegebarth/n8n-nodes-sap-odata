@@ -67,7 +67,7 @@ export function isIpAllowed(clientIp: string, whitelist: string[], node?: INode)
 	return false;
 }
 
-export function isValidSapODataPayload(payload: any): boolean {
+export function isValidSapODataPayload(payload: unknown): boolean {
 	if (!payload || typeof payload !== 'object') return false;
 
 	return (
@@ -81,11 +81,11 @@ export function isValidSapODataPayload(payload: any): boolean {
 	);
 }
 
-export function parseSapDates(obj: any): any {
+export function parseSapDates(obj: unknown): unknown {
 	if (typeof obj !== 'object' || obj === null) return obj;
 	if (Array.isArray(obj)) return obj.map(parseSapDates);
 
-	const result: any = {};
+	const result: Record<string, unknown> = {};
 	for (const [key, value] of Object.entries(obj)) {
 		if (typeof value === 'string') {
 			const converted = convertSapDate(value);
@@ -99,27 +99,27 @@ export function parseSapDates(obj: any): any {
 	return result;
 }
 
-export function extractEventInfo(payload: any): IDataObject {
+export function extractEventInfo(payload: Record<string, unknown>): IDataObject {
 	const event: IDataObject = {};
 
-	if (payload.event) event.type = payload.event;
-	if (payload.operation) event.operation = payload.operation;
-	if (payload.entityType || payload.EntityType) event.entityType = payload.entityType || payload.EntityType;
-	if (payload.entityKey || payload.EntityKey) event.entityKey = payload.entityKey || payload.EntityKey;
-	if (payload.timestamp || payload.Timestamp) event.timestamp = payload.timestamp || payload.Timestamp;
+	if (payload.event) event.type = payload.event as string;
+	if (payload.operation) event.operation = payload.operation as string;
+	if (payload.entityType || payload.EntityType) event.entityType = (payload.entityType || payload.EntityType) as string;
+	if (payload.entityKey || payload.EntityKey) event.entityKey = (payload.entityKey || payload.EntityKey) as string;
+	if (payload.timestamp || payload.Timestamp) event.timestamp = (payload.timestamp || payload.Timestamp) as string;
 
 	if (payload.d) {
-		event.data = payload.d;
+		event.data = payload.d as IDataObject;
 	} else if (payload.value) {
-		event.data = payload.value;
+		event.data = payload.value as IDataObject;
 	} else if (payload.entity || payload.Entity) {
-		event.data = payload.entity || payload.Entity;
+		event.data = (payload.entity || payload.Entity) as IDataObject;
 	}
 
 	return event;
 }
 
-export function extractChangedFields(oldValue: any, newValue: any): IDataObject {
+export function extractChangedFields(oldValue: Record<string, unknown>, newValue: Record<string, unknown>): IDataObject {
 	const changes: IDataObject = {};
 
 	if (!oldValue || !newValue || typeof oldValue !== 'object' || typeof newValue !== 'object') {

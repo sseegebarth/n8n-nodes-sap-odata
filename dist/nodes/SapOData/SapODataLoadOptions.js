@@ -73,7 +73,7 @@ exports.sapODataLoadOptions = {
                 })),
             ];
         }
-        catch (error) {
+        catch {
             const { getCommonServices } = await Promise.resolve().then(() => __importStar(require('./DiscoveryService')));
             const commonServices = getCommonServices();
             return [
@@ -147,7 +147,7 @@ exports.sapODataLoadOptions = {
                 },
             ];
         }
-        catch (error) {
+        catch {
             const { getCommonServices } = await Promise.resolve().then(() => __importStar(require('./DiscoveryService')));
             const commonServices = getCommonServices();
             return [

@@ -19,7 +19,8 @@ async function throttleRequest(nodeKey, minIntervalMs) {
     lastRequestTime.set(nodeKey, Date.now());
 }
 async function executeRequest(config) {
-    let { method, resource, body = {}, qs = {}, uri, option = {}, csrfToken } = config;
+    const { method, resource, body = {}, qs = {}, uri, option = {} } = config;
+    let { csrfToken } = config;
     const credentials = (await this.getCredentials(constants_1.CREDENTIAL_TYPE));
     if (!credentials) {
         return ErrorHandler_1.ODataErrorHandler.handleValidationError(constants_1.ERROR_MESSAGES.NO_CREDENTIALS, this.getNode());
@@ -78,7 +79,8 @@ async function executeRequest(config) {
             return response;
         }
         catch (error) {
-            const statusCode = (error === null || error === void 0 ? void 0 : error.statusCode) || ((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.statusCode) || (error === null || error === void 0 ? void 0 : error.httpCode);
+            const err = error;
+            const statusCode = ((err === null || err === void 0 ? void 0 : err.statusCode) || ((_a = err === null || err === void 0 ? void 0 : err.response) === null || _a === void 0 ? void 0 : _a.statusCode) || (err === null || err === void 0 ? void 0 : err.httpCode));
             if (statusCode === 404) {
                 await CacheManager_1.CacheManager.invalidateCacheOn404(this, credentials.host, servicePath);
             }

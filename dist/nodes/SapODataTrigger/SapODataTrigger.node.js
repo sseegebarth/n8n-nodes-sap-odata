@@ -33,16 +33,16 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SapODataWebhook = void 0;
+exports.SapODataTrigger = void 0;
 const crypto = __importStar(require("crypto"));
 const n8n_workflow_1 = require("n8n-workflow");
 const constants_1 = require("../../lib/constants");
 const SecurityUtils_1 = require("../../lib/utils/SecurityUtils");
 const WebhookUtils_1 = require("../../lib/utils/WebhookUtils");
-class SapODataWebhook {
+class SapODataTrigger {
     constructor() {
         this.description = {
-            displayName: 'avanai SAP Connect OData Webhook',
+            displayName: 'avanai SAP Connect OData Trigger',
             name: 'sapODataTrigger',
             icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
             group: ['trigger'],
@@ -204,35 +204,6 @@ class SapODataWebhook {
                     default: {},
                     options: [
                         {
-                            displayName: 'Validate SAP Payload Format',
-                            name: 'validatePayload',
-                            type: 'boolean',
-                            default: true,
-                            description: 'Whether to validate that the payload matches SAP OData event format',
-                        },
-                        {
-                            displayName: 'Extract Changed Fields Only',
-                            name: 'extractChangedFields',
-                            type: 'boolean',
-                            default: false,
-                            description: 'Whether to extract only the fields that changed (requires old/new values in payload)',
-                        },
-                        {
-                            displayName: 'Parse SAP Date Formats',
-                            name: 'parseDates',
-                            type: 'boolean',
-                            default: true,
-                            description: 'Whether to convert SAP date formats (/Date(...)/) to ISO 8601',
-                        },
-                        {
-                            displayName: 'IP Whitelist',
-                            name: 'ipWhitelist',
-                            type: 'string',
-                            default: '',
-                            placeholder: '10.0.0.1,192.168.0.0/24,172.16.0.0/12',
-                            description: 'Comma-separated list of allowed IP addresses or CIDR ranges. Leave empty to allow all IPs. Only requests from whitelisted IPs will be accepted.',
-                        },
-                        {
                             displayName: 'Custom Response Body',
                             name: 'responseBody',
                             type: 'json',
@@ -248,6 +219,28 @@ class SapODataWebhook {
                             description: 'Whether to limit requests per IP address to prevent abuse',
                         },
                         {
+                            displayName: 'Extract Changed Fields Only',
+                            name: 'extractChangedFields',
+                            type: 'boolean',
+                            default: false,
+                            description: 'Whether to extract only the fields that changed (requires old/new values in payload)',
+                        },
+                        {
+                            displayName: 'IP Whitelist',
+                            name: 'ipWhitelist',
+                            type: 'string',
+                            default: '',
+                            placeholder: '10.0.0.1,192.168.0.0/24,172.16.0.0/12',
+                            description: 'Comma-separated list of allowed IP addresses or CIDR ranges. Leave empty to allow all IPs. Only requests from whitelisted IPs will be accepted.',
+                        },
+                        {
+                            displayName: 'Parse SAP Date Formats',
+                            name: 'parseDates',
+                            type: 'boolean',
+                            default: true,
+                            description: 'Whether to convert SAP date formats (/Date(...)/) to ISO 8601',
+                        },
+                        {
                             displayName: 'Rate Limit (Requests/Minute)',
                             name: 'rateLimit',
                             type: 'number',
@@ -258,6 +251,13 @@ class SapODataWebhook {
                                 },
                             },
                             description: 'Maximum requests per minute per IP address',
+                        },
+                        {
+                            displayName: 'Validate SAP Payload Format',
+                            name: 'validatePayload',
+                            type: 'boolean',
+                            default: true,
+                            description: 'Whether to validate that the payload matches SAP OData event format',
                         },
                     ],
                 },
@@ -283,17 +283,16 @@ class SapODataWebhook {
                             await sapOdataApiRequest.call(this, 'GET', `/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`);
                             return true;
                         }
-                        catch (error) {
+                        catch {
                             delete staticData.subscriptionId;
                             return false;
                         }
                     }
-                    catch (error) {
+                    catch {
                         return false;
                     }
                 },
                 async create() {
-                    var _a;
                     const webhookUrl = this.getNodeWebhookUrl('default');
                     const authentication = this.getNodeParameter('authentication');
                     try {
@@ -323,7 +322,8 @@ class SapODataWebhook {
                         const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../SapOData/GenericFunctions')));
                         const response = await sapOdataApiRequest.call(this, 'POST', '/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions', subscriptionPayload);
                         const staticData = this.getWorkflowStaticData('node');
-                        staticData.subscriptionId = ((_a = response === null || response === void 0 ? void 0 : response.d) === null || _a === void 0 ? void 0 : _a.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.id);
+                        const d = response === null || response === void 0 ? void 0 : response.d;
+                        staticData.subscriptionId = ((d === null || d === void 0 ? void 0 : d.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.id));
                     }
                     catch (_error) {
                     }
@@ -520,4 +520,4 @@ class SapODataWebhook {
         }
     }
 }
-exports.SapODataWebhook = SapODataWebhook;
+exports.SapODataTrigger = SapODataTrigger;

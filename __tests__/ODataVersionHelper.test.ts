@@ -24,12 +24,12 @@ describe('ODataVersionHelper', () => {
 
 			it('should handle pre-processed array', () => {
 				const response = [{ ID: '1' }];
-				const result = ODataVersionHelper.extractData(response, 'v2');
+				const result = ODataVersionHelper.extractData(response as any, 'v2');
 				expect(result).toEqual([{ ID: '1' }]);
 			});
 
 			it('should return null for null response', () => {
-				expect(ODataVersionHelper.extractData(null, 'v2')).toBeNull();
+				expect(ODataVersionHelper.extractData(null as any, 'v2')).toBeNull();
 			});
 
 			it('should preserve expanded navigation properties', () => {
@@ -48,7 +48,7 @@ describe('ODataVersionHelper', () => {
 					},
 				};
 				const result = ODataVersionHelper.extractData(response, 'v2');
-				expect(result[0].ToItems.results[0].Material).toBe('MAT-A');
+				expect(((result as any[])[0]).ToItems.results[0].Material).toBe('MAT-A');
 			});
 		});
 
@@ -75,12 +75,12 @@ describe('ODataVersionHelper', () => {
 
 			it('should handle pre-processed array', () => {
 				const response = [{ ID: '1' }];
-				const result = ODataVersionHelper.extractData(response, 'v4');
+				const result = ODataVersionHelper.extractData(response as any, 'v4');
 				expect(result).toEqual([{ ID: '1' }]);
 			});
 
 			it('should return null for null response', () => {
-				expect(ODataVersionHelper.extractData(null, 'v4')).toBeNull();
+				expect(ODataVersionHelper.extractData(null as any, 'v4')).toBeNull();
 			});
 
 			it('should preserve expanded navigation properties', () => {
@@ -96,8 +96,8 @@ describe('ODataVersionHelper', () => {
 					],
 				};
 				const result = ODataVersionHelper.extractData(response, 'v4');
-				expect(result[0].invoice.invoiceNumber).toBe('RE-2024-0001');
-				expect(result[0].customer.companyName).toBe('Acme');
+				expect(((result as any[])[0]).invoice.invoiceNumber).toBe('RE-2024-0001');
+				expect(((result as any[])[0]).customer.companyName).toBe('Acme');
 			});
 		});
 	});

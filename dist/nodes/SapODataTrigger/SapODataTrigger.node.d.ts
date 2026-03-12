@@ -1,5 +1,5 @@
 import { IHookFunctions, IWebhookFunctions, INodeType, INodeTypeDescription, IWebhookResponseData } from 'n8n-workflow';
-export declare class SapODataWebhook implements INodeType {
+export declare class SapODataTrigger implements INodeType {
     description: INodeTypeDescription;
     webhookMethods: {
         default: {

@@ -110,8 +110,8 @@ describe('TypeConverter', () => {
 				__metadata: { uri: '/some/path', type: 'Entity' },
 				__deferred: { uri: '/lazy/load' },
 			});
-			expect(result.__metadata).toEqual({ uri: '/some/path', type: 'Entity' });
-			expect(result.__deferred).toEqual({ uri: '/lazy/load' });
+			expect(((result as any).__metadata)).toEqual({ uri: '/some/path', type: 'Entity' });
+			expect(((result as any).__deferred)).toEqual({ uri: '/lazy/load' });
 		});
 
 		it('should handle nested expanded navigation properties', () => {
@@ -146,7 +146,7 @@ describe('TypeConverter', () => {
 				__metadata: { uri: '/path', type: 'Type' },
 			});
 			expect(result).toEqual({ Name: 'Test' });
-			expect(result.__metadata).toBeUndefined();
+			expect((result as any).__metadata).toBeUndefined();
 		});
 
 		it('should remove __deferred from objects', () => {
@@ -167,8 +167,8 @@ describe('TypeConverter', () => {
 					],
 				},
 			});
-			expect(result.Items.results[0].__metadata).toBeUndefined();
-			expect(result.Items.results[0].MaterialID).toBe('A');
+			expect(((result as any).Items).results[0].__metadata).toBeUndefined();
+			expect(((result as any).Items).results[0].MaterialID).toBe('A');
 		});
 
 		it('should handle null and undefined', () => {
@@ -190,8 +190,8 @@ describe('TypeConverter', () => {
 				invoice: { ID: 'INV-1', amount: 100 },
 				customer: { ID: 'CUST-1', name: 'Acme' },
 			});
-			expect(result.invoice).toEqual({ ID: 'INV-1', amount: 100 });
-			expect(result.customer).toEqual({ ID: 'CUST-1', name: 'Acme' });
+			expect(((result as any).invoice)).toEqual({ ID: 'INV-1', amount: 100 });
+			expect(((result as any).customer)).toEqual({ ID: 'CUST-1', name: 'Acme' });
 		});
 	});
 
@@ -311,9 +311,9 @@ describe('TypeConverter', () => {
 				__metadata: { uri: '/path', type: 'Entity' },
 				__deferred: { uri: '/lazy' },
 			});
-			expect(result.Date).toBe('/Date(1507248000000)/');
-			expect(result.__metadata).toEqual({ uri: '/path', type: 'Entity' });
-			expect(result.__deferred).toEqual({ uri: '/lazy' });
+			expect(((result as any).Date)).toBe('/Date(1507248000000)/');
+			expect(((result as any).__metadata)).toEqual({ uri: '/path', type: 'Entity' });
+			expect(((result as any).__deferred)).toEqual({ uri: '/lazy' });
 		});
 	});
 });

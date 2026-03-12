@@ -15,7 +15,7 @@ export declare class CacheManager {
     static clearCache(context: IContextType, host: string, servicePath: string, itemIndex?: number): Promise<void>;
     static invalidateCacheOn404(context: IContextType, host: string, servicePath: string, itemIndex?: number): Promise<void>;
     static getServiceCatalog(context: IContextType, host: string, itemIndex?: number): Promise<IServiceCatalogEntry[] | null>;
-    static setServiceCatalog(context: IContextType, host: string, services: any[], itemIndex?: number): Promise<void>;
+    static setServiceCatalog(context: IContextType, host: string, services: IServiceCatalogEntry[], itemIndex?: number): Promise<void>;
     static clearAllCache(context: IContextType): void;
     static cleanupExpiredCache(context: IContextType): void;
 }

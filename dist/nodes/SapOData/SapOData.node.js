@@ -67,7 +67,6 @@ async function executeGet(context, itemIndex) {
     return toJsonResult(converted, itemIndex);
 }
 async function executeGetAll(context, itemIndex) {
-    var _a;
     const entitySet = (0, StrategyHelpers_1.getEntitySet)(context, itemIndex);
     const returnAll = context.getNodeParameter('returnAll', itemIndex);
     const odataVersion = await ODataVersionHelper_1.ODataVersionHelper.getODataVersion(context);
@@ -105,7 +104,7 @@ async function executeGetAll(context, itemIndex) {
             if (rd.results && Array.isArray(rd.results)) {
                 dataArray = rd.results;
             }
-            else if (((_a = rd.d) === null || _a === void 0 ? void 0 : _a.results) && Array.isArray(rd.d.results)) {
+            else if (rd.d && typeof rd.d === 'object' && rd.d.results && Array.isArray(rd.d.results)) {
                 dataArray = rd.d.results;
             }
             else {
@@ -164,7 +163,6 @@ async function executeDelete(context, itemIndex) {
     return [{ json: { success: true }, pairedItem: { item: itemIndex } }];
 }
 async function executeGetMetadata(context, itemIndex) {
-    var _a;
     const metadataType = context.getNodeParameter('metadataType', itemIndex);
     const resource = metadataType === 'metadata' ? '/$metadata' : '/';
     const response = await GenericFunctions_1.sapOdataApiRequest.call(context, 'GET', resource, {}, {});
@@ -176,14 +174,23 @@ async function executeGetMetadata(context, itemIndex) {
             content: typeof response === 'string' ? response : JSON.stringify(response),
         };
     }
-    else if ((_a = response.d) === null || _a === void 0 ? void 0 : _a.EntitySets) {
-        result = { _type: 'serviceDocument', _version: 'v2', entitySets: response.d.EntitySets };
+    else if (typeof response === 'object' && response.d) {
+        const d = response.d;
+        if (d === null || d === void 0 ? void 0 : d.EntitySets) {
+            result = { _type: 'serviceDocument', _version: 'v2', entitySets: d.EntitySets };
+        }
+        else {
+            result = { _type: 'serviceDocument', _raw: true, ...response };
+        }
     }
-    else if (response.value) {
+    else if (typeof response === 'object' && response.value) {
         result = { _type: 'serviceDocument', _version: 'v4', value: response.value };
     }
-    else {
+    else if (typeof response === 'object') {
         result = { _type: 'serviceDocument', _raw: true, ...response };
+    }
+    else {
+        result = { _type: 'serviceDocument', _raw: true, content: response };
     }
     return [{ json: result, pairedItem: { item: itemIndex } }];
 }

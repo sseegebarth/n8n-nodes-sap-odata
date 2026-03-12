@@ -97,7 +97,7 @@ function isNumericString(value: string): boolean {
  * - Other strings → unchanged
  * - Objects/Arrays → recursively converted
  */
-export function convertValue(value: any, depth = 0): any {
+export function convertValue(value: unknown, depth = 0): unknown {
 	// Handle null/undefined
 	if (value === null || value === undefined) {
 		return value;
@@ -112,8 +112,8 @@ export function convertValue(value: any, depth = 0): any {
 
 	// Handle objects - recursively convert each property
 	if (typeof value === 'object') {
-		const converted: any = {};
-		for (const [key, val] of Object.entries(value)) {
+		const converted: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
 			// Skip __metadata and __deferred properties but convert everything else
 			if (key === '__metadata' || key === '__deferred') {
 				converted[key] = val; // Keep as-is
@@ -166,7 +166,7 @@ export function convertValue(value: any, depth = 0): any {
  * Remove __metadata and __deferred fields from data
  * Recursively processes all objects and arrays
  */
-export function removeMetadata(value: any, depth = 0): any {
+export function removeMetadata(value: unknown, depth = 0): unknown {
 	// Handle null/undefined
 	if (value === null || value === undefined) {
 		return value;
@@ -181,8 +181,8 @@ export function removeMetadata(value: any, depth = 0): any {
 
 	// Handle objects - remove __metadata and __deferred, recursively process other properties
 	if (typeof value === 'object') {
-		const cleaned: any = {};
-		for (const [key, val] of Object.entries(value)) {
+		const cleaned: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
 			// Skip __metadata and __deferred properties
 			if (key !== '__metadata' && key !== '__deferred') {
 				cleaned[key] = removeMetadata(val, depth + 1);
@@ -200,7 +200,7 @@ export function removeMetadata(value: any, depth = 0): any {
  * SAP V2 wraps navigation collections as { results: [...], __count?: "n" }
  * This function replaces such wrappers with the plain array.
  */
-export function unwrapNavigationProperties(value: any, depth = 0): any {
+export function unwrapNavigationProperties(value: unknown, depth = 0): unknown {
 	if (value === null || value === undefined) return value;
 	if (depth >= MAX_RECURSION_DEPTH) return value;
 
@@ -209,8 +209,8 @@ export function unwrapNavigationProperties(value: any, depth = 0): any {
 	}
 
 	if (typeof value === 'object') {
-		const unwrapped: any = {};
-		for (const [key, val] of Object.entries(value)) {
+		const unwrapped: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
 			if (val && typeof val === 'object' && !Array.isArray(val)) {
 				const obj = val as Record<string, unknown>;
 				if (Array.isArray(obj.results)) {
@@ -257,7 +257,7 @@ export function unwrapNavigationProperties(value: any, depth = 0): any {
  * //   CustomerName: "Acme Corp"  // String (unchanged)
  * // }
  */
-export function convertDataTypes(data: any): any {
+export function convertDataTypes(data: unknown): unknown {
 	return convertValue(data);
 }
 
@@ -270,7 +270,7 @@ const TIME_REGEX = /^(\d{2}):(\d{2}):(\d{2})$/;
  * - HH:MM:SS time strings → PTnHnMnS duration
  * - All other values remain unchanged
  */
-export function convertToSapV2Format(value: any, depth = 0): any {
+export function convertToSapV2Format(value: unknown, depth = 0): unknown {
 	if (value === null || value === undefined) return value;
 	if (depth >= MAX_RECURSION_DEPTH) return value;
 
@@ -279,8 +279,8 @@ export function convertToSapV2Format(value: any, depth = 0): any {
 	}
 
 	if (typeof value === 'object') {
-		const converted: any = {};
-		for (const [key, val] of Object.entries(value)) {
+		const converted: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
 			if (key === '__metadata' || key === '__deferred') {
 				converted[key] = val;
 			} else {

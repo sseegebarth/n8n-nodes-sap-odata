@@ -135,11 +135,11 @@ function extractEventInfo(payload) {
     if (payload.operation)
         event.operation = payload.operation;
     if (payload.entityType || payload.EntityType)
-        event.entityType = payload.entityType || payload.EntityType;
+        event.entityType = (payload.entityType || payload.EntityType);
     if (payload.entityKey || payload.EntityKey)
-        event.entityKey = payload.entityKey || payload.EntityKey;
+        event.entityKey = (payload.entityKey || payload.EntityKey);
     if (payload.timestamp || payload.Timestamp)
-        event.timestamp = payload.timestamp || payload.Timestamp;
+        event.timestamp = (payload.timestamp || payload.Timestamp);
     if (payload.d) {
         event.data = payload.d;
     }
@@ -147,7 +147,7 @@ function extractEventInfo(payload) {
         event.data = payload.value;
     }
     else if (payload.entity || payload.Entity) {
-        event.data = payload.entity || payload.Entity;
+        event.data = (payload.entity || payload.Entity);
     }
     return event;
 }

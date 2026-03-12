@@ -47,7 +47,7 @@ export async function discoverServices(
 		// Query the catalog service for all services
 		// Note: We don't use $select to ensure we get all available fields
 		// Some SAP versions may not have ServiceUrl/BaseUrl/Namespace fields
-		const response: any = await sapOdataApiRequest.call(
+		const response = await sapOdataApiRequest.call(
 			context,
 			'GET',
 			'/ServiceCollection',
@@ -61,10 +61,11 @@ export async function discoverServices(
 			undefined, // uri parameter
 			{}, // option parameter
 			CATALOGSERVICE_PATH, // customServicePath - Override service path to use CATALOGSERVICE
-		);
+		) as Record<string, unknown>;
 
 		// Extract results from OData V2 response format
-		const results = (response?.d?.results as IServiceCollectionEntry[]) || [];
+		const d = response?.d as Record<string, unknown> | undefined;
+		const results = (d?.results as IServiceCollectionEntry[]) || [];
 
 		// Transform catalog entries to our service format
 		const services: ISapODataService[] = results

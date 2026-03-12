@@ -39,13 +39,13 @@ exports.searchServices = searchServices;
 exports.groupServicesByCategory = groupServicesByCategory;
 const CATALOGSERVICE_PATH = '/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/';
 async function discoverServices(context) {
-    var _a;
     try {
         const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('./GenericFunctions')));
         const response = await sapOdataApiRequest.call(context, 'GET', '/ServiceCollection', {}, {
             $orderby: 'Title asc',
         }, undefined, {}, CATALOGSERVICE_PATH);
-        const results = ((_a = response === null || response === void 0 ? void 0 : response.d) === null || _a === void 0 ? void 0 : _a.results) || [];
+        const d = response === null || response === void 0 ? void 0 : response.d;
+        const results = (d === null || d === void 0 ? void 0 : d.results) || [];
         const services = results
             .filter((entry) => {
             return entry.TechnicalServiceName && entry.ID;

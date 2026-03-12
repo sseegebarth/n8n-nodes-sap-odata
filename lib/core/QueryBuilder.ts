@@ -65,8 +65,8 @@ export function buildODataFilter(filters: IDataObject, node: INode): string {
  */
 const ODATA_PARAMS = new Set(['filter', 'select', 'expand', 'orderby', 'top', 'skip', 'count', 'search', 'apply', 'format', 'inlinecount', 'skiptoken']);
 
-export function normalizeODataOptions(options: any): IODataQueryOptions {
-	const normalized: any = {};
+export function normalizeODataOptions(options: IODataQueryOptions | Record<string, unknown>): IODataQueryOptions {
+	const normalized: Record<string, unknown> = {};
 
 	for (const [key, value] of Object.entries(options)) {
 		if (value !== undefined && value !== null && value !== '') {
@@ -165,7 +165,7 @@ export function buildODataQuery(options: IODataQueryOptions, node?: INode): IDat
  * // Returns: "ID=%27100%27,Type=A"
  */
 export function buildEncodedQueryString(
-	params: Record<string, any>,
+	params: Record<string, unknown>,
 	separator = '&',
 ): string {
 	const parts: string[] = [];

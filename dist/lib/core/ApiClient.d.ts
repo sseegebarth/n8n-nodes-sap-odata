@@ -9,4 +9,4 @@ export interface IApiClientConfig {
     csrfToken?: string;
     servicePath?: string;
 }
-export declare function executeRequest(this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions, config: IApiClientConfig): Promise<any>;
+export declare function executeRequest(this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions, config: IApiClientConfig): Promise<IDataObject>;

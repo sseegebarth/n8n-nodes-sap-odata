@@ -5,7 +5,7 @@ export interface IRetryOptions {
     backoffFactor?: number;
     retryableStatusCodes?: number[];
     retryNetworkErrors?: boolean;
-    onRetry?: (attempt: number, error: any, delay: number) => void;
+    onRetry?: (attempt: number, error: unknown, delay: number) => void;
 }
 export declare class RetryHandler {
     private options;

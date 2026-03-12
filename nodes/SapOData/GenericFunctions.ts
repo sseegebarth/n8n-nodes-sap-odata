@@ -14,7 +14,7 @@ import {
 } from '../../lib/core/PaginationHandler';
 import { buildCsrfTokenRequest } from '../../lib/core/RequestBuilder';
 import { ISapOdataCredentials } from '../../lib/types';
-import { formatODataValue } from '../../lib/utils/ODataValueFormatter';
+import { formatODataValue, ODataValue } from '../../lib/utils/ODataValueFormatter';
 import { resolveServicePath } from '../../lib/utils/ServicePathResolver';
 
 export { resolveServicePath };
@@ -54,7 +54,7 @@ export async function sapOdataApiRequest<T = unknown>(
 		servicePath: resolvedServicePath,
 	};
 
-	return executeRequest.call(this, config);
+	return executeRequest.call(this, config) as T;
 }
 
 /** Get CSRF token for write operations (cached). */
@@ -121,6 +121,6 @@ export async function sapOdataApiRequestAllItems(
 /**
  * Format a value for SAP OData based on its type (datetime, GUID, decimal, etc.)
  */
-export function formatSapODataValue(value: any, typeHint?: string, node?: INode): string {
+export function formatSapODataValue(value: ODataValue, typeHint?: string, node?: INode): string {
 	return formatODataValue(value, typeHint, { autoDetect: true, warnOnAutoDetect: false }, node);
 }

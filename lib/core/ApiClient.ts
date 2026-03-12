@@ -8,6 +8,7 @@ import {
 	IHookFunctions,
 	ILoadOptionsFunctions,
 	IDataObject,
+	IHttpRequestOptions,
 } from 'n8n-workflow';
 import { resolveServicePath } from '../../nodes/SapOData/GenericFunctions';
 import {
@@ -32,6 +33,7 @@ async function throttleRequest(nodeKey: string, minIntervalMs: number): Promise<
 	const last = lastRequestTime.get(nodeKey) || 0;
 	const elapsed = Date.now() - last;
 	if (elapsed < minIntervalMs) {
+		// eslint-disable-next-line @n8n/community-nodes/no-restricted-globals
 		await new Promise((r) => setTimeout(r, minIntervalMs - elapsed));
 	}
 	lastRequestTime.set(nodeKey, Date.now());
@@ -68,8 +70,9 @@ export interface IApiClientConfig {
 export async function executeRequest(
 	this: IHookFunctions | IExecuteFunctions | ILoadOptionsFunctions,
 	config: IApiClientConfig,
-): Promise<any> {
-	let { method, resource, body = {}, qs = {}, uri, option = {}, csrfToken } = config;
+): Promise<IDataObject> {
+	const { method, resource, body = {}, qs = {}, uri, option = {} } = config;
+	let { csrfToken } = config;
 
 	// Get credentials
 	const credentials = (await this.getCredentials(CREDENTIAL_TYPE)) as ISapOdataCredentials;
@@ -109,7 +112,7 @@ export async function executeRequest(
 	let csrfRetried = false;
 
 	// Create request function that will be executed with or without retry
-	const makeRequest = async (): Promise<any> => {
+	const makeRequest = async (): Promise<IDataObject> => {
 		// Build request options
 		const requestOptions = buildRequestOptions({
 			method,
@@ -147,16 +150,18 @@ export async function executeRequest(
 			}
 
 			// Use helpers.request directly to avoid URL re-encoding
-			// httpRequestWithAuthentication re-encodes URLs, turning $ into %24
+			// httpRequest re-encodes URLs, turning $ into %24
 			// which breaks OData query parameters like $filter, $search, $top
+			// eslint-disable-next-line @n8n/community-nodes/no-deprecated-workflow-functions
 			const response = await this.helpers.request({
 				...requestOptions,
 				auth,
-			} as any);
+			} as IHttpRequestOptions);
 
 			return response;
-		} catch (error) {
-			const statusCode = (error as any)?.statusCode || (error as any)?.response?.statusCode || (error as any)?.httpCode;
+		} catch (error: unknown) {
+			const err = error as Record<string, unknown>;
+			const statusCode = (err?.statusCode || (err?.response as Record<string, unknown>)?.statusCode || err?.httpCode) as number | undefined;
 
 			// Invalidate metadata cache on 404
 			if (statusCode === 404) {
