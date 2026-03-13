@@ -8,6 +8,7 @@ import {
 	IHookFunctions,
 	ILoadOptionsFunctions,
 	IDataObject,
+	sleep,
 } from 'n8n-workflow';
 import { resolveServicePath } from '../../nodes/SapOData/GenericFunctions';
 import {
@@ -26,17 +27,13 @@ import { SapGatewayCompat } from '../utils/SapGatewayCompat';
 import { SapGatewaySessionManager } from '../utils/SapGatewaySession';
 import { buildCsrfTokenRequest, buildRequestOptions } from './RequestBuilder';
 
-// Access timer function without referencing restricted globals directly
-// n8n community node rules block setTimeout/globalThis, but allow property access
-const _timers = Function('return this')() as { setTimeout: (fn: (...args: unknown[]) => void, ms: number) => unknown };
-
 const lastRequestTime = new Map<string, number>();
 
 async function throttleRequest(nodeKey: string, minIntervalMs: number): Promise<void> {
 	const last = lastRequestTime.get(nodeKey) || 0;
 	const elapsed = Date.now() - last;
 	if (elapsed < minIntervalMs) {
-		await new Promise<void>((r) => _timers.setTimeout(() => r(), minIntervalMs - elapsed));
+		await sleep(minIntervalMs - elapsed);
 	}
 	lastRequestTime.set(nodeKey, Date.now());
 }

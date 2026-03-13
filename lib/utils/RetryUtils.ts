@@ -1,4 +1,4 @@
-import { NodeApiError } from 'n8n-workflow';
+import { NodeApiError, sleep } from 'n8n-workflow';
 import {
 	MAX_RETRY_ATTEMPTS,
 	INITIAL_RETRY_DELAY,
@@ -37,16 +37,6 @@ function calculateDelay(
 	return Math.min(exponentialDelay + jitter, maxDelay);
 }
 
-// Access timer function without referencing restricted globals directly
-// n8n community node rules block setTimeout/globalThis, but allow property access
-const _timers = Function('return this')() as { setTimeout: (fn: (...args: unknown[]) => void, ms: number) => unknown };
-
-/**
- * Sleep for specified milliseconds
- */
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => _timers.setTimeout(() => resolve(), ms));
-}
 
 /**
  * Retry handler class with configurable exponential backoff
