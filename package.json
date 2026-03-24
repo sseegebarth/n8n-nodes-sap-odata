@@ -58,7 +58,6 @@
     "@n8n/node-cli": "^0.18.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^22.0.0",
-    "@types/request-promise-native": "^1.0.18",
     "eslint": "^9.0.0",
     "jest": "^29.5.0",
     "n8n-workflow": "^1.0.0",

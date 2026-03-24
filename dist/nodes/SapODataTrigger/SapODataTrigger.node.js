@@ -47,7 +47,7 @@ class SapODataTrigger {
             icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
             group: ['trigger'],
             version: 1,
-            subtitle: '={{$parameter["event"]}}',
+            subtitle: '={{$parameter["eventFilter"]}}',
             description: 'Receives SAP events via webhook (real-time notifications for OData changes)',
             defaults: {
                 name: 'SAP Connect OData Webhook',
@@ -325,7 +325,8 @@ class SapODataTrigger {
                         const d = response === null || response === void 0 ? void 0 : response.d;
                         staticData.subscriptionId = ((d === null || d === void 0 ? void 0 : d.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.id));
                     }
-                    catch (_error) {
+                    catch (error) {
+                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), `SAP subscription registration failed: ${error.message}`);
                     }
                     return true;
                 },
@@ -334,13 +335,19 @@ class SapODataTrigger {
                         const staticData = this.getWorkflowStaticData('node');
                         const subscriptionId = staticData.subscriptionId;
                         if (subscriptionId) {
-                            (0, SecurityUtils_1.validateEntityKey)(subscriptionId, this.getNode());
-                            const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
-                            if (credentials) {
-                                const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../SapOData/GenericFunctions')));
-                                await sapOdataApiRequest.call(this, 'DELETE', `/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`);
+                            try {
+                                (0, SecurityUtils_1.validateEntityKey)(subscriptionId, this.getNode());
+                                const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
+                                if (credentials) {
+                                    const { sapOdataApiRequest } = await Promise.resolve().then(() => __importStar(require('../SapOData/GenericFunctions')));
+                                    await sapOdataApiRequest.call(this, 'DELETE', `/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`);
+                                }
                             }
-                            delete staticData.subscriptionId;
+                            catch (_error) {
+                            }
+                            finally {
+                                delete staticData.subscriptionId;
+                            }
                         }
                     }
                     catch (_error) {

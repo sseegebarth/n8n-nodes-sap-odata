@@ -34,7 +34,7 @@ export class SapODataTrigger implements INodeType {
 		icon: { light: 'file:sap.svg', dark: 'file:sap.dark.svg' },
 		group: ['trigger'],
 		version: 1,
-		subtitle: '={{$parameter["event"]}}',
+		subtitle: '={{$parameter["eventFilter"]}}',
 		description: 'Receives SAP events via webhook (real-time notifications for OData changes)',
 		defaults: {
 			name: 'SAP Connect OData Webhook',
@@ -365,8 +365,11 @@ export class SapODataTrigger implements INodeType {
 					const d = response?.d as Record<string, unknown> | undefined;
 					staticData.subscriptionId = (d?.SubscriptionID || response?.SubscriptionID || response?.id) as string;
 
-				} catch (_error) {
-					// Don't fail - allow manual webhook configuration
+				} catch (error) {
+					throw new NodeOperationError(
+						this.getNode(),
+						`SAP subscription registration failed: ${(error as Error).message}`,
+					);
 				}
 
 				return true;
@@ -382,21 +385,25 @@ export class SapODataTrigger implements INodeType {
 					const subscriptionId = staticData.subscriptionId as string;
 
 					if (subscriptionId) {
-						validateEntityKey(subscriptionId, this.getNode());
-						// Try to unregister from SAP
-						const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
-						if (credentials) {
-							const { sapOdataApiRequest } = await import('../SapOData/GenericFunctions');
-							await sapOdataApiRequest.call(
-								this,
-								'DELETE',
-								`/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`
-							);
+						try {
+							validateEntityKey(subscriptionId, this.getNode());
+							const credentials = await this.getCredentials('sapOdataApi').catch(() => null);
+							if (credentials) {
+								const { sapOdataApiRequest } = await import('../SapOData/GenericFunctions');
+								await sapOdataApiRequest.call(
+									this,
+									'DELETE',
+									`/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`
+								);
+							}
+						} catch (_error) {
+							// Unregistration failure should not block workflow deactivation
+						} finally {
+							delete staticData.subscriptionId;
 						}
-						delete staticData.subscriptionId;
 					}
 				} catch (_error) {
-					// Don't fail - allow workflow deactivation even if unregistration fails
+					// Don't fail - allow workflow deactivation
 				}
 
 				return true;
