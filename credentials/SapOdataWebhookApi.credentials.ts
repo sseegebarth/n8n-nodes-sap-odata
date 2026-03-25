@@ -14,7 +14,7 @@ export class SapOdataWebhookApi implements ICredentialType {
 	name = 'sapOdataWebhookApi';
 	displayName = 'Avanai SAP OData Webhook API';
 	documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
-	icon = 'file:../nodes/SapOData/sap.svg' as const;
+	icon = 'file:sap.svg' as const;
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Shared Secret or Token',

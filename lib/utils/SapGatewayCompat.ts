@@ -255,13 +255,11 @@ export class SapGatewayCompat {
 				? { username: credentials.username as string, password: credentials.password as string }
 				: undefined;
 
-			// Use helpers.request directly (same as ApiClient) to ensure consistent behavior
-			// httpRequestWithAuthentication may not return headers properly
-			const response = await context.helpers.request({
+			const response = await context.helpers.httpRequest({
 				...enhancedOptions,
-				auth,
-				resolveWithFullResponse: true, // Get full response with headers
-			} as unknown as Parameters<typeof context.helpers.request>[0]);
+				auth: auth ? { username: auth.username, password: auth.password } : undefined,
+				returnFullResponse: true,
+			});
 
 			// Process response to extract token and session data
 			const processedResponse = await this.processResponse(

@@ -15,7 +15,7 @@ export class SapOdataApi implements ICredentialType {
 	name = 'sapOdataApi';
 	displayName = 'Avanai SAP OData API';
 	documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
-	icon = 'file:../nodes/SapOData/sap.svg' as const;
+	icon = 'file:sap.svg' as const;
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Host',

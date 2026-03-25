@@ -5,6 +5,7 @@ import {
 	INodeTypeDescription,
 	IDataObject,
 	NodeConnectionTypes,
+	NodeApiError,
 	NodeOperationError,
 } from 'n8n-workflow';
 import { sanitizeErrorMessage, validateFunctionName } from '../../lib/utils/SecurityUtils';
@@ -393,11 +394,12 @@ export class SapOData implements INodeType {
 					continue;
 				}
 
-				const httpStatus = (error as Record<string, unknown>)?.httpStatusCode;
-				const statusInfo = httpStatus ? ` [HTTP ${httpStatus}]` : '';
-				throw new NodeOperationError(this.getNode(), `${contextMessage}${statusInfo} - ${errorMessage}`, {
-					itemIndex: i,
+				throw new NodeApiError(this.getNode(), {
+					message: `${contextMessage} - ${errorMessage}`,
 					description: errorMessage,
+					...(typeof error === 'object' && error !== null ? error : {}),
+				}, {
+					itemIndex: i,
 				});
 			}
 		}

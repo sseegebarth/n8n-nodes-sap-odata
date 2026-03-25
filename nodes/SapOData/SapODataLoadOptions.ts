@@ -59,7 +59,7 @@ export const sapODataLoadOptions = {
 
 			return [
 				{
-					name: '⚠️ Could Not Load Services From SAP - Showing Common Services',
+					name: '[Warning] Could Not Load Services From SAP - Showing Common Services',
 					value: '',
 					description: 'Switch to "Custom" mode to enter service path manually',
 				},
@@ -76,7 +76,7 @@ export const sapODataLoadOptions = {
 
 			return [
 				{
-					name: '⚠️ Service Discovery Failed - Showing Common Services',
+					name: '[Warning] Service Discovery Failed - Showing Common Services',
 					value: '',
 					description: 'Switch to "Custom" mode to enter service path manually',
 				},
@@ -157,7 +157,7 @@ export const sapODataLoadOptions = {
 					description: 'Separator',
 				},
 				{
-					name: '⚠️ Auto-Discovery Unavailable - Using Common Services List',
+					name: '[Warning] Auto-Discovery Unavailable - Using Common Services List',
 					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
 					description: 'Check credentials and Gateway Catalog Service (/sap/opu/odata/IWFND/CATALOGSERVICE;v=2/) access or switch to Custom mode',
 				},
@@ -180,7 +180,7 @@ export const sapODataLoadOptions = {
 					description: 'Separator',
 				},
 				{
-					name: '⚠️ Auto-Discovery Failed - Using Common Services List',
+					name: '[Warning] Auto-Discovery Failed - Using Common Services List',
 					value: commonServices[0]?.servicePath || '/sap/opu/odata/sap/',
 					description: 'Check connection or switch to "Custom" mode to enter service path manually',
 				},
@@ -218,7 +218,7 @@ export const sapODataLoadOptions = {
 			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
 				return [
 					{
-						name: '⚠️ No Service Selected',
+						name: '[Warning] No Service Selected',
 						value: '',
 						description: 'Please select a service from the "Service" dropdown above first',
 					},
@@ -273,7 +273,7 @@ export const sapODataLoadOptions = {
 			if (isForbidden) {
 				return [
 					{
-						name: '⚠️ Access Forbidden - Missing SAP Authorizations',
+						name: '[Warning] Access Forbidden - Missing SAP Authorizations',
 						value: '',
 						description: 'Your SAP user lacks permissions for this service. Contact SAP Administrator or switch to "Custom" mode.',
 					},
@@ -282,7 +282,7 @@ export const sapODataLoadOptions = {
 
 			return [
 				{
-					name: `⚠️ Could not load entity sets - ${errorMessage.substring(0, 60)}`,
+					name: `[Warning] Could not load entity sets - ${errorMessage.substring(0, 60)}`,
 					value: '',
 					description: 'Switch to "Custom" mode in "Entity Set Mode" to enter the name manually',
 				},
@@ -341,7 +341,7 @@ export const sapODataLoadOptions = {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			return [
 				{
-					name: `⚠️ Could not load function imports - ${errorMessage.substring(0, 60)}`,
+					name: `[Warning] Could not load function imports - ${errorMessage.substring(0, 60)}`,
 					value: '',
 					description: 'Switch to "Custom" mode in "Function Name Mode" to enter the name manually',
 				},
@@ -431,7 +431,7 @@ export const sapODataListSearch = {
 			return {
 				results: [
 					{
-						name: `⚠️ Discovery failed: ${errorMessage.substring(0, 40)}`,
+						name: `[Warning] Discovery failed: ${errorMessage.substring(0, 40)}`,
 						value: '',
 					},
 					...commonServices.map((service) => ({
@@ -476,7 +476,7 @@ export const sapODataListSearch = {
 			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
 				return {
 					results: [{
-						name: '⚠️ No Service Selected - Please Select a Service First',
+						name: '[Warning] No Service Selected - Please Select a Service First',
 						value: '',
 					}],
 				};
@@ -542,7 +542,7 @@ export const sapODataListSearch = {
 			if (isForbidden) {
 				return {
 					results: [{
-						name: '⚠️ Access Forbidden - Missing SAP Authorizations',
+						name: '[Warning] Access Forbidden - Missing SAP Authorizations',
 						value: '',
 					}],
 				};
@@ -550,7 +550,7 @@ export const sapODataListSearch = {
 
 			return {
 				results: [{
-					name: `⚠️ Error: ${errorMessage.substring(0, 50)}`,
+					name: `[Warning] Error: ${errorMessage.substring(0, 50)}`,
 					value: '',
 				}],
 			};
@@ -583,7 +583,7 @@ export const sapODataListSearch = {
 			if (!servicePath || servicePath === '' || servicePath === '/sap/opu/odata/sap' || servicePath === '/sap/opu/odata/sap/') {
 				return {
 					results: [{
-						name: '⚠️ No Service Selected - Please Select a Service First',
+						name: '[Warning] No Service Selected - Please Select a Service First',
 						value: '',
 					}],
 				};
@@ -630,7 +630,7 @@ export const sapODataListSearch = {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			return {
 				results: [{
-					name: `⚠️ Error: ${errorMessage.substring(0, 50)}`,
+					name: `[Warning] Error: ${errorMessage.substring(0, 50)}`,
 					value: '',
 				}],
 			};
