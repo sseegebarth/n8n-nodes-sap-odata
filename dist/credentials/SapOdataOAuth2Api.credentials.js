@@ -7,7 +7,7 @@ class SapOdataOAuth2Api {
         this.extends = ['oAuth2Api'];
         this.displayName = 'Avanai SAP OData OAuth2 API';
         this.documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
-        this.icon = 'file:../nodes/SapOData/sap.svg';
+        this.icon = 'file:sap.svg';
         this.properties = [
             {
                 displayName: 'Host',

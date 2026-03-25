@@ -4,6 +4,6 @@ export declare class SapOdataOAuth2Api implements ICredentialType {
     extends: string[];
     displayName: string;
     documentationUrl: string;
-    icon: "file:../nodes/SapOData/sap.svg";
+    icon: "file:sap.svg";
     properties: INodeProperties[];
 }

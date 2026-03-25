@@ -369,11 +369,12 @@ class SapOData {
                     });
                     continue;
                 }
-                const httpStatus = error === null || error === void 0 ? void 0 : error.httpStatusCode;
-                const statusInfo = httpStatus ? ` [HTTP ${httpStatus}]` : '';
-                throw new n8n_workflow_1.NodeOperationError(this.getNode(), `${contextMessage}${statusInfo} - ${errorMessage}`, {
-                    itemIndex: i,
+                throw new n8n_workflow_1.NodeApiError(this.getNode(), {
+                    message: `${contextMessage} - ${errorMessage}`,
                     description: errorMessage,
+                    ...(typeof error === 'object' && error !== null ? error : {}),
+                }, {
+                    itemIndex: i,
                 });
             }
         }

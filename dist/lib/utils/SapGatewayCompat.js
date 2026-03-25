@@ -111,10 +111,10 @@ class SapGatewayCompat {
             const auth = (credentials === null || credentials === void 0 ? void 0 : credentials.authentication) === 'basicAuth' && (credentials === null || credentials === void 0 ? void 0 : credentials.username) && (credentials === null || credentials === void 0 ? void 0 : credentials.password)
                 ? { username: credentials.username, password: credentials.password }
                 : undefined;
-            const response = await context.helpers.request({
+            const response = await context.helpers.httpRequest({
                 ...enhancedOptions,
-                auth,
-                resolveWithFullResponse: true,
+                auth: auth ? { username: auth.username, password: auth.password } : undefined,
+                returnFullResponse: true,
             });
             const processedResponse = await this.processResponse(context, response, host, servicePath, {
                 enableSession: true,

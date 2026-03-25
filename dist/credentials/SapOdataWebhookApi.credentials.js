@@ -6,7 +6,7 @@ class SapOdataWebhookApi {
         this.name = 'sapOdataWebhookApi';
         this.displayName = 'Avanai SAP OData Webhook API';
         this.documentationUrl = 'https://help.sap.com/viewer/product/SAP_GATEWAY/';
-        this.icon = 'file:../nodes/SapOData/sap.svg';
+        this.icon = 'file:sap.svg';
         this.properties = [
             {
                 displayName: 'Shared Secret or Token',
