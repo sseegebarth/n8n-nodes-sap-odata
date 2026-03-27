@@ -6,6 +6,8 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	IWebhookResponseData,
+	JsonObject,
+	NodeApiError,
 	NodeConnectionTypes,
 	NodeOperationError,
 } from 'n8n-workflow';
@@ -366,9 +368,10 @@ export class SapODataTrigger implements INodeType {
 					staticData.subscriptionId = (d?.SubscriptionID || response?.SubscriptionID || response?.id) as string;
 
 				} catch (error) {
-					throw new NodeOperationError(
+					throw new NodeApiError(
 						this.getNode(),
-						`SAP subscription registration failed: ${(error as Error).message}`,
+						error as JsonObject,
+						{ message: `SAP subscription registration failed: ${(error as Error).message}` },
 					);
 				}
 

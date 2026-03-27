@@ -326,7 +326,7 @@ class SapODataTrigger {
                         staticData.subscriptionId = ((d === null || d === void 0 ? void 0 : d.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.SubscriptionID) || (response === null || response === void 0 ? void 0 : response.id));
                     }
                     catch (error) {
-                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), `SAP subscription registration failed: ${error.message}`);
+                        throw new n8n_workflow_1.NodeApiError(this.getNode(), error, { message: `SAP subscription registration failed: ${error.message}` });
                     }
                     return true;
                 },
