@@ -566,7 +566,13 @@ export class SapODataTrigger implements INodeType {
 							resp.status(401).json({ error: sanitizeErrorMessage(error.message) });
 							return { noWebhookResponse: true };
 						}
-						throw new NodeOperationError(this.getNode(), error as Error);
+						const message = error instanceof Error ? error.message : String(error);
+						const wrappedError = new NodeOperationError(
+							this.getNode(), error instanceof Error ? error : message,
+						);
+						// Preserve the beta.7 response text; the constructor can rewrite known error codes.
+						wrappedError.message = message;
+						throw wrappedError;
 					}
 				}
 				// Header Token Authentication

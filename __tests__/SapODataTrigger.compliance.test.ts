@@ -137,17 +137,24 @@ describe('webhook HMAC error handling', () => {
 		expect(resp.status).toHaveBeenCalledWith(401);
 	});
 
-	it('answers 400 with the message when loading the credential fails, as before', async () => {
+	it.each([
+		['ordinary error', new Error('credential store unavailable'), 'credential store unavailable'],
+		['connection refused', new Error('connect ECONNREFUSED 127.0.0.1:5432'), 'connect ECONNREFUSED [localhost]'],
+		['timeout', new Error('credential store ETIMEDOUT'), 'credential store ETIMEDOUT'],
+		['empty message', new Error(''), ''],
+		['null', null, 'null'],
+		['undefined', undefined, 'undefined'],
+		['string with a token', 'credential store token=sensitive', 'credential store token=***'],
+	])('preserves the beta.7 HTTP 400 response for %s when loading the credential fails', async (_name, error, message) => {
 		// Before 1.0.0 the raw error was re-thrown and caught by the outer handler,
 		// which answers 400. Wrapping it in NodeOperationError must not change that.
-		const getCredentials = jest.fn().mockRejectedValue(new Error('credential store unavailable'));
+		const getCredentials = jest.fn().mockRejectedValue(error);
 		const { ctx, resp } = makeCtx(getCredentials, 'deadbeef');
 		const result = await trigger.webhook.call(ctx as never);
 		expect(result).toEqual({ noWebhookResponse: true });
 		expect(resp.status).toHaveBeenCalledWith(400);
 		expect(resp.status).not.toHaveBeenCalledWith(401);
-		expect(resp.json).toHaveBeenCalledWith(
-			expect.objectContaining({ error: 'Webhook processing failed', message: expect.stringContaining('credential store unavailable') }),
-		);
+		expect(resp.json).toHaveBeenCalledTimes(1);
+		expect(resp.json).toHaveBeenCalledWith({ error: 'Webhook processing failed', message });
 	});
 });

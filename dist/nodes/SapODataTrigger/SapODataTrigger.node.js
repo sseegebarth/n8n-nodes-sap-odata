@@ -464,7 +464,10 @@ class SapODataTrigger {
                             resp.status(401).json({ error: (0, SecurityUtils_1.sanitizeErrorMessage)(error.message) });
                             return { noWebhookResponse: true };
                         }
-                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), error);
+                        const message = error instanceof Error ? error.message : String(error);
+                        const wrappedError = new n8n_workflow_1.NodeOperationError(this.getNode(), error instanceof Error ? error : message);
+                        wrappedError.message = message;
+                        throw wrappedError;
                     }
                 }
                 else if (authentication === 'headerAuth') {

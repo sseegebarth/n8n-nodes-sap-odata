@@ -78,6 +78,21 @@ jobs:
       - name: Tarball scan (scanner dist leg)
         run: node scripts/scan-gate.mjs dist "$RUNNER_TEMP/pkg/package" "$RUNNER_TEMP/scan"
 
+      - name: Compare 1.0.0 tarball against published beta.7
+        if: steps.meta.outputs.version == '1.0.0'
+        env:
+          CANDIDATE_TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: |
+          BASELINE_DIR=$(mktemp -d "$RUNNER_TEMP/beta7.XXXXXX")
+          npm pack n8n-nodes-sap-odata@0.5.0-beta.7 --registry=https://registry.npmjs.org --ignore-scripts --silent --pack-destination "$BASELINE_DIR"
+          BASELINE_TARBALL="$BASELINE_DIR/n8n-nodes-sap-odata-0.5.0-beta.7.tgz"
+          ACTUAL_SHA1=$(node -e 'const fs = require("node:fs"); const crypto = require("node:crypto"); console.log(crypto.createHash("sha1").update(fs.readFileSync(process.argv[1])).digest("hex"));' "$BASELINE_TARBALL")
+          if [ "$ACTUAL_SHA1" != "bb0cfcb0e5b3974b23956e2b3cc4ec2e7c1e422c" ]; then
+            echo "Published beta.7 tarball checksum mismatch: $ACTUAL_SHA1"
+            exit 1
+          fi
+          node scripts/compare-tarball.mjs "$CANDIDATE_TARBALL" "$BASELINE_TARBALL"
+
       - name: Publish the scanned tarball
         run: npm publish "${{ steps.pack.outputs.tarball }}" --ignore-scripts --provenance --access public --tag "${{ steps.meta.outputs.tag }}"
 
