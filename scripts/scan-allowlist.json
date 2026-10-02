@@ -1,0 +1,16 @@
+{
+  "_comment": "Findings of the n8n community-node scanner that are accepted for this package. Agreed with n8n (Jon, 2026-10-02): the credential-password-field rule matches field names by substring and has no type check, so the boolean 'allowUnauthorizedCerts' is a false positive. n8n tracks the linter fix internally. Remove entries once the scanner ships the corrected rule. Every finding not listed here fails the gate.",
+  "source": [
+    {
+      "file": "credentials/SapOdataApi.credentials.ts",
+      "ruleId": "@n8n/community-nodes/credential-password-field",
+      "messageIncludes": "'allowUnauthorizedCerts'"
+    },
+    {
+      "file": "credentials/SapOdataOAuth2Api.credentials.ts",
+      "ruleId": "@n8n/community-nodes/credential-password-field",
+      "messageIncludes": "'allowUnauthorizedCerts'"
+    }
+  ],
+  "dist": []
+}

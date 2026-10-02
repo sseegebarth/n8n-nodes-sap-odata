@@ -1,15 +1,23 @@
 name: Release
 
+# Publishes to npm via trusted publishing (OIDC) with provenance when a version
+# tag is pushed. Prerelease versions (containing "-") go to the "beta" dist-tag,
+# stable versions to "latest". The tag must equal "v" + package.json version.
+
 on:
   push:
     tags:
       - 'v*'
+
+env:
+  SCANNER_VERSION: 0.38.0
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -17,21 +25,65 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Ensure npm with trusted publishing support
+        run: |
+          npm install -g npm@11.19.1
+          node -v && npm -v
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify tag matches package.json and resolve dist-tag
+        id: meta
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package.json version ${VERSION}"
+            exit 1
+          fi
+          case "$VERSION" in
+            *-*) TAG=beta; PRE=true ;;
+            *)   TAG=latest; PRE=false ;;
+          esac
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
+
       - name: Build
         run: npm run build
 
-      - name: Publish to npm
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Install n8n scanner in an isolated directory
+        run: npm install --prefix "$RUNNER_TEMP/scan" --ignore-scripts --no-audit --no-fund "@n8n/scan-community-package@${SCANNER_VERSION}"
+
+      - name: Source scan (scanner source leg)
+        run: node scripts/scan-gate.mjs source . "$RUNNER_TEMP/scan"
+
+      - name: Pack
+        id: pack
+        run: |
+          TARBALL=$(npm pack --ignore-scripts --silent)
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/pkg"
+          tar -xzf "$TARBALL" -C "$RUNNER_TEMP/pkg"
+
+      - name: Tarball scan (scanner dist leg)
+        run: node scripts/scan-gate.mjs dist "$RUNNER_TEMP/pkg/package" "$RUNNER_TEMP/scan"
+
+      - name: Publish the scanned tarball
+        run: npm publish "${{ steps.pack.outputs.tarball }}" --ignore-scripts --provenance --access public --tag "${{ steps.meta.outputs.tag }}"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          body_path: .github/release-notes/${{ steps.meta.outputs.version }}.md
+          files: ${{ steps.pack.outputs.tarball }}

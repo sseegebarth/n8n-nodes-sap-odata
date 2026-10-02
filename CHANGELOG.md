@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-10-02
+
+First stable release. Runtime code of 0.5.0-beta.7 (the version `latest` resolved to), republished through GitHub Actions with npm provenance.
+
+### Changed
+- Release workflow uses npm trusted publishing with provenance. Prerelease versions are published under the `beta` dist-tag, stable versions under `latest`.
+- Compliance adjustments for the current n8n community-node rules, with no intended change to successful SAP flows:
+  - Trigger no longer declares `usableAsTool` (trigger nodes cannot act as AI tools).
+  - Webhook credential has a credential test that checks completeness without a network call.
+  - Subscription lifecycle (`checkExists`, `delete`) logs errors it previously ignored silently; return values unchanged.
+  - An error while loading the HMAC credential is wrapped in `NodeOperationError` instead of being re-thrown raw; authentication failures still answer HTTP 401.
+
+The fixes accumulated since beta.7 follow as 1.1.0-beta.1 on the `beta` dist-tag.
+
 ## [0.5.0-beta.1] - 2026-03-08
 
 ### Added

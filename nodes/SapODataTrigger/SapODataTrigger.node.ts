@@ -1,8 +1,11 @@
 import * as crypto from 'crypto';
 import {
+	ICredentialTestFunctions,
+	ICredentialsDecrypted,
 	IHookFunctions,
 	IWebhookFunctions,
 	IDataObject,
+	INodeCredentialTestResult,
 	INodeType,
 	INodeTypeDescription,
 	IWebhookResponseData,
@@ -29,6 +32,7 @@ import {
  * Receives real-time events from SAP OData services via webhook.
  * Supports event filtering, authentication, and payload parsing.
  */
+// eslint-disable-next-line @n8n/community-nodes/node-usable-as-tool -- the bundled lint rule still asks for usableAsTool, the current n8n scanner forbids it on triggers; triggers have no execute() and cannot act as AI tools
 export class SapODataTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'avanai SAP Connect OData Trigger',
@@ -47,6 +51,7 @@ export class SapODataTrigger implements INodeType {
 			{
 				name: 'sapOdataWebhookApi',
 				required: false,
+				testedBy: 'sapOdataWebhookCredentialTest',
 				displayOptions: {
 					show: {
 						authentication: ['headerAuth', 'hmacSignature', 'queryAuth'],
@@ -264,7 +269,32 @@ export class SapODataTrigger implements INodeType {
 				],
 			},
 		],
-		usableAsTool: true,
+	};
+
+	methods = {
+		credentialTest: {
+			/**
+			 * Webhook credentials are passive: SAP calls n8n, not the other way
+			 * round. The test therefore only checks that the credential is
+			 * complete. It never opens a network connection.
+			 */
+			async sapOdataWebhookCredentialTest(
+				this: ICredentialTestFunctions,
+				credential: ICredentialsDecrypted,
+			): Promise<INodeCredentialTestResult> {
+				const secret = credential.data?.secret;
+				if (typeof secret !== 'string' || secret.length === 0) {
+					return {
+						status: 'Error',
+						message: 'Shared secret or token is required',
+					};
+				}
+				return {
+					status: 'OK',
+					message: 'Credential is complete. It is verified against the first request SAP sends to the webhook.',
+				};
+			},
+		},
 	};
 
 	// Webhook methods
@@ -306,8 +336,11 @@ export class SapODataTrigger implements INodeType {
 						delete staticData.subscriptionId;
 						return false;
 					}
-				} catch {
+				} catch (error) {
 					// Error checking - assume webhook needs recreation
+					this.logger.warn('SAP OData Trigger: could not verify the SAP subscription, it will be recreated', {
+						error: (error as Error).message,
+					});
 					return false;
 				}
 			},
@@ -399,14 +432,20 @@ export class SapODataTrigger implements INodeType {
 									`/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`
 								);
 							}
-						} catch (_error) {
+						} catch (error) {
 							// Unregistration failure should not block workflow deactivation
+							this.logger.warn('SAP OData Trigger: could not delete the SAP subscription during deactivation', {
+								error: (error as Error).message,
+							});
 						} finally {
 							delete staticData.subscriptionId;
 						}
 					}
-				} catch (_error) {
+				} catch (error) {
 					// Don't fail - allow workflow deactivation
+					this.logger.warn('SAP OData Trigger: cleanup during deactivation failed', {
+						error: (error as Error).message,
+					});
 				}
 
 				return true;
@@ -527,7 +566,7 @@ export class SapODataTrigger implements INodeType {
 							resp.status(401).json({ error: sanitizeErrorMessage(error.message) });
 							return { noWebhookResponse: true };
 						}
-						throw error;
+						throw new NodeOperationError(this.getNode(), error as Error);
 					}
 				}
 				// Header Token Authentication
