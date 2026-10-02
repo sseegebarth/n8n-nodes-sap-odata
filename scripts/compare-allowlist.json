@@ -1,0 +1,9 @@
+{
+  "_comment": "Allowed differences between the 1.0.0 tarball and the published 0.5.0-beta.7 tarball. Everything else must be byte-identical and the file lists must match.",
+  "versionOnly": ["package/package.json", "package/dist/package.json"],
+  "changedAllowed": [
+    "package/README.md",
+    "package/dist/nodes/SapODataTrigger/SapODataTrigger.node.js",
+    "package/dist/nodes/SapODataTrigger/SapODataTrigger.node.d.ts"
+  ]
+}

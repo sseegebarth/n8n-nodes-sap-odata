@@ -58,6 +58,7 @@ class SapODataTrigger {
                 {
                     name: 'sapOdataWebhookApi',
                     required: false,
+                    testedBy: 'sapOdataWebhookCredentialTest',
                     displayOptions: {
                         show: {
                             authentication: ['headerAuth', 'hmacSignature', 'queryAuth'],
@@ -262,7 +263,24 @@ class SapODataTrigger {
                     ],
                 },
             ],
-            usableAsTool: true,
+        };
+        this.methods = {
+            credentialTest: {
+                async sapOdataWebhookCredentialTest(credential) {
+                    var _a;
+                    const secret = (_a = credential.data) === null || _a === void 0 ? void 0 : _a.secret;
+                    if (typeof secret !== 'string' || secret.length === 0) {
+                        return {
+                            status: 'Error',
+                            message: 'Shared secret or token is required',
+                        };
+                    }
+                    return {
+                        status: 'OK',
+                        message: 'Credential is complete. It is verified against the first request SAP sends to the webhook.',
+                    };
+                },
+            },
         };
         this.webhookMethods = {
             default: {
@@ -288,7 +306,10 @@ class SapODataTrigger {
                             return false;
                         }
                     }
-                    catch {
+                    catch (error) {
+                        this.logger.warn('SAP OData Trigger: could not verify the SAP subscription, it will be recreated', {
+                            error: error.message,
+                        });
                         return false;
                     }
                 },
@@ -343,14 +364,20 @@ class SapODataTrigger {
                                     await sapOdataApiRequest.call(this, 'DELETE', `/sap/opu/odata/IWBEP/NOTIFICATION_SRV/Subscriptions('${subscriptionId}')`);
                                 }
                             }
-                            catch (_error) {
+                            catch (error) {
+                                this.logger.warn('SAP OData Trigger: could not delete the SAP subscription during deactivation', {
+                                    error: error.message,
+                                });
                             }
                             finally {
                                 delete staticData.subscriptionId;
                             }
                         }
                     }
-                    catch (_error) {
+                    catch (error) {
+                        this.logger.warn('SAP OData Trigger: cleanup during deactivation failed', {
+                            error: error.message,
+                        });
                     }
                     return true;
                 },
@@ -437,7 +464,7 @@ class SapODataTrigger {
                             resp.status(401).json({ error: (0, SecurityUtils_1.sanitizeErrorMessage)(error.message) });
                             return { noWebhookResponse: true };
                         }
-                        throw error;
+                        throw new n8n_workflow_1.NodeOperationError(this.getNode(), error);
                     }
                 }
                 else if (authentication === 'headerAuth') {

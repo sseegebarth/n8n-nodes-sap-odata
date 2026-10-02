@@ -1,6 +1,11 @@
-import { IHookFunctions, IWebhookFunctions, INodeType, INodeTypeDescription, IWebhookResponseData } from 'n8n-workflow';
+import { ICredentialTestFunctions, ICredentialsDecrypted, IHookFunctions, IWebhookFunctions, INodeCredentialTestResult, INodeType, INodeTypeDescription, IWebhookResponseData } from 'n8n-workflow';
 export declare class SapODataTrigger implements INodeType {
     description: INodeTypeDescription;
+    methods: {
+        credentialTest: {
+            sapOdataWebhookCredentialTest(this: ICredentialTestFunctions, credential: ICredentialsDecrypted): Promise<INodeCredentialTestResult>;
+        };
+    };
     webhookMethods: {
         default: {
             checkExists(this: IHookFunctions): Promise<boolean>;

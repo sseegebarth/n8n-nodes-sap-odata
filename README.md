@@ -6,7 +6,7 @@ Custom n8n community node for SAP OData integration — connect n8n to SAP syste
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Version](https://img.shields.io/npm/v/n8n-nodes-sap-odata)
 
-> **Beta**: This package is in active development. Feedback and bug reports are welcome.
+> **Stable**: 1.0.0 is the first stable release. New features ship as prereleases on the `beta` dist-tag (`npm install n8n-nodes-sap-odata@beta`). Feedback and bug reports are welcome.
 
 ## Features
 
